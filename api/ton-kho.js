@@ -1,11 +1,28 @@
 // /api/ton-kho — Danh sach san pham giay + ton kho tu Pancake POS.
-// AN TOAN: chi tra field cong khai (ma, ten, anh, mau, size, sku, gia ban, ton). KHONG bao gio tra gia nhap.
+// AN TOAN: chi tra field cong khai (ma, ten, anh, mau, size, sku, gia ban, ton, id bien the).
+// KHONG bao gio tra gia nhap / gia von.
 export default async function handler(req, res) {
   const key = process.env.POS_API_KEY;
   const shop = process.env.POS_SHOP_ID;
   if (!key || !shop) return res.status(500).json({ error: "Thieu POS_API_KEY hoac POS_SHOP_ID" });
   const base = "https://pos.pancake.vn/api/v1/shops/" + shop;
   const debug = req.query && req.query.debug;
+
+  const imgUrl = function (im) {
+    if (!im) return null;
+    if (typeof im === "string") return im;
+    return im.url || im.image_url || im.src || null;
+  };
+  const cleanName = function (name) {
+    let n = " " + (name || "") + " ";
+    n = n.replace(/\[[^\]]*\]/g, " ");            // bo [HANG MOI], [Tang ...]
+    n = n.replace(/\bJB[0-9][0-9A-Za-z\-]*/g, " "); // bo ma JB5359...
+    n = n.replace(/ch[íi]nh h[ãa]ng/gi, " ");
+    n = n.replace(/[\-–|]\s*$/g, " ");
+    n = n.replace(/\s{2,}/g, " ").trim();
+    n = n.replace(/^[\-–|,\s]+/, "").replace(/[\-–|,\s]+$/, "").trim();
+    return n || (name || "").trim();
+  };
 
   try {
     let all = [], page = 1, guard = 0;
@@ -23,60 +40,60 @@ export default async function handler(req, res) {
 
     if (debug) {
       const cats = {};
-      all.forEach(function (p) {
-        (p.categories || []).forEach(function (c) { const k = c.name || c.id; cats[k] = (cats[k] || 0) + 1; });
-      });
-      const sample = all.slice(0, 4).map(function (p) {
-        const v0 = (p.variations || [])[0] || null;
-        return {
-          ma: p.custom_id || p.display_id, ten: p.name,
-          cat: (p.categories || []).map(function (c) { return c.name; }),
-          image_type: typeof p.image, image_sample: p.image,
-          v0: v0 ? { barcode: v0.barcode, fields: v0.fields, images_sample: v0.images } : null
-        };
-      });
-      return res.status(200).json({ tong: all.length, danh_muc: cats, sample: sample });
+      all.forEach(function (p) { (p.categories || []).forEach(function (c) { const k = c.name || c.id; cats[k] = (cats[k] || 0) + 1; }); });
+      return res.status(200).json({ tong: all.length, danh_muc: cats });
     }
 
-    const isShoe = function (p) {
+    const inShoeCat = function (p) {
       const cats = (p.categories || []).map(function (c) { return (c.name || "").toLowerCase(); }).join(" ");
-      const nm = (p.name || "").toLowerCase();
-      const cid = (p.custom_id || "");
-      return /gi[aà]y|dep|dép/.test(cats) || /gi[aà]y/.test(nm) || /jb\d/i.test(cid) || /jb\d/i.test(nm);
-    };
-    const imgUrl = function (im) {
-      if (!im) return null;
-      if (typeof im === "string") return im;
-      return im.url || im.image_url || im.src || null;
+      return /gi[aà]y|dep|dép/.test(cats);
     };
 
-    const out = all.filter(isShoe).map(function (p) {
+    const out = [];
+    all.forEach(function (p) {
+      if (!inShoeCat(p)) return;
+      const ten = cleanName(p.name);
+      const low = ten.toLowerCase();
+      if (/t[aấ]t|v[oớ]|^l[oó]t\b|thanh l[íy]/.test(low)) return; // bo tat/vo/lot/thanh ly
+
       const vimgs = [];
+      let giaMin = null, giaGoc = null;
       const vars = (p.variations || []).filter(function (v) { return !v.is_removed && !v.is_hidden; }).map(function (v) {
         const f = v.fields || [];
         const get = function (n) { const x = f.find(function (a) { return (a.name || "").toLowerCase().indexOf(n) >= 0; }); return x ? x.value : null; };
         const va = (v.images || []).map(imgUrl).filter(Boolean);
         va.forEach(function (u) { if (vimgs.indexOf(u) < 0) vimgs.push(u); });
+        const gia = v.retail_price_after_discount || v.retail_price || 0;
+        const goc = v.retail_price || 0;
+        if (gia > 0 && (giaMin === null || gia < giaMin)) giaMin = gia;
+        if (goc > giaGoc) giaGoc = goc;
         return {
+          id: v.id,
           sku: v.barcode || String(v.display_id || ""),
           mau: get("màu") || get("mau") || get("color") || null,
           size: get("size") || v.size || null,
-          gia: v.retail_price_after_discount || v.retail_price || 0,
+          gia: gia,
           ton: v.remain_quantity || 0,
           anh: va[0] || null
         };
       });
+      if (giaMin === null) return; // khong co bien the ban duoc
+
       const pimg = imgUrl(p.image);
       const images = [];
       if (pimg) images.push(pimg);
       vimgs.forEach(function (u) { if (images.indexOf(u) < 0) images.push(u); });
-      return {
+
+      out.push({
         ma: p.custom_id || String(p.display_id),
-        ten: p.name,
+        ten: ten,
+        ten_goc: p.name,
         anh: pimg || vimgs[0] || null,
         images: images,
+        gia: giaMin,
+        gia_goc: giaGoc > giaMin ? giaGoc : null,
         variations: vars
-      };
+      });
     });
 
     res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=300");
