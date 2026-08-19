@@ -13,17 +13,26 @@ export default async function handler(req, res) {
       const text = await r.text();
       let j = null; try { j = JSON.parse(text); } catch (e) {}
       const list = (j && (j.data || j.orders || j.entries)) || [];
+      const src = {};
+      list.forEach(function (o) { var n = (o.order_sources_name || o.order_sources || "?"); src[n] = (src[n] || 0) + 1; });
       const o = list[0] || {};
       const it = (o.items || o.order_items || o.products || [])[0] || {};
-      const sa = o.shipping_address || o.bill_shipping_address || o.customer || {};
+      const vi = it.variation_info || {};
       return res.status(200).json({
         http_status: r.status,
-        top_keys: j ? Object.keys(j) : null,
-        order_keys: Object.keys(o),
-        item_keys: Object.keys(it),
-        shipping_keys: Object.keys(sa),
-        status_sample: o.status,
-        item_has_variation_id: it.variation_id !== undefined,
+        nguon_don_gan_day: src,
+        don0: {
+          order_sources: o.order_sources, order_sources_name: o.order_sources_name,
+          warehouse_id: o.warehouse_id, total_price: o.total_price, cod: o.cod, status: o.status,
+          bill_full_name: o.bill_full_name ? "(co)" : null
+        },
+        item0: {
+          variation_id: it.variation_id, quantity: it.quantity,
+          discount_each_product: it.discount_each_product, total_discount: it.total_discount,
+          is_discount_percent: it.is_discount_percent,
+          variation_info_keys: Object.keys(vi),
+          vi_retail_price: vi.retail_price, vi_price: vi.price
+        },
         raw: j ? undefined : text.slice(0, 200)
       });
     } catch (e) { return res.status(500).json({ ok: false, error: String((e && e.message) || e) }); }
