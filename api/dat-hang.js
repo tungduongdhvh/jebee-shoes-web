@@ -46,7 +46,8 @@ export default async function handler(req, res) {
     const k = b.khach || {};
     if (!k.ten || !k.sdt || !k.diachi) return res.status(400).json({ ok: false, error: "Thieu thong tin khach" });
     const items = (b.items || []).filter(function (x) { return x.variation_id; }).map(function (x) {
-      return { variation_id: x.variation_id, quantity: x.qty || 1 };
+      // ep GIA WEB vao tung dong hang (retail_price) de COD = gia bang gia, khong lay gia POS
+      return { variation_id: x.variation_id, quantity: x.qty || 1, retail_price: x.gia || 0 };
     });
     if (!items.length) return res.status(400).json({ ok: false, error: "Gio hang trong hoac thieu ma bien the" });
 
@@ -59,6 +60,7 @@ export default async function handler(req, res) {
       items: items,
       note: note,
       status: 0,
+      order_sources: -3,          // nguon don = Website/API
       is_free_shipping: true,
       shipping_address: { full_name: k.ten, phone_number: k.sdt, address: k.diachi },
       bill_full_name: k.ten,
