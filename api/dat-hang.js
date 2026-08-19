@@ -1,6 +1,6 @@
 // /api/dat-hang — Tao don hang vao Pancake POS.
 // GET  ?peek=1 : doc cau truc 1 don gan nhat (AN TOAN: chi tra TEN field, khong tra gia tri PII).
-// POST body: { khach:{ten,sdt,diachi,ghichu}, thanhtoan:"cod"|"ck", items:[{variation_id,ma,ten,mau,size,gia,qty}], tong }
+// POST body: { khach:{ten,sdt,diachi,ghichu}, thanhtoan:"cod"|"ck", items:[{variation_id,ma,ten,mau,size,gia,gia_pos,qty}], tong }
 export default async function handler(req, res) {
   const key = process.env.POS_API_KEY, shop = process.env.POS_SHOP_ID;
   if (!key || !shop) return res.status(500).json({ ok: false, error: "Thieu cau hinh POS" });
@@ -45,9 +45,14 @@ export default async function handler(req, res) {
     const b = req.body || {};
     const k = b.khach || {};
     if (!k.ten || !k.sdt || !k.diachi) return res.status(400).json({ ok: false, error: "Thieu thong tin khach" });
+    // Pancake tinh gia dong hang = gia goc bien the (POS), chi cho GIAM (discount_each_product) hoac PHU THU (surcharge).
+    // -> Neu gia web THAP hon POS: giam moi dong. Neu gia web CAO hon POS: cong phu thu don hang. => Tong = gia bang gia web.
+    let surcharge = 0;
     const items = (b.items || []).filter(function (x) { return x.variation_id; }).map(function (x) {
-      // ep GIA WEB vao tung dong hang (retail_price) de COD = gia bang gia, khong lay gia POS
-      return { variation_id: x.variation_id, quantity: x.qty || 1, retail_price: x.gia || 0 };
+      const web = x.gia || 0, pos = x.gia_pos || 0, qty = x.qty || 1;
+      const disc = pos > web ? (pos - web) : 0;          // giam moi san pham khi web < POS
+      if (web > pos && pos > 0) surcharge += (web - pos) * qty; // phu thu khi web > POS
+      return { variation_id: x.variation_id, quantity: qty, discount_each_product: disc, is_discount_percent: false };
     });
     if (!items.length) return res.status(400).json({ ok: false, error: "Gio hang trong hoac thieu ma bien the" });
 
@@ -60,7 +65,7 @@ export default async function handler(req, res) {
       items: items,
       note: note,
       status: 0,
-      order_sources: -3,          // nguon don = Website/API
+      surcharge: surcharge,       // phu thu de tong = gia web (khi web > POS)
       is_free_shipping: true,
       shipping_address: { full_name: k.ten, phone_number: k.sdt, address: k.diachi },
       bill_full_name: k.ten,
