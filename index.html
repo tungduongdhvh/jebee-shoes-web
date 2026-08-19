@@ -708,7 +708,7 @@ document.documentElement.classList.add('js');
     var key=v.id||(p.ma+'|'+SEL.color+'|'+SEL.size);
     var ex=CART.filter(function(i){return i.key===key;})[0];
     if(ex){ ex.qty=Math.min(ex.qty+q, v.ton); }
-    else{ CART.push({ key:key, ma:p.ma, ten:p.ten, mau:SEL.color, size:SEL.size, gia:g[0], qty:Math.min(q,v.ton), anh:(imgsForColor(p,SEL.color)[0]||p.anh||''), vid:v.id, sku:v.sku, ton:v.ton }); }
+    else{ CART.push({ key:key, ma:p.ma, ten:p.ten, mau:SEL.color, size:SEL.size, gia:g[0], gia_pos:(v.gia||0), qty:Math.min(q,v.ton), anh:(imgsForColor(p,SEL.color)[0]||p.anh||''), vid:v.id, sku:v.sku, ton:v.ton }); }
     saveCart(); return true;
   }
   document.getElementById('btnAdd').addEventListener('click',function(){ if(addToCart()){ toast('Đã thêm vào giỏ 🛒'); } });
@@ -796,7 +796,7 @@ document.documentElement.classList.add('js');
     var tong=cartTotal();
     var payload={ khach:{ ten:name, sdt:ph, diachi:addr, ghichu:note },
       thanhtoan:PAYM,
-      items:CART.map(function(i){ return { variation_id:i.vid, sku:i.sku, ma:i.ma, ten:i.ten, mau:i.mau, size:i.size, gia:i.gia, qty:i.qty }; }),
+      items:CART.map(function(i){ return { variation_id:i.vid, sku:i.sku, ma:i.ma, ten:i.ten, mau:i.mau, size:i.size, gia:i.gia, gia_pos:i.gia_pos, qty:i.qty }; }),
       tong:tong };
     fetch('/api/dat-hang',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) })
       .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
