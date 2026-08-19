@@ -1,6 +1,6 @@
 // /api/dat-hang — Tao don hang vao Pancake POS.
 // GET  ?peek=1 : doc cau truc 1 don gan nhat (AN TOAN: chi tra TEN field, khong tra gia tri PII).
-// POST body: { khach:{ten,sdt,diachi,ghichu}, thanhtoan:"cod"|"ck", items:[{variation_id,ma,ten,mau,size,gia,gia_pos,qty}], tong }
+// POST body: { khach:{ten,sdt,diachi,ghichu}, thanhtoan:"cod"|"ck", items:[{variation_id,ma,ten,mau,size,gia,qty}], tong }
 export default async function handler(req, res) {
   const key = process.env.POS_API_KEY, shop = process.env.POS_SHOP_ID;
   if (!key || !shop) return res.status(500).json({ ok: false, error: "Thieu cau hinh POS" });
@@ -65,6 +65,7 @@ export default async function handler(req, res) {
       items: items,
       note: note,
       status: 0,
+      tags: [46],                 // the "Website" (id 46) — danh dau don tu web
       surcharge: surcharge,       // phu thu de tong = gia web (khi web > POS)
       is_free_shipping: true,
       shipping_address: { full_name: k.ten, phone_number: k.sdt, address: k.diachi },
@@ -73,11 +74,19 @@ export default async function handler(req, res) {
       customer: { name: k.ten, phone_number: k.sdt }
     };
 
-    const r = await fetch(base + "/orders?api_key=" + encodeURIComponent(key), {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
-    });
-    const text = await r.text();
-    let j = null; try { j = JSON.parse(text); } catch (e) {}
+    const url = base + "/orders?api_key=" + encodeURIComponent(key);
+    const post = async function (pl) {
+      const rr = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(pl) });
+      const tt = await rr.text();
+      let jj = null; try { jj = JSON.parse(tt); } catch (e) {}
+      return { rr: rr, tt: tt, jj: jj };
+    };
+    let { rr: r, tt: text, jj: j } = await post(payload);
+    // Neu that bai va co the -> tao lai KHONG the (thang the la best-effort, khong pha vo don)
+    if ((!r.ok || (j && j.success === false)) && payload.tags) {
+      const pl2 = Object.assign({}, payload); delete pl2.tags;
+      ({ rr: r, tt: text, jj: j } = await post(pl2));
+    }
     if (!r.ok || (j && j.success === false)) {
       return res.status(200).json({ ok: false, error: (j && (j.message || j.error)) || ("POS " + r.status), raw: (j ? undefined : text.slice(0, 300)) });
     }
