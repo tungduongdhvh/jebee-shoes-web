@@ -9,6 +9,18 @@ export default async function handler(req, res) {
   const base = "https://pos.pancake.vn/api/v1/shops/" + shop;
   const norm = function (s) { return (s || "").toString().replace(/\D/g, ""); };
   const imgUrl = function (im) { if (!im) return null; if (typeof im === "string") return im; return im.url || im.image_url || null; };
+  // Dich trang thai (POS tra ve tieng Anh) sang tieng Viet, uu tien theo status_name, fallback theo ma so
+  const VN_NAME = { new: "Mới", customer_confirming: "Chờ khách xác nhận", confirming: "Chờ xác nhận", confirmed: "Đã xác nhận",
+    processing: "Đang đóng hàng", packing: "Đang đóng hàng", waiting_shipping: "Chờ chuyển hàng", shipping: "Đang giao hàng",
+    shipped: "Đã gửi hàng", delivering: "Đang giao hàng", delivered: "Đã giao hàng", received: "Đã nhận hàng", finished: "Hoàn tất",
+    returning: "Đang hoàn", returned: "Đã hoàn", partial_returned: "Hoàn một phần", canceled: "Đã hủy", cancelled: "Đã hủy", removed: "Đã hủy" };
+  const VN_CODE = { 0: "Mới", 1: "Đã xác nhận", 2: "Đang đóng hàng", 3: "Đã giao hàng", 4: "Đang giao hàng", 5: "Đã hủy", 6: "Đang hoàn", 7: "Đã hoàn", 8: "Hoàn một phần" };
+  const trangThaiVN = function (o) {
+    const nm = (o.status_name || "").toString().toLowerCase();
+    if (VN_NAME[nm]) return VN_NAME[nm];
+    if (VN_CODE[o.status] != null) return VN_CODE[o.status];
+    return o.status_name || ("Trạng thái " + o.status);
+  };
 
   try {
     // Pancake ho tro tim theo tu khoa (SDT) qua ?search=
@@ -34,19 +46,19 @@ export default async function handler(req, res) {
         const vi = it.variation_info || {};
         return { ten: vi.name || vi.product_name || vi.product_display_id || "Sản phẩm", sl: it.quantity || 1, anh: imgUrl(vi.image || (vi.images && vi.images[0])) };
       });
-      // hanh trinh (status_history) neu co
+      // hanh trinh (status_history): chi giu cac buoc CO ma trang thai (bo cac dong ten nhan vien)
       let hanh_trinh = [];
       if (Array.isArray(o.status_history)) {
-        hanh_trinh = o.status_history.map(function (h) {
-          return { trang_thai: h.status_name || h.name || ("#" + h.status), luc: h.updated_at || h.inserted_at || h.time || null };
+        hanh_trinh = o.status_history.filter(function (h) { return typeof h.status === "number"; }).map(function (h) {
+          return { trang_thai: VN_CODE[h.status] != null ? VN_CODE[h.status] : ("Trạng thái " + h.status), luc: h.updated_at || h.inserted_at || h.time || null };
         }).filter(function (h) { return h.luc; });
       }
       return {
         madon: o.system_id || o.display_id || o.id,
         ngay: o.inserted_at,
-        trang_thai: o.status_name || ("#" + o.status),
+        trang_thai: trangThaiVN(o),
         status: o.status,
-        tong: o.total_price || o.money_to_collect || o.cod || 0,
+        tong: o.buyer_total_amount || o.money_to_collect || (o.cod > 0 ? o.cod : 0) || o.total_price || 0,
         cod: o.cod,
         thanh_toan: (o.cod > 0 ? "COD" : (o.prepaid > 0 || o.transfer_money > 0 ? "Đã/đang chuyển khoản" : "")),
         doi_tac_vc: p.partner_name || p.name || null,
