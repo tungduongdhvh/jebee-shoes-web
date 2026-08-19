@@ -323,6 +323,7 @@
       <a href="#products">Sản phẩm</a>
       <a href="#size">Bảng size</a>
       <a href="#values">Về Jebee</a>
+      <a href="#" id="trackLink">Tra cứu đơn</a>
       <a href="#footer">Liên hệ</a>
     </nav>
     <div class="nav-cta">
@@ -496,7 +497,7 @@
         <span class="moit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>Đang hoàn tất thông báo Bộ Công Thương</span>
       </div>
       <div><h4>Sản phẩm</h4><ul><li><a href="#products">Giày độn 7–8cm</a></li><li><a href="#products">Giày độn 9–10cm</a></li><li><a href="#products">Giày độn 11–13cm</a></li><li><a href="#products">Tất cả mẫu</a></li></ul></div>
-      <div><h4>Hỗ trợ</h4><ul><li><a href="#size">Hướng dẫn chọn size</a></li><li><a href="/chinh-sach.html#doi-tra">Đổi trả &amp; bảo hành</a></li><li><a href="/chinh-sach.html#van-chuyen">Vận chuyển</a></li><li><a href="/chinh-sach.html#thanh-toan">Thanh toán</a></li><li><a href="/chinh-sach.html">Chính sách &amp; Thông tin</a></li></ul></div>
+      <div><h4>Hỗ trợ</h4><ul><li><a href="#" id="trackLinkF">Tra cứu đơn hàng</a></li><li><a href="#size">Hướng dẫn chọn size</a></li><li><a href="/chinh-sach.html#doi-tra">Đổi trả &amp; bảo hành</a></li><li><a href="/chinh-sach.html#van-chuyen">Vận chuyển</a></li><li><a href="/chinh-sach.html#thanh-toan">Thanh toán</a></li><li><a href="/chinh-sach.html">Chính sách &amp; Thông tin</a></li></ul></div>
       <div><h4>Liên hệ</h4><ul><li>Hotline / Zalo: <b style="color:var(--ink)">03.9658.9658</b></li><li>Email: <b style="color:var(--ink)">Jebeegroup@gmail.com</b></li><li><a href="https://www.facebook.com/share/1Ws2Zunqfv/" target="_blank" rel="noopener">Fanpage: Jebee Shoes</a></li><li><a href="https://www.tiktok.com/@jebee_shoes" target="_blank" rel="noopener">TikTok: @jebee_shoes</a></li><li>Website: <b style="color:var(--brand)">jebeeshoes.vn</b></li></ul></div>
     </div>
     <div class="fbot">
@@ -547,6 +548,23 @@
   <div class="dh"><h3 id="drawerTitle">Giỏ hàng</h3><button id="drawerClose" aria-label="Đóng">✕</button></div>
   <div class="dbody" id="drawerBody"></div>
   <div class="df" id="drawerFoot"></div>
+</div>
+
+<!-- Tra cứu đơn -->
+<div class="modal" id="lookup" role="dialog" aria-modal="true">
+  <div class="modal-in" style="max-width:560px">
+    <button class="modal-close" id="lookupClose" aria-label="Đóng">✕</button>
+    <div style="padding:30px 28px">
+      <div class="code" style="font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-mut)">Tra cứu đơn hàng</div>
+      <h2 style="font-size:22px;font-weight:900;margin:8px 0 6px">Đơn của bạn đang ở đâu?</h2>
+      <p style="color:var(--ink-soft);font-size:14.5px;margin-bottom:18px">Nhập số điện thoại đặt hàng để xem trạng thái &amp; hành trình giao hàng.</p>
+      <div style="display:flex;gap:10px">
+        <input id="lookupPhone" inputmode="tel" placeholder="Số điện thoại đặt hàng" style="flex:1;font-family:inherit;font-size:15px;padding:13px 14px;border:1.5px solid var(--line-strong);border-radius:11px;background:var(--surface-2);color:var(--ink)">
+        <button id="lookupBtn" style="font-family:inherit;font-size:15px;font-weight:800;padding:0 22px;border-radius:11px;border:0;cursor:pointer;background:var(--brand);color:var(--btn-text)">Tra cứu</button>
+      </div>
+      <div id="lookupResult" style="margin-top:20px"></div>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -845,6 +863,54 @@ document.documentElement.classList.add('js');
   // ---------- burger ----------
   var burger=document.getElementById('burger'), menuEl=document.getElementById('menu');
   if(burger&&menuEl){ burger.addEventListener('click',function(){ menuEl.classList.toggle('open'); }); menuEl.addEventListener('click',function(e){ if(e.target.tagName==='A') menuEl.classList.remove('open'); }); }
+
+  // ---------- tra cứu đơn ----------
+  var lookup=document.getElementById('lookup'), lookupPhone=document.getElementById('lookupPhone'), lookupResult=document.getElementById('lookupResult');
+  function openLookup(){ lookup.classList.add('show'); ovl.classList.add('show'); document.body.style.overflow='hidden'; setTimeout(function(){ lookupPhone.focus(); },50); }
+  function closeLookup(){ lookup.classList.remove('show'); if(!modal.classList.contains('show')&&!drawer.classList.contains('show')){ ovl.classList.remove('show'); document.body.style.overflow=''; } }
+  var tl=document.getElementById('trackLink'), tlf=document.getElementById('trackLinkF');
+  if(tl) tl.addEventListener('click',function(e){ e.preventDefault(); menuEl.classList.remove('open'); openLookup(); });
+  if(tlf) tlf.addEventListener('click',function(e){ e.preventDefault(); openLookup(); });
+  document.getElementById('lookupClose').addEventListener('click',closeLookup);
+  ovl.addEventListener('click',closeLookup);
+  function stColor(s){ s=(s||'').toLowerCase();
+    if(/hủy|hoàn|trả/.test(s)) return '#B23B33';
+    if(/đã nhận|đã giao|thành công|hoàn tất/.test(s)) return '#1E8E4A';
+    if(/gửi|giao|đóng|vận chuyển|chuyển hàng/.test(s)) return '#E0902F';
+    if(/xác nhận/.test(s)) return '#2E6BE6';
+    return 'var(--ink-mut)'; }
+  function fdate(s){ if(!s) return ''; try{ var d=new Date(s); return d.toLocaleDateString('vi-VN')+' '+d.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'}); }catch(e){ return ''; } }
+  function doLookup(){
+    var ph=(lookupPhone.value||'').replace(/\s/g,'');
+    if(!/^0\d{8,10}$/.test(ph)){ lookupResult.innerHTML='<div style="color:var(--brand);font-size:14px">Số điện thoại chưa đúng.</div>'; return; }
+    lookupResult.innerHTML='<div style="color:var(--ink-mut);font-size:14px;text-align:center;padding:10px">Đang tra cứu…</div>';
+    fetch('/api/tra-cuu?sdt='+encodeURIComponent(ph)).then(function(r){ return r.json(); }).then(function(j){
+      if(!j.ok){ throw new Error(j.error||'loi'); }
+      if(!j.don || !j.don.length){ lookupResult.innerHTML='<div style="text-align:center;padding:16px;color:var(--ink-soft);font-size:14.5px">Không tìm thấy đơn cho số này.<br>Cần hỗ trợ? <a href="'+ZALO+'" target="_blank" rel="noopener" style="color:var(--brand);font-weight:800">Nhắn Zalo</a>.</div>'; return; }
+      lookupResult.innerHTML=j.don.map(function(o){
+        var badge='<span style="display:inline-block;background:'+stColor(o.trang_thai)+';color:#fff;font-size:12px;font-weight:800;padding:3px 10px;border-radius:999px">'+o.trang_thai+'</span>';
+        var its=(o.items||[]).map(function(i){ return '<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--ink-soft);padding:2px 0"><span>'+i.ten+'</span><span>x'+i.sl+'</span></div>'; }).join('');
+        var vc='';
+        if(o.ma_van_don||o.doi_tac_vc||o.tracking_link){
+          vc='<div style="margin-top:8px;font-size:13px;color:var(--ink-soft)">'
+            +(o.doi_tac_vc?'ĐVVC: <b>'+o.doi_tac_vc+'</b> · ':'')
+            +(o.ma_van_don?'Mã VĐ: <b>'+o.ma_van_don+'</b>':'')
+            +(o.tracking_link?' · <a href="'+o.tracking_link+'" target="_blank" rel="noopener" style="color:var(--brand);font-weight:800">Theo dõi hành trình →</a>':'')
+            +'</div>';
+        }
+        var tt=(o.hanh_trinh&&o.hanh_trinh.length)?('<div style="margin-top:10px;border-top:1px dashed var(--line);padding-top:8px">'+o.hanh_trinh.slice().reverse().map(function(h){ return '<div style="font-size:12.5px;color:var(--ink-soft);display:flex;gap:8px;padding:1px 0"><span style="color:'+stColor(h.trang_thai)+'">●</span>'+h.trang_thai+' <span style="color:var(--ink-mut)">'+fdate(h.luc)+'</span></div>'; }).join('')+'</div>'):'';
+        return '<div style="border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:12px;background:var(--surface)">'
+          +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b style="font-size:14px">Đơn #'+o.madon+'</b>'+badge+'</div>'
+          +'<div style="font-size:12.5px;color:var(--ink-mut);margin-bottom:6px">'+fdate(o.ngay)+(o.du_kien_giao?(' · Dự kiến giao: '+fdate(o.du_kien_giao)):'')+'</div>'
+          +its
+          +'<div style="display:flex;justify-content:space-between;font-size:14px;font-weight:800;margin-top:8px;padding-top:6px;border-top:1px solid var(--line)"><span>Tổng ('+o.thanh_toan+')</span><span style="color:var(--brand)">'+vnd(o.tong)+'</span></div>'
+          +vc+tt
+          +'</div>';
+      }).join('');
+    }).catch(function(){ lookupResult.innerHTML='<div style="text-align:center;padding:16px;color:var(--brand);font-size:14px">Tra cứu lỗi. Vui lòng thử lại hoặc nhắn Zalo.</div>'; });
+  }
+  document.getElementById('lookupBtn').addEventListener('click',doLookup);
+  lookupPhone.addEventListener('keydown',function(e){ if(e.key==='Enter') doLookup(); });
 
   // ---------- tải sản phẩm ----------
   updateCount();
