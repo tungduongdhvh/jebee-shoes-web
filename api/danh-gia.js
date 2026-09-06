@@ -27,7 +27,7 @@ export default async function handler(req, res) {
         const mas = agg.split(",").map(norm).filter(Boolean).slice(0, 40);
         if (!mas.length) return res.status(200).json({ ok: true, agg: {} });
         const cmds = [];
-        mas.forEach(function (m) { cmds.push(["GET", "rvc:" + m]); cmds.push(["GET", "rvs:" + m]); });
+        mas.forEach(function (m) { cmds.push(["GET", "rwc:" + m]); cmds.push(["GET", "rws:" + m]); });
         const rr = await pipeline(cmds);
         const out = {};
         mas.forEach(function (m, i) {
@@ -41,10 +41,10 @@ export default async function handler(req, res) {
       // ----- chi tiet 1 SP (modal) -----
       const ma = norm(req.query && req.query.ma);
       if (!ma) return res.status(400).json({ ok: false, error: "Thieu ma" });
-      const list = (await redis(["LRANGE", "rv:" + ma, "0", "49"])) || [];
+      const list = (await redis(["LRANGE", "rw:" + ma, "0", "49"])) || [];
       const items = list.map(function (s) { try { return JSON.parse(s); } catch (e) { return null; } }).filter(Boolean);
-      const n = parseInt((await redis(["GET", "rvc:" + ma])) || items.length, 10);
-      const s = parseInt((await redis(["GET", "rvs:" + ma])) || 0, 10);
+      const n = parseInt((await redis(["GET", "rwc:" + ma])) || items.length, 10);
+      const s = parseInt((await redis(["GET", "rws:" + ma])) || 0, 10);
       const avg = n > 0 ? Math.round((s / n) * 10) / 10 : (items.length ? Math.round(items.reduce(function (a, b) { return a + (b.sao || 0); }, 0) / items.length * 10) / 10 : 0);
       res.setHeader("Cache-Control", "no-store");
       return res.status(200).json({ ok: true, ma: ma, n: n, avg: avg, danhgia: items });
@@ -59,10 +59,10 @@ export default async function handler(req, res) {
       const anh = Array.isArray(b.anh) ? b.anh.filter(function (u) { return typeof u === "string" && /^https:\/\//.test(u); }).slice(0, 6) : [];
       // luc: cho phep set ngay (seed du lieu moi) neu la ISO hop le trong vong 1 nam qua & khong o tuong lai; nguoc lai dung now.
       let luc = new Date().toISOString();
-      if (b.luc) { const t = Date.parse(b.luc); const now = Date.now(); if (!isNaN(t) && t <= now && t >= now - 400 * 864e5) luc = new Date(t).toISOString(); }
+      if (b.luc) { const t = Date.parse(b.luc); const now = Date.now(); if (!isNaN(t) && t <= now && t >= now - 1200 * 864e5) luc = new Date(t).toISOString(); }
       if (!ma || !sao) return res.status(400).json({ ok: false, error: "Thieu ma hoac so sao" });
       const rec = JSON.stringify({ sao: sao, ten: ten, noidung: noidung, anh: anh, luc: luc });
-      await pipeline([["LPUSH", "rv:" + ma, rec], ["LTRIM", "rv:" + ma, "0", "199"], ["INCR", "rvc:" + ma], ["INCRBY", "rvs:" + ma, String(sao)]]);
+      await pipeline([["LPUSH", "rw:" + ma, rec], ["LTRIM", "rw:" + ma, "0", "199"], ["INCR", "rwc:" + ma], ["INCRBY", "rws:" + ma, String(sao)]]);
       return res.status(200).json({ ok: true });
     }
 
