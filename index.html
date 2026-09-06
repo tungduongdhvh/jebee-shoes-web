@@ -842,9 +842,13 @@ document.documentElement.classList.add('js');
       if(!j.ok) return; AGG=j.agg||{};
       document.querySelectorAll('#grid .card').forEach(function(c){
         var ma=(c.getAttribute('data-ma')||'').toUpperCase();
-        if(SOLD[ma]) return; // đã hiện lượt bán + sao TikTok trên card, không ghi đè
-        var a=AGG[ma]; if(!a) return;
-        var sold=c.querySelector('.sold'); if(sold) sold.innerHTML='<span class="st">★</span> '+a.avg.toFixed(1)+' · '+a.n+' đánh giá';
+        var a=AGG[ma]; var sd=SOLD[ma]; var sold=c.querySelector('.sold'); if(!sold) return;
+        if(sd){ // số TikTok (nền) + số đơn web mới (cộng dồn thực tế)
+          var tong=sd.b + ((a&&a.ban)||0);
+          sold.innerHTML='<span class="st">★</span> '+sd.s.toFixed(1).replace('.',',')+' · Đã bán '+fmtSold(tong);
+        } else if(a && a.n){
+          sold.innerHTML='<span class="st">★</span> '+a.avg.toFixed(1)+' · '+a.n+' đánh giá';
+        }
       });
     }).catch(function(){});
   }
