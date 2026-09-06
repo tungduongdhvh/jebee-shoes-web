@@ -44,6 +44,21 @@ export default async function handler(req, res) {
       return res.status(200).json({ tong: all.length, danh_muc: cats });
     }
 
+    // debug tam: xem POS co truong "da ban" khong. Chi in ten truong + gia tri cac truong lien quan so luong ban (KHONG in gia/gia von).
+    if (req.query && req.query.fields) {
+      const p0 = all.find(function (p) { const cats = (p.categories || []).map(function (c) { return (c.name || "").toLowerCase(); }).join(" "); return /gi[aà]y|dep|dép/.test(cats); }) || all[0] || {};
+      const v0 = (p0.variations || [])[0] || {};
+      const bad = /price|import|von|cost|gia|capital|profit|loi_nhuan|nhap/i;
+      const good = /sold|sell|ban|order|purchas|quantit|remain|total|count/i;
+      const pick = function (o) { const r = {}; Object.keys(o || {}).forEach(function (k) { if (good.test(k) && !bad.test(k) && (typeof o[k] === "number" || typeof o[k] === "string")) r[k] = o[k]; }); return r; };
+      return res.status(200).json({
+        product_keys: Object.keys(p0),
+        variation_keys: Object.keys(v0),
+        product_sold_like: pick(p0),
+        variation_sold_like: pick(v0)
+      });
+    }
+
     const inShoeCat = function (p) {
       const cats = (p.categories || []).map(function (c) { return (c.name || "").toLowerCase(); }).join(" ");
       return /gi[aà]y|dep|dép/.test(cats);
