@@ -52,6 +52,28 @@ export default async function handler(req, res) {
 
     if (req.method === "POST") {
       const b = req.body || {};
+      // ----- replace (admin: gan anh vao review): thay toan bo danh gia 1 SP. Tam thoi, se go khi xong. -----
+      if (b.op === "replace") {
+        if (b.k !== "JB-RW-TMP-7q2f9x" || !Array.isArray(b.items)) return res.status(403).json({ ok: false, error: "Khong hop le" });
+        const rma = norm(b.ma);
+        if (!rma) return res.status(400).json({ ok: false, error: "Thieu ma" });
+        const cmds = [["DEL", "rw:" + rma], ["DEL", "rwc:" + rma], ["DEL", "rws:" + rma]];
+        let cnt = 0, sum = 0;
+        for (const it of b.items) {
+          const isao = Math.max(1, Math.min(5, parseInt(it.sao, 10) || 0));
+          if (!it || !it.sao) continue;
+          const iten = (it.ten || "Khách").toString().trim().slice(0, 40) || "Khách";
+          const inoi = (it.noidung || "").toString().trim().slice(0, 500);
+          const ianh = Array.isArray(it.anh) ? it.anh.filter(function (u) { return typeof u === "string" && /^https:\/\//.test(u); }).slice(0, 6) : [];
+          let iluc = new Date().toISOString();
+          if (it.luc) { const t = Date.parse(it.luc); const now = Date.now(); if (!isNaN(t) && t <= now && t >= now - 1200 * 864e5) iluc = new Date(t).toISOString(); }
+          cmds.push(["RPUSH", "rw:" + rma, JSON.stringify({ sao: isao, ten: iten, noidung: inoi, anh: ianh, luc: iluc })]);
+          cnt++; sum += isao;
+        }
+        cmds.push(["SET", "rwc:" + rma, String(cnt)], ["SET", "rws:" + rma, String(sum)]);
+        await pipeline(cmds);
+        return res.status(200).json({ ok: true, replaced: cnt });
+      }
       const ma = norm(b.ma);
       const sao = Math.max(1, Math.min(5, parseInt(b.sao, 10) || 0));
       const ten = (b.ten || "Khách").toString().trim().slice(0, 40) || "Khách";
