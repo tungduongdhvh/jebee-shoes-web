@@ -252,7 +252,13 @@
   .rv-item .who{font-weight:800; font-size:13.5px; display:flex; align-items:center; gap:8px}
   .rv-item .who .s{color:var(--star); font-size:12.5px; letter-spacing:1px}
   .rv-item .txt{font-size:13.5px; color:var(--ink-soft); margin-top:3px}
-  .rv-item .when{font-size:11.5px; color:var(--ink-mut); font-weight:600}
+  .rv-item .rv-imgs{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px}
+  .rv-item .rv-img{width:78px; height:78px; object-fit:cover; border-radius:9px; border:1px solid var(--line); cursor:zoom-in; background:var(--surface-2)}
+  .rv-item .when{font-size:11.5px; color:var(--ink-mut); font-weight:600; margin-top:6px}
+  .rv-vbadge{display:inline-block; font-size:10.5px; font-weight:800; color:#1E8E4A; background:rgba(30,142,74,.1); padding:1px 7px; border-radius:20px; margin-left:2px}
+  #rvLightbox{position:fixed; inset:0; background:rgba(0,0,0,.88); z-index:99999; display:none; align-items:center; justify-content:center; padding:18px; cursor:zoom-out}
+  #rvLightbox.on{display:flex}
+  #rvLightbox img{max-width:100%; max-height:100%; border-radius:10px; box-shadow:0 10px 50px rgba(0,0,0,.5)}
   .rv-empty{font-size:14px; color:var(--ink-mut); padding:4px 0 10px}
   .rv-form{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:16px 18px; margin-top:6px}
   .rv-form .lbl{font-size:13px; font-weight:800; color:var(--ink-soft)}
@@ -764,6 +770,8 @@ document.documentElement.classList.add('js');
   function esc(s){ return (s||'').toString().replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
   function starsFilled(n){ n=Math.max(0,Math.min(5,Math.round(n||0))); return '★★★★★'.slice(0,n)+'☆☆☆☆☆'.slice(0,5-n); }
   function fmtDate(iso){ try{ return new Date(iso).toLocaleDateString('vi-VN'); }catch(e){ return ''; } }
+  function rvZoom(src){ var lb=document.getElementById('rvLightbox'); if(!lb){ lb=document.createElement('div'); lb.id='rvLightbox'; lb.innerHTML='<img alt="Ảnh đánh giá">'; lb.addEventListener('click',function(){ lb.classList.remove('on'); }); document.body.appendChild(lb); } lb.querySelector('img').src=src; lb.classList.add('on'); }
+  window.rvZoom=rvZoom;
   function loadReviews(ma){
     if(!pdReviews) return;
     pdReviews.innerHTML='<h3>Đánh giá sản phẩm</h3><div class="rv-empty">Đang tải…</div>';
@@ -773,8 +781,10 @@ document.documentElement.classList.add('js');
       if(j.n>0){
         html+='<div class="rv-avg"><div class="big">'+j.avg.toFixed(1)+'</div><div><span class="rv-stars">'+starsFilled(j.avg)+'</span><div style="font-size:12.5px;color:var(--ink-mut)">'+j.n+' đánh giá</div></div></div>';
         html+=(j.danhgia||[]).map(function(d){
-          return '<div class="rv-item"><div class="who">'+esc(d.ten)+' <span class="s">'+starsFilled(d.sao)+'</span></div>'
+          var imgs=(d.anh&&d.anh.length)?'<div class="rv-imgs">'+d.anh.slice(0,6).map(function(u){return '<img loading="lazy" class="rv-img" src="'+esc(u)+'" onclick="rvZoom(this.getAttribute(\'data-full\')||this.src)" data-full="'+esc(u).replace(/=w\d+(-h\d+)?$/,'=w1400')+'">';}).join('')+'</div>':'';
+          return '<div class="rv-item"><div class="who">'+esc(d.ten)+' <span class="s">'+starsFilled(d.sao)+'</span><span class="rv-vbadge">Đã mua</span></div>'
             +(d.noidung?'<div class="txt">'+esc(d.noidung)+'</div>':'')
+            +imgs
             +'<div class="when">'+fmtDate(d.luc)+'</div></div>';
         }).join('');
       } else {
