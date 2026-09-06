@@ -645,8 +645,19 @@ document.documentElement.classList.add('js');
     JB17:["1G0tDqYIv2JEqxHtwRh2DltO6HVMxBWaI","1vGRm2uIevZy9F9z1j49xuTy_O3pBTOGO","1CY1e6jR59p8qHt0be0_ysKH_OorshL3C","1lUV7J6rDUBDgTkv_bzAEpGLA0GV7GafS","1gRjKZhBz76C3znc4CQh4xJmecumODJhm","1tsUmFHv1mR_4bFS4TzUAPoPL3hcyV2E0","1wdh6Tyvx7hP80ha7UQryyMTpnVZ7BQUJ"],
     JB1317:["1Hdun1A4gOTphTjibbsPu6h_UWs_8wrUQ","17SsPX99u3ZfgaamXx00e5JCisNnMVMh9","1Yalef9IUPjeDLjz2N73n-llUfwBhM7yD","1cSqf71SV8bmEQQXrrXFuglcHFrNovava","1M6wAtWTEEkH78BJmvQ0A46bprmnqn6n9","1cjPACg2FghzMNourySzMETNqEojLuBzm","1dCsVL2DDkfBUaHmyRUFuUorNTC71843l"]
   };
+  // Ảnh BÌA (cover) = Banner trang trí dịp Quốc khánh 2/9 — ghi đè ảnh bìa cũ
+  var B29={
+    JB5359:"1mU-wdUrKu7qWYw_NWKJcTp5HMEmlRlXD", JB5536:"15kvV_gp99RC-qKWbfVC4Y_5bHf-Vq8m1", JB286:"1oUEGKucCthSMTINeYdwa8yYaBVFmDxnt",
+    JB27:"12z758cddkMTp_WzMwhVvh219FJG21YDt", JB606:"1s0kN34lwtJ-wTk5LsCzuowjvHmwSCUYz", JB393:"1ZRYbq2NzMF-kDEemy-h8OgBzafyJ9CTf",
+    JB598:"1KfcHUJwkPNOcTPECLMpsXzVgvXwT32zr", JB1320:"1eK8hK-JrAktdalD_IrwRCRwkCx51ZU0A", JB552:"1t5SPXBw5rq5MEFvot2dc5sJFht0g57Kx",
+    JB2632:"1Qs1-qA7j-Pg97ql5O2XtbqSa3HUaebJ0", JB572:"1dtR5oPrxyjvCvJIUzUXkSjrcL5MbHEzS", JB20:"1W5PjPHw4ASRq4_snQU_NbkxSQYNLt-rA",
+    JB182:"1ryEHsda4pb8O0Vo9VmI7Abp8PFp3pLzc", JB597:"17Xrajt4Wpb4RvPzSnPhyr_34mWqS8HOL", JB707:"1uZ5rWnfg2eiPZEsMjSrxEIlg-kDu6uIm",
+    JB25:"1m78g7PoUdAGIYjGxyCHqqpr3Jon7FNh-", JB02:"1Xtb3Isawx6CJAhceOJCXxvLIsH1EeMZT", JB111A:"1wJkd4ksvwe0yHHTMeHjU4J3kVTR8spdA",
+    JB569:"19R1AZwgnUX4ZPANej_KOlwGlv0PV8awd", JB08LOT:"16sjIEnVVa45CVrtUfADTnFHE48fn4v6m", JB139:"17nQHByVxRJKCfAJ_K2ATPJLtdlj9M4EH",
+    JB17:"1WR2724uHumSC7jGyVVd2EhG1bqi__mia", JB1317:"1rPQpt7wq07plVsZUYbG4nU7gtCgE4a4b"
+  };
   function gd(id){ return "https://lh3.googleusercontent.com/d/"+id+"=w1200"; }
-  function driveImgs(ma){ var a=GIMG[(ma||'').toUpperCase()]; return a?a.map(gd):[]; }
+  function driveImgs(ma){ var k=(ma||'').toUpperCase(); var a=GIMG[k]?GIMG[k].slice():[]; if(B29[k]){ if(a.length){ a[0]=B29[k]; } else { a=[B29[k]]; } } return a.map(gd); }
   function vnd(n){ return (n||0).toLocaleString('vi-VN')+'₫'; }
   function heightBucket(name){
     var m=(name||'').match(/(\d{1,2})\s*cm/i); if(!m) return '';
