@@ -741,20 +741,20 @@ document.documentElement.classList.add('js');
     });
     document.getElementById('pdColorWrap').style.display=(cols.length===1&&cols[0]==='Mặc định')?'none':'';
     setGallery(allImagesOf(p));   // dải ảnh: banner + thành phần (Drive) + ảnh màu (POS)
-    selectColor(cols[0]);
+    selectColor(cols[0], true);   // giữ ảnh to = BANNER khi mới mở (không nhảy sang ảnh màu)
     loadReviews(p.ma);
     // Link riêng cho mẫu (deep-link cho quảng cáo) — cập nhật URL + reset nút copy
     try{ history.replaceState(null,'', '/?sp='+encodeURIComponent(p.ma)); }catch(e){}
     var sh=document.getElementById('pdShare'); if(sh){ sh.classList.remove('done'); sh.textContent='🔗 Copy link đặt mẫu này'; }
     modal.classList.add('show'); ovl.classList.add('show'); document.body.style.overflow='hidden';
   }
-  function selectColor(color){
+  function selectColor(color, keepMain){
     SEL.color=color; SEL.size=null; SEL.variation=null;
     document.getElementById('pdColorSel').textContent=(color==='Mặc định'?'':color);
     Array.prototype.forEach.call(pdColors.children,function(b){ b.classList.toggle('on', b.textContent.trim()===color); });
-    // đổi ảnh chính sang ảnh của màu đang chọn (nếu có), giữ dải banner+thành phần
-    var ci=colorImg(SEL.prod,color);
-    if(ci) showMain(ci);
+    // đổi ảnh chính sang ảnh của màu đang chọn (nếu có), giữ dải banner+thành phần.
+    // keepMain=true (khi mới mở modal) -> GIỮ ảnh banner làm ảnh to đầu tiên, KHÔNG nhảy sang ảnh màu.
+    if(!keepMain){ var ci=colorImg(SEL.prod,color); if(ci) showMain(ci); }
     // sizes
     var sz=sizesOf(SEL.prod,color);
     pdSizes.innerHTML='';
