@@ -672,6 +672,21 @@ document.documentElement.classList.add('js');
 
   // ---------- render lưới ----------
   var grid=document.getElementById('grid'), loadinfo=document.getElementById('loadinfo');
+  // Lượt bán + điểm đánh giá THẬT trên TikTok Shop (sếp cung cấp). {b:lượt bán, s:sao TB}. Cập nhật khi số thay đổi.
+  var SOLD={
+    JB5536:{b:614,s:4.9}, JB597:{b:2333,s:4.8}, JB27:{b:7591,s:4.9}, JB552:{b:1237,s:4.8},
+    JB5359:{b:108,s:4.8}, JB707:{b:1868,s:4.9}, JB569:{b:921,s:4.8}, JB572:{b:703,s:4.9},
+    JB598:{b:396,s:4.8}, JB393:{b:1932,s:4.9}, JB20:{b:2689,s:4.9}, JB17:{b:2636,s:4.8},
+    JB1320:{b:80,s:4.7}, JB606:{b:385,s:4.8}, JB25:{b:1370,s:4.9}, JB286:{b:50,s:4.8},
+    JB1317:{b:728,s:4.9}, JB139:{b:204,s:5.0}, JB2632:{b:594,s:4.7}, JB182:{b:705,s:4.7},
+    JB18:{b:1528,s:4.6}, JB08LOT:{b:1200,s:4.8}, JB111A:{b:12,s:5.0}, JB02:{b:673,s:4.8}
+  };
+  function fmtSold(n){ n=+n||0; return String(n).replace(/\B(?=(\d{3})+(?!\d))/g,'.'); }
+  function soldLine(ma){
+    var d=SOLD[(ma||'').toUpperCase()];
+    if(d) return '<span class="st">★</span> '+d.s.toFixed(1).replace('.',',')+' · Đã bán '+fmtSold(d.b);
+    return '<span class="st">★</span> 4.8 · Còn hàng';
+  }
   function cardHTML(p){
     var g=GIA[p.ma.toUpperCase()]; if(!g) return '';
     var disc=g[1]>g[0]?Math.round((1-g[0]/g[1])*100):0;
@@ -687,7 +702,7 @@ document.documentElement.classList.add('js');
       '<div class="body"><span class="code">'+p.ma+'</span><h3>'+p.ten+'</h3>'+
         '<div class="swatches">'+swat+'</div>'+
         '<div class="rowb"><span class="price">'+vnd(g[0])+'</span>'+(disc?'<span class="price-old">'+vnd(g[1])+'</span>':'')+'</div>'+
-        '<div class="sold"><span class="st">★</span> 4.8 · Còn hàng</div>'+
+        '<div class="sold">'+soldLine(p.ma)+'</div>'+
         '<button class="buy" type="button">Đặt hàng ngay</button></div>';
     art.querySelector('.buy').addEventListener('click',function(e){ e.stopPropagation(); openModal(p); });
     art.addEventListener('click',function(){ openModal(p); });
@@ -826,7 +841,9 @@ document.documentElement.classList.add('js');
     fetch('/api/danh-gia?agg='+encodeURIComponent(mas)).then(function(r){return r.json();}).then(function(j){
       if(!j.ok) return; AGG=j.agg||{};
       document.querySelectorAll('#grid .card').forEach(function(c){
-        var ma=(c.getAttribute('data-ma')||'').toUpperCase(); var a=AGG[ma]; if(!a) return;
+        var ma=(c.getAttribute('data-ma')||'').toUpperCase();
+        if(SOLD[ma]) return; // đã hiện lượt bán + sao TikTok trên card, không ghi đè
+        var a=AGG[ma]; if(!a) return;
         var sold=c.querySelector('.sold'); if(sold) sold.innerHTML='<span class="st">★</span> '+a.avg.toFixed(1)+' · '+a.n+' đánh giá';
       });
     }).catch(function(){});
