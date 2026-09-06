@@ -161,8 +161,12 @@
   footer ul{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px}
   footer li{font-size:14.5px; color:var(--ink-soft)}
   footer li a:hover{color:var(--brand)}
-  .fbrand .bn{font-weight:900; color:var(--brand); font-size:22px}
-  .fbrand .bs{font-size:10px; letter-spacing:.28em; font-weight:700; color:var(--ink-mut); margin:3px 0 14px}
+  .flogo-wrap{margin-bottom:14px}
+  .flogo{height:52px; width:auto; display:block}
+  .flogo-white{display:none}
+  @media(prefers-color-scheme:dark){:root:not([data-theme="light"]) .flogo-red{display:none} :root:not([data-theme="light"]) .flogo-white{display:block}}
+  :root[data-theme="dark"] .flogo-red{display:none} :root[data-theme="dark"] .flogo-white{display:block}
+  :root[data-theme="light"] .flogo-red{display:block} :root[data-theme="light"] .flogo-white{display:none}
   .fbrand p{font-size:14px; color:var(--ink-soft); max-width:26em}
   .fpolicy{display:flex; align-items:center; gap:9px; font-size:13.5px; color:var(--ink-soft); margin-top:9px}
   .fpolicy svg{color:var(--brand); flex:none}
@@ -524,7 +528,7 @@
   <div class="wrap">
     <div class="fgrid">
       <div class="fbrand">
-        <div class="bn">JEBEE SHOES</div><div class="bs">VUA GIÀY ĐỘN</div>
+        <div class="flogo-wrap"><img class="flogo flogo-red" src="/footer-logo.png" alt="Jebee Shoes — Vua giày độn" width="928" height="279"><img class="flogo flogo-white" src="/header-logo.png" alt="Jebee Shoes — Vua giày độn" width="928" height="279"></div>
         <p>Jebee Shoes — Vua giày độn cao cấp. Thương hiệu giày độn đế nữ tăng chiều cao 7–13cm, được hơn 60.000 khách hàng tin tưởng.</p>
         <div class="fpolicy"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Đổi trả linh hoạt · kiểm tra hàng trước khi nhận</div>
         <div class="fpolicy"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Bảo hành đế 12 tháng · Hàng thật 100%</div>
