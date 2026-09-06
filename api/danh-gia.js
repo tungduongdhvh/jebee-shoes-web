@@ -55,8 +55,12 @@ export default async function handler(req, res) {
       const sao = Math.max(1, Math.min(5, parseInt(b.sao, 10) || 0));
       const ten = (b.ten || "Khách").toString().trim().slice(0, 40) || "Khách";
       const noidung = (b.noidung || "").toString().trim().slice(0, 500);
+      const anh = Array.isArray(b.anh) ? b.anh.filter(function (u) { return typeof u === "string" && /^https:\/\//.test(u); }).slice(0, 6) : [];
+      // luc: cho phep set ngay (seed du lieu moi) neu la ISO hop le trong vong 1 nam qua & khong o tuong lai; nguoc lai dung now.
+      let luc = new Date().toISOString();
+      if (b.luc) { const t = Date.parse(b.luc); const now = Date.now(); if (!isNaN(t) && t <= now && t >= now - 400 * 864e5) luc = new Date(t).toISOString(); }
       if (!ma || !sao) return res.status(400).json({ ok: false, error: "Thieu ma hoac so sao" });
-      const rec = JSON.stringify({ sao: sao, ten: ten, noidung: noidung, luc: new Date().toISOString() });
+      const rec = JSON.stringify({ sao: sao, ten: ten, noidung: noidung, anh: anh, luc: luc });
       await pipeline([["LPUSH", "dg:" + ma, rec], ["LTRIM", "dg:" + ma, "0", "199"], ["INCR", "dgc:" + ma], ["INCRBY", "dgs:" + ma, String(sao)]]);
       return res.status(200).json({ ok: true });
     }
