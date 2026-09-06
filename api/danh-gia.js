@@ -1,7 +1,8 @@
-// /api/danh-gia — Danh gia san pham (sao 1-5 + nhan xet), luu tren Upstash Redis (REST API).
+// /api/danh-gia — Danh gia san pham (sao 1-5 + nhan xet + anh), luu tren Upstash Redis (REST API).
 // GET ?ma=JB5359            -> danh sach danh gia + trung binh + so luong cho 1 SP.
 // GET ?agg=JB5359,JB286,... -> { MA: {n, avg} } cho nhieu SP (dung cho luoi san pham).
-// POST { ma, sao(1-5), ten, noidung } -> luu 1 danh gia.
+// POST { ma, sao(1-5), ten, noidung, anh[], luc? } -> luu 1 danh gia.
+// Key namespace: rv:<MA> (list), rvc:<MA> (count), rvs:<MA> (sum sao).
 const KURL = process.env.KV_REST_API_URL;
 const KTOK = process.env.KV_REST_API_TOKEN;
 
@@ -26,7 +27,7 @@ export default async function handler(req, res) {
         const mas = agg.split(",").map(norm).filter(Boolean).slice(0, 40);
         if (!mas.length) return res.status(200).json({ ok: true, agg: {} });
         const cmds = [];
-        mas.forEach(function (m) { cmds.push(["GET", "dgc:" + m]); cmds.push(["GET", "dgs:" + m]); });
+        mas.forEach(function (m) { cmds.push(["GET", "rvc:" + m]); cmds.push(["GET", "rvs:" + m]); });
         const rr = await pipeline(cmds);
         const out = {};
         mas.forEach(function (m, i) {
@@ -40,10 +41,10 @@ export default async function handler(req, res) {
       // ----- chi tiet 1 SP (modal) -----
       const ma = norm(req.query && req.query.ma);
       if (!ma) return res.status(400).json({ ok: false, error: "Thieu ma" });
-      const list = (await redis(["LRANGE", "dg:" + ma, "0", "49"])) || [];
+      const list = (await redis(["LRANGE", "rv:" + ma, "0", "49"])) || [];
       const items = list.map(function (s) { try { return JSON.parse(s); } catch (e) { return null; } }).filter(Boolean);
-      const n = parseInt((await redis(["GET", "dgc:" + ma])) || items.length, 10);
-      const s = parseInt((await redis(["GET", "dgs:" + ma])) || 0, 10);
+      const n = parseInt((await redis(["GET", "rvc:" + ma])) || items.length, 10);
+      const s = parseInt((await redis(["GET", "rvs:" + ma])) || 0, 10);
       const avg = n > 0 ? Math.round((s / n) * 10) / 10 : (items.length ? Math.round(items.reduce(function (a, b) { return a + (b.sao || 0); }, 0) / items.length * 10) / 10 : 0);
       res.setHeader("Cache-Control", "no-store");
       return res.status(200).json({ ok: true, ma: ma, n: n, avg: avg, danhgia: items });
@@ -61,7 +62,7 @@ export default async function handler(req, res) {
       if (b.luc) { const t = Date.parse(b.luc); const now = Date.now(); if (!isNaN(t) && t <= now && t >= now - 400 * 864e5) luc = new Date(t).toISOString(); }
       if (!ma || !sao) return res.status(400).json({ ok: false, error: "Thieu ma hoac so sao" });
       const rec = JSON.stringify({ sao: sao, ten: ten, noidung: noidung, anh: anh, luc: luc });
-      await pipeline([["LPUSH", "dg:" + ma, rec], ["LTRIM", "dg:" + ma, "0", "199"], ["INCR", "dgc:" + ma], ["INCRBY", "dgs:" + ma, String(sao)]]);
+      await pipeline([["LPUSH", "rv:" + ma, rec], ["LTRIM", "rv:" + ma, "0", "199"], ["INCR", "rvc:" + ma], ["INCRBY", "rvs:" + ma, String(sao)]]);
       return res.status(200).json({ ok: true });
     }
 
