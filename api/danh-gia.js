@@ -27,13 +27,17 @@ export default async function handler(req, res) {
         const mas = agg.split(",").map(norm).filter(Boolean).slice(0, 40);
         if (!mas.length) return res.status(200).json({ ok: true, agg: {} });
         const cmds = [];
-        mas.forEach(function (m) { cmds.push(["GET", "rwc:" + m]); cmds.push(["GET", "rws:" + m]); });
+        mas.forEach(function (m) { cmds.push(["GET", "rwc:" + m]); cmds.push(["GET", "rws:" + m]); cmds.push(["GET", "bd:" + m]); });
         const rr = await pipeline(cmds);
         const out = {};
         mas.forEach(function (m, i) {
-          const n = parseInt((rr[i * 2] && rr[i * 2].result) || 0, 10);
-          const s = parseInt((rr[i * 2 + 1] && rr[i * 2 + 1].result) || 0, 10);
-          if (n > 0) out[m] = { n: n, avg: Math.round((s / n) * 10) / 10 };
+          const n = parseInt((rr[i * 3] && rr[i * 3].result) || 0, 10);
+          const s = parseInt((rr[i * 3 + 1] && rr[i * 3 + 1].result) || 0, 10);
+          const ban = parseInt((rr[i * 3 + 2] && rr[i * 3 + 2].result) || 0, 10);   // so don ban tu WEB (cong don)
+          const e = {};
+          if (n > 0) { e.n = n; e.avg = Math.round((s / n) * 10) / 10; }
+          if (ban > 0) e.ban = ban;
+          if (n > 0 || ban > 0) out[m] = e;
         });
         res.setHeader("Cache-Control", "s-maxage=30, stale-while-revalidate=120");
         return res.status(200).json({ ok: true, agg: out });
