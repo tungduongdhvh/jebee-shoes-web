@@ -209,6 +209,9 @@
   .modal.show{display:flex}
   .modal-in{background:var(--bg); border-radius:20px; max-width:920px; width:100%; max-height:92vh; overflow:auto; box-shadow:var(--shadow-lift); pointer-events:auto; position:relative}
   .modal-close{position:absolute; top:12px; right:12px; z-index:5; width:38px; height:38px; border-radius:50%; background:var(--surface); border:1px solid var(--line); cursor:pointer; display:grid; place-items:center; color:var(--ink)}
+  .pd-share{margin:10px 0 2px; display:inline-flex; align-items:center; gap:6px; font-family:inherit; font-size:12.5px; font-weight:700; color:var(--brand); background:var(--surface); border:1px dashed var(--line-strong); border-radius:9px; padding:7px 12px; cursor:pointer; transition:background .15s}
+  .pd-share:hover{background:var(--surface-2)}
+  .pd-share.done{color:#1E8E4A; border-color:#1E8E4A; border-style:solid}
   .pd{display:grid; grid-template-columns:1fr 1fr; gap:0}
   .pd-media{background:var(--surface-2); padding:22px}
   .pd-main{aspect-ratio:1/1; border-radius:14px; overflow:hidden; background:var(--surface); border:1px solid var(--line)}
@@ -558,6 +561,7 @@
         <h2 id="pdName"></h2>
         <div class="pd-price"><span class="p" id="pdPrice"></span><span class="o" id="pdOld"></span><span class="d" id="pdDisc" style="display:none"></span></div>
         <div class="sold"><span class="st">★</span> 4.8 · Freeship toàn quốc · Đổi size 15 ngày</div>
+        <button type="button" class="pd-share" id="pdShare">🔗 Copy link đặt mẫu này</button>
         <div id="pdColorWrap"><div class="pd-lbl">Màu sắc: <span id="pdColorSel" style="color:var(--brand)"></span></div><div class="opts" id="pdColors"></div></div>
         <div id="pdSizeWrap"><div class="pd-lbl">Kích cỡ: <span id="pdSizeSel" style="color:var(--brand)"></span></div><div class="opts" id="pdSizes"></div></div>
         <div class="qtyrow">
@@ -724,6 +728,9 @@ document.documentElement.classList.add('js');
     setGallery(allImagesOf(p));   // dải ảnh: banner + thành phần (Drive) + ảnh màu (POS)
     selectColor(cols[0]);
     loadReviews(p.ma);
+    // Link riêng cho mẫu (deep-link cho quảng cáo) — cập nhật URL + reset nút copy
+    try{ history.replaceState(null,'', '/?sp='+encodeURIComponent(p.ma)); }catch(e){}
+    var sh=document.getElementById('pdShare'); if(sh){ sh.classList.remove('done'); sh.textContent='🔗 Copy link đặt mẫu này'; }
     modal.classList.add('show'); ovl.classList.add('show'); document.body.style.overflow='hidden';
   }
   function selectColor(color){
@@ -836,7 +843,32 @@ document.documentElement.classList.add('js');
     var q=parseInt(qInput.value,10)||1; if(q>v.ton){ qInput.value=v.ton; }
     qInput.max=v.ton;
   }
-  function closeModal(){ modal.classList.remove('show'); ovl.classList.remove('show'); document.body.style.overflow=''; }
+  function closeModal(){ modal.classList.remove('show'); ovl.classList.remove('show'); document.body.style.overflow=''; try{ history.replaceState(null,'','/'); }catch(e){} }
+  // ----- Deep-link: mở thẳng 1 mẫu qua URL ?sp=MA (dùng cho quảng cáo Facebook) -----
+  function findProd(sp){
+    if(!sp) return null;
+    var key=sp.toString().toUpperCase().replace(/[^A-Z0-9]/g,'');
+    for(var i=0;i<PRODUCTS.length;i++){ if((PRODUCTS[i].ma||'').toUpperCase().replace(/[^A-Z0-9]/g,'')===key) return PRODUCTS[i]; }
+    return null;
+  }
+  function openDeepLink(){
+    try{
+      var sp=new URLSearchParams(location.search).get('sp');
+      if(!sp && location.hash){ var h=location.hash.replace(/^#/,''); if(/^sp=/i.test(h)) sp=h.slice(3); else if(/^JB/i.test(h)) sp=h; }
+      if(!sp) return;
+      var p=findProd(sp);
+      if(p) setTimeout(function(){ openModal(p); },150);
+    }catch(e){}
+  }
+  var pdShareBtn=document.getElementById('pdShare');
+  if(pdShareBtn) pdShareBtn.addEventListener('click',function(){
+    if(!SEL||!SEL.prod) return;
+    var link=location.origin+'/?sp='+encodeURIComponent(SEL.prod.ma);
+    var btn=this;
+    function done(){ btn.classList.add('done'); btn.textContent='✓ Đã copy! Dán link vào quảng cáo'; toast('Đã copy link: '+link); }
+    if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(link).then(done).catch(function(){ window.prompt('Copy link mẫu này:', link); }); }
+    else { window.prompt('Copy link mẫu này:', link); }
+  });
   document.getElementById('modalClose').addEventListener('click',closeModal);
   ovl.addEventListener('click',function(){ closeModal(); closeDrawer(); });
   document.getElementById('qMinus').addEventListener('click',function(){ var q=parseInt(qInput.value,10)||1; if(q>1)qInput.value=q-1; });
@@ -1070,6 +1102,7 @@ document.documentElement.classList.add('js');
     loadinfo.style.display='none';
     renderGrid();
     loadAgg();
+    openDeepLink();  // nếu URL có ?sp=MA -> mở thẳng modal đặt hàng của mẫu đó
     // ảnh hero = mẫu đầu có ảnh
     var withImg=PRODUCTS.filter(function(p){return p.anh;})[0];
     if(withImg){ var h=document.getElementById('heroImg'); if(h) h.src=withImg.anh; }
