@@ -5,6 +5,8 @@ export default async function handler(req, res) {
   const key = process.env.POS_API_KEY, shop = process.env.POS_SHOP_ID;
   if (!key || !shop) return res.status(500).json({ ok: false, error: "Thieu cau hinh POS" });
   const base = "https://pos.pancake.vn/api/v1/shops/" + shop;
+  const KURL = process.env.KV_REST_API_URL, KTOK = process.env.KV_REST_API_TOKEN;
+  const normMa = function (s) { return (s || "").toString().toUpperCase().replace(/[^A-Z0-9]/g, ""); };
 
   // ----- GET: doc thu cau truc don (an toan) -----
   if (req.method === "GET") {
@@ -90,6 +92,15 @@ export default async function handler(req, res) {
     if (!r.ok || (j && j.success === false)) {
       return res.status(200).json({ ok: false, error: (j && (j.message || j.error)) || ("POS " + r.status), raw: (j ? undefined : text.slice(0, 300)) });
     }
+    // Cong don "da ban" tu WEB (theo don that) vao Redis — best-effort, KHONG pha vo don neu loi.
+    try {
+      if (KURL && KTOK) {
+        const cmds = [];
+        (b.items || []).forEach(function (x) { const m = normMa(x.ma); const q = parseInt(x.qty, 10) || 0; if (m && q > 0) cmds.push(["INCRBY", "bd:" + m, String(q)]); });
+        if (cmds.length) await fetch(KURL + "/pipeline", { method: "POST", headers: { Authorization: "Bearer " + KTOK, "Content-Type": "application/json" }, body: JSON.stringify(cmds) });
+      }
+    } catch (e) {}
+
     const od = (j && (j.data || j.order || j)) || {};
     return res.status(200).json({ ok: true, madon: od.display_id || od.system_id || od.id || "", status: od.status });
   } catch (e) {
