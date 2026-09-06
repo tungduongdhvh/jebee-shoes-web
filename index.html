@@ -55,7 +55,9 @@
   .btn-zalo:hover{transform:translateY(-2px)}
   header{position:sticky; top:0; z-index:50; background:#8E2622; border-bottom:1px solid #6E1C19}
   .nav{display:flex; align-items:center; gap:26px; height:70px}
-  .brandmark{display:flex; flex-direction:column; margin-right:auto; line-height:1}
+  .brandmark{display:flex; align-items:center; margin-right:auto; line-height:1}
+  .brandmark .brandimg{height:46px; width:auto; display:block}
+  @media(max-width:640px){ .brandmark .brandimg{height:38px} }
   .brandmark .bn{font-weight:900; color:#fff; font-size:22px; letter-spacing:.02em}
   .brandmark .bs{font-size:10px; letter-spacing:.32em; font-weight:700; color:#F0C9C2; margin-top:3px}
   .menu{display:flex; gap:24px; font-size:14.5px; font-weight:600}
@@ -345,7 +347,7 @@
 <header>
   <div class="wrap nav">
     <a class="brandmark" href="#" aria-label="Jebee Shoes — Vua giày độn">
-      <span class="bn">JEBEE SHOES</span><span class="bs">VUA GIÀY ĐỘN</span>
+      <img class="brandimg" src="/header-logo.png" alt="Jebee Shoes — Vua giày độn" width="928" height="279">
     </a>
     <nav class="menu" id="menu">
       <a href="#" class="active">Trang chủ</a>
