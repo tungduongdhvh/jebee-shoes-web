@@ -241,6 +241,26 @@
   .pd-cta .addcart:hover{background:var(--brand-tint)}
   .pd-cta button:disabled{opacity:.45; cursor:not-allowed; transform:none}
   .pd-note{margin-top:16px; font-size:13px; color:var(--ink-mut); display:flex; gap:8px; align-items:flex-start}
+  /* danh gia */
+  .pd-reviews{padding:20px 28px 26px; border-top:1px solid var(--line)}
+  .pd-reviews h3{font-size:16px; font-weight:900; margin-bottom:12px}
+  .rv-avg{display:flex; align-items:center; gap:12px; margin-bottom:14px}
+  .rv-avg .big{font-size:30px; font-weight:900; color:var(--brand); line-height:1}
+  .rv-stars{color:var(--star); letter-spacing:2px; font-size:15px}
+  .rv-stars i{color:var(--line-strong); font-style:normal}
+  .rv-item{padding:11px 0; border-top:1px solid var(--line)}
+  .rv-item .who{font-weight:800; font-size:13.5px; display:flex; align-items:center; gap:8px}
+  .rv-item .who .s{color:var(--star); font-size:12.5px; letter-spacing:1px}
+  .rv-item .txt{font-size:13.5px; color:var(--ink-soft); margin-top:3px}
+  .rv-item .when{font-size:11.5px; color:var(--ink-mut); font-weight:600}
+  .rv-empty{font-size:14px; color:var(--ink-mut); padding:4px 0 10px}
+  .rv-form{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:16px 18px; margin-top:6px}
+  .rv-form .lbl{font-size:13px; font-weight:800; color:var(--ink-soft)}
+  .starpick{display:inline-flex; gap:5px; font-size:30px; cursor:pointer; color:var(--line-strong); margin:6px 0 4px}
+  .starpick span.on{color:var(--star)}
+  .rv-form input,.rv-form textarea{width:100%; font-family:inherit; font-size:15px; padding:11px 13px; border:1.5px solid var(--line-strong); border-radius:10px; background:var(--surface-2); color:var(--ink); margin-top:8px}
+  .rv-form textarea{resize:vertical; min-height:56px}
+  .rv-form .send{margin-top:10px; font-family:inherit; font-weight:800; font-size:14.5px; padding:11px 22px; border-radius:10px; border:0; cursor:pointer; background:var(--brand); color:var(--btn-text)}
 
   /* ===== Giỏ / Checkout drawer ===== */
   .drawer{position:fixed; top:0; right:0; bottom:0; width:420px; max-width:100%; background:var(--bg); z-index:102; box-shadow:-20px 0 50px -20px rgba(0,0,0,.4); transform:translateX(100%); transition:transform .28s ease; display:flex; flex-direction:column}
@@ -540,6 +560,7 @@
         <div class="pd-note"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:2px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>Chọn màu &amp; size để xem tồn kho thực tế. Cần tư vấn nhanh? <a href="https://zalo.me/0396589658" target="_blank" rel="noopener" style="color:var(--brand);font-weight:800">Nhắn Zalo</a>.</span></div>
       </div>
     </div>
+    <div class="pd-reviews" id="pdReviews"></div>
   </div>
 </div>
 
@@ -691,6 +712,7 @@ document.documentElement.classList.add('js');
     document.getElementById('pdColorWrap').style.display=(cols.length===1&&cols[0]==='Mặc định')?'none':'';
     setGallery(allImagesOf(p));   // dải ảnh: banner + thành phần (Drive) + ảnh màu (POS)
     selectColor(cols[0]);
+    loadReviews(p.ma);
     modal.classList.add('show'); ovl.classList.add('show'); document.body.style.overflow='hidden';
   }
   function selectColor(color){
@@ -736,6 +758,59 @@ document.documentElement.classList.add('js');
     });
   }
   function showMain(url){ pdMain.src=url; Array.prototype.forEach.call(pdThumbs.children,function(x){ x.classList.toggle('on', x.src===url); }); }
+
+  // ---------- đánh giá (reviews) ----------
+  var pdReviews=document.getElementById('pdReviews'), AGG={};
+  function esc(s){ return (s||'').toString().replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function starsFilled(n){ n=Math.max(0,Math.min(5,Math.round(n||0))); return '★★★★★'.slice(0,n)+'☆☆☆☆☆'.slice(0,5-n); }
+  function fmtDate(iso){ try{ return new Date(iso).toLocaleDateString('vi-VN'); }catch(e){ return ''; } }
+  function loadReviews(ma){
+    if(!pdReviews) return;
+    pdReviews.innerHTML='<h3>Đánh giá sản phẩm</h3><div class="rv-empty">Đang tải…</div>';
+    fetch('/api/danh-gia?ma='+encodeURIComponent(ma)).then(function(r){return r.json();}).then(function(j){
+      if(!j.ok){ pdReviews.innerHTML=''; return; }
+      var html='<h3>Đánh giá sản phẩm</h3>';
+      if(j.n>0){
+        html+='<div class="rv-avg"><div class="big">'+j.avg.toFixed(1)+'</div><div><span class="rv-stars">'+starsFilled(j.avg)+'</span><div style="font-size:12.5px;color:var(--ink-mut)">'+j.n+' đánh giá</div></div></div>';
+        html+=(j.danhgia||[]).map(function(d){
+          return '<div class="rv-item"><div class="who">'+esc(d.ten)+' <span class="s">'+starsFilled(d.sao)+'</span></div>'
+            +(d.noidung?'<div class="txt">'+esc(d.noidung)+'</div>':'')
+            +'<div class="when">'+fmtDate(d.luc)+'</div></div>';
+        }).join('');
+      } else {
+        html+='<div class="rv-empty">Chưa có đánh giá. Mua hàng xong bạn sẽ được mời đánh giá đầu tiên nhé! 💛</div>';
+      }
+      pdReviews.innerHTML=html;
+    }).catch(function(){ pdReviews.innerHTML=''; });
+  }
+  function loadAgg(){
+    var mas=PRODUCTS.map(function(p){return p.ma;}).join(',');
+    if(!mas) return;
+    fetch('/api/danh-gia?agg='+encodeURIComponent(mas)).then(function(r){return r.json();}).then(function(j){
+      if(!j.ok) return; AGG=j.agg||{};
+      document.querySelectorAll('#grid .card').forEach(function(c){
+        var ma=(c.getAttribute('data-ma')||'').toUpperCase(); var a=AGG[ma]; if(!a) return;
+        var sold=c.querySelector('.sold'); if(sold) sold.innerHTML='<span class="st">★</span> '+a.avg.toFixed(1)+' · '+a.n+' đánh giá';
+      });
+    }).catch(function(){});
+  }
+  function wireReviewForms(){
+    dBody.querySelectorAll('.rv-form').forEach(function(f){
+      var picked=0, pick=f.querySelector('.starpick');
+      pick.querySelectorAll('span').forEach(function(sp){
+        sp.addEventListener('click',function(){ picked=parseInt(sp.getAttribute('data-k'),10); pick.querySelectorAll('span').forEach(function(x){ x.classList.toggle('on', parseInt(x.getAttribute('data-k'),10)<=picked); }); });
+      });
+      f.querySelector('.send').addEventListener('click',function(){
+        if(!picked){ toast('Vui lòng chọn số sao'); return; }
+        var btn=f.querySelector('.send'); btn.disabled=true; btn.textContent='Đang gửi…';
+        fetch('/api/danh-gia',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ma:f.getAttribute('data-ma'), sao:picked, ten:(LAST.name||'Khách'), noidung:f.querySelector('textarea').value})})
+          .then(function(r){return r.json();}).then(function(j){
+            if(j.ok){ f.innerHTML='<div style="color:#1E8E4A;font-weight:800;font-size:14.5px;padding:6px 0">✓ Cảm ơn bạn đã đánh giá!</div>'; }
+            else { throw new Error(); }
+          }).catch(function(){ btn.disabled=false; btn.textContent='Gửi đánh giá'; toast('Chưa gửi được, thử lại nhé'); });
+      });
+    });
+  }
   function updateStock(){
     var v=SEL.variation, btnBuy=document.getElementById('btnBuy'), btnAdd=document.getElementById('btnAdd');
     var hasSize=document.getElementById('pdSizeWrap').style.display!=='none';
@@ -828,9 +903,21 @@ document.documentElement.classList.add('js');
       document.getElementById('paidBtn').addEventListener('click',function(){ renderDrawer('done'); });
     } else if(view==='done'){
       dTitle.textContent='Đặt hàng thành công';
-      dBody.innerHTML='<div class="ok-box"><div class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div><h3>Cảm ơn bạn đã đặt hàng!</h3><p>Jebee đã nhận đơn và sẽ gọi xác nhận trong thời gian sớm nhất. Bạn cũng có thể nhắn Zalo để được hỗ trợ nhanh.</p><div style="margin-top:20px"><a class="btn btn-zalo" href="'+ZALO+'" target="_blank" rel="noopener">Nhắn Zalo cho Jebee</a></div></div>';
+      var okhtml='<div class="ok-box"><div class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div><h3>Cảm ơn bạn đã đặt hàng!</h3><p>Jebee đã nhận đơn và sẽ gọi xác nhận trong thời gian sớm nhất. Bạn cũng có thể nhắn Zalo để được hỗ trợ nhanh.</p></div>';
+      var rvhtml='';
+      (LAST.items||[]).forEach(function(it,idx){
+        rvhtml+='<div class="rv-form" id="rvf'+idx+'" data-ma="'+esc(it.ma)+'">'
+          +'<div class="lbl">Đánh giá: '+esc(it.ten)+'</div>'
+          +'<div class="starpick" data-sao="0">'+[1,2,3,4,5].map(function(k){return '<span data-k="'+k+'">★</span>';}).join('')+'</div>'
+          +'<textarea placeholder="Chia sẻ cảm nhận của bạn (không bắt buộc)"></textarea>'
+          +'<button class="send" type="button">Gửi đánh giá</button></div>';
+      });
+      dBody.innerHTML=okhtml
+        + (rvhtml ? '<div style="margin:16px 0 8px;font-weight:800;font-size:14.5px">Đánh giá sản phẩm bạn vừa mua 💛</div>'+rvhtml : '')
+        + '<div style="margin-top:16px;text-align:center"><a class="btn btn-zalo" href="'+ZALO+'" target="_blank" rel="noopener">Nhắn Zalo cho Jebee</a></div>';
       dFoot.innerHTML='<button class="cobtn" id="keepShop">Tiếp tục mua sắm</button>';
       document.getElementById('keepShop').addEventListener('click',closeDrawer);
+      wireReviewForms();
     }
   }
   dBody.addEventListener('click',function(e){
@@ -859,7 +946,8 @@ document.documentElement.classList.add('js');
       .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
       .then(function(res){
         if(res.ok && res.j && res.j.ok){
-          LAST={ tong:tong, phone:ph, name:name, madon:(res.j.madon||'') };
+          var prods=[]; CART.forEach(function(i){ if(!prods.some(function(x){return x.ma===i.ma;})) prods.push({ma:i.ma, ten:i.ten}); });
+          LAST={ tong:tong, phone:ph, name:name, madon:(res.j.madon||''), items:prods };
           CART=[]; saveCart();
           renderDrawer(PAYM==='ck' ? 'payment' : 'done');
         }
@@ -966,6 +1054,7 @@ document.documentElement.classList.add('js');
     if(!PRODUCTS.length){ loadinfo.textContent='Đang cập nhật sản phẩm, vui lòng nhắn Zalo để đặt hàng.'; return; }
     loadinfo.style.display='none';
     renderGrid();
+    loadAgg();
     // ảnh hero = mẫu đầu có ảnh
     var withImg=PRODUCTS.filter(function(p){return p.anh;})[0];
     if(withImg){ var h=document.getElementById('heroImg'); if(h) h.src=withImg.anh; }
