@@ -361,7 +361,7 @@
       <a href="#products">Sản phẩm</a>
       <a href="#size">Bảng size</a>
       <a href="#values">Về Jebee</a>
-      <a href="#" id="trackLink">Tra cứu đơn</a>
+      <a href="#" id="trackLink">Đơn hàng của tôi</a>
       <a href="#footer">Liên hệ</a>
     </nav>
     <div class="nav-cta">
@@ -535,7 +535,7 @@
         <span class="moit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>Đang hoàn tất thông báo Bộ Công Thương</span>
       </div>
       <div><h4>Sản phẩm</h4><ul><li><a href="#products">Giày độn 7–8cm</a></li><li><a href="#products">Giày độn 9–10cm</a></li><li><a href="#products">Giày độn 11–13cm</a></li><li><a href="#products">Tất cả mẫu</a></li></ul></div>
-      <div><h4>Hỗ trợ</h4><ul><li><a href="#" id="trackLinkF">Tra cứu đơn hàng</a></li><li><a href="#size">Hướng dẫn chọn size</a></li><li><a href="/chinh-sach.html#doi-tra">Đổi trả &amp; bảo hành</a></li><li><a href="/chinh-sach.html#van-chuyen">Vận chuyển</a></li><li><a href="/chinh-sach.html#thanh-toan">Thanh toán</a></li><li><a href="/chinh-sach.html">Chính sách &amp; Thông tin</a></li></ul></div>
+      <div><h4>Hỗ trợ</h4><ul><li><a href="#" id="trackLinkF">Đơn hàng của tôi</a></li><li><a href="#size">Hướng dẫn chọn size</a></li><li><a href="/chinh-sach.html#doi-tra">Đổi trả &amp; bảo hành</a></li><li><a href="/chinh-sach.html#van-chuyen">Vận chuyển</a></li><li><a href="/chinh-sach.html#thanh-toan">Thanh toán</a></li><li><a href="/chinh-sach.html">Chính sách &amp; Thông tin</a></li></ul></div>
       <div><h4>Liên hệ</h4><ul><li>Địa chỉ: <b style="color:var(--ink)">C49 LK12, Ô 15, Khu C, KĐT Geleximco, P. Dương Nội, Hà Nội</b></li><li>Hotline / Zalo: <b style="color:var(--ink)">03.9658.9658</b></li><li>Email: <b style="color:var(--ink)">Jebeegroup@gmail.com</b></li><li><a href="https://www.facebook.com/share/1Ws2Zunqfv/" target="_blank" rel="noopener">Fanpage: Jebee Shoes</a></li><li><a href="https://www.tiktok.com/@jebee_shoes" target="_blank" rel="noopener">TikTok: @jebee_shoes</a></li><li>Website: <b style="color:var(--brand)">jebeeshoes.vn</b></li></ul></div>
     </div>
     <div class="fbot">
@@ -595,9 +595,9 @@
   <div class="modal-in" style="max-width:560px">
     <button class="modal-close" id="lookupClose" aria-label="Đóng">✕</button>
     <div style="padding:30px 28px">
-      <div class="code" style="font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-mut)">Tra cứu đơn hàng</div>
+      <div class="code" style="font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-mut)">Đơn hàng của tôi</div>
       <h2 style="font-size:22px;font-weight:900;margin:8px 0 6px">Đơn của bạn đang ở đâu?</h2>
-      <p style="color:var(--ink-soft);font-size:14.5px;margin-bottom:18px">Nhập số điện thoại đặt hàng để xem trạng thái &amp; hành trình giao hàng.</p>
+      <p style="color:var(--ink-soft);font-size:14.5px;margin-bottom:18px">Nhập số điện thoại đặt hàng để xem trạng thái, hành trình giao hàng &amp; đánh giá sản phẩm khi đã nhận.</p>
       <div style="display:flex;gap:10px">
         <input id="lookupPhone" inputmode="tel" placeholder="Số điện thoại đặt hàng" style="flex:1;font-family:inherit;font-size:15px;padding:13px 14px;border:1.5px solid var(--line-strong);border-radius:11px;background:var(--surface-2);color:var(--ink)">
         <button id="lookupBtn" style="font-family:inherit;font-size:15px;font-weight:800;padding:0 22px;border-radius:11px;border:0;cursor:pointer;background:var(--brand);color:var(--btn-text)">Tra cứu</button>
@@ -993,21 +993,20 @@ document.documentElement.classList.add('js');
       document.getElementById('paidBtn').addEventListener('click',function(){ renderDrawer('done'); });
     } else if(view==='done'){
       dTitle.textContent='Đặt hàng thành công';
-      var okhtml='<div class="ok-box"><div class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div><h3>Cảm ơn bạn đã đặt hàng!</h3><p>Jebee đã nhận đơn và sẽ gọi xác nhận trong thời gian sớm nhất. Bạn cũng có thể nhắn Zalo để được hỗ trợ nhanh.</p></div>';
-      var rvhtml='';
-      (LAST.items||[]).forEach(function(it,idx){
-        rvhtml+='<div class="rv-form" id="rvf'+idx+'" data-ma="'+esc(it.ma)+'">'
-          +'<div class="lbl">Đánh giá: '+esc(it.ten)+'</div>'
-          +'<div class="starpick" data-sao="0">'+[1,2,3,4,5].map(function(k){return '<span data-k="'+k+'">★</span>';}).join('')+'</div>'
-          +'<textarea placeholder="Chia sẻ cảm nhận của bạn (không bắt buộc)"></textarea>'
-          +'<button class="send" type="button">Gửi đánh giá</button></div>';
-      });
-      dBody.innerHTML=okhtml
-        + (rvhtml ? '<div style="margin:16px 0 8px;font-weight:800;font-size:14.5px">Đánh giá sản phẩm bạn vừa mua 💛</div>'+rvhtml : '')
-        + '<div style="margin-top:16px;text-align:center"><a class="btn btn-zalo" href="'+ZALO+'" target="_blank" rel="noopener">Nhắn Zalo cho Jebee</a></div>';
+      var okhtml='<div class="ok-box"><div class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div><h3>Cảm ơn bạn đã đặt hàng!</h3><p>Jebee đã nhận đơn'+(LAST.madon?(' <b>#'+esc(String(LAST.madon))+'</b>'):'')+' và sẽ gọi xác nhận trong thời gian sớm nhất.</p></div>';
+      var itemsHtml=(LAST.items||[]).map(function(it){ return '<div style="font-size:13.5px;color:var(--ink-soft);padding:3px 0">• '+esc(it.ten)+'</div>'; }).join('');
+      var box='<div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:2px 0 14px">'
+        +'<div style="font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-mut);margin-bottom:8px">Đơn của bạn</div>'
+        + itemsHtml
+        +'<div style="display:flex;justify-content:space-between;font-size:14px;font-weight:800;margin-top:8px;padding-top:8px;border-top:1px solid var(--line)"><span>Tổng tiền</span><span style="color:var(--brand)">'+vnd(LAST.tong)+'</span></div>'
+        +'</div>';
+      dBody.innerHTML=okhtml + box
+        + '<button class="cobtn" id="viewMyOrders">📦 Xem đơn hàng của tôi</button>'
+        + '<div style="margin-top:10px;text-align:center"><a class="btn btn-zalo" href="'+ZALO+'" target="_blank" rel="noopener">Nhắn Zalo cho Jebee</a></div>'
+        + '<div style="font-size:12.5px;color:var(--ink-mut);text-align:center;margin-top:12px;line-height:1.5">Theo dõi vận chuyển & đánh giá sản phẩm (kèm hình) tại <b>“Đơn hàng của tôi”</b> khi đơn giao thành công 💛</div>';
       dFoot.innerHTML='<button class="cobtn" id="keepShop">Tiếp tục mua sắm</button>';
       document.getElementById('keepShop').addEventListener('click',closeDrawer);
-      wireReviewForms();
+      document.getElementById('viewMyOrders').addEventListener('click',function(){ closeDrawer(); openLookup(); });
     }
   }
   dBody.addEventListener('click',function(e){
@@ -1038,6 +1037,7 @@ document.documentElement.classList.add('js');
         if(res.ok && res.j && res.j.ok){
           var prods=[]; CART.forEach(function(i){ if(!prods.some(function(x){return x.ma===i.ma;})) prods.push({ma:i.ma, ten:i.ten}); });
           LAST={ tong:tong, phone:ph, name:name, madon:(res.j.madon||''), items:prods };
+          try{ localStorage.setItem('jb_phone',ph); localStorage.setItem('jb_name',name); }catch(e){}
           CART=[]; saveCart();
           renderDrawer(PAYM==='ck' ? 'payment' : 'done');
         }
@@ -1083,7 +1083,9 @@ document.documentElement.classList.add('js');
 
   // ---------- tra cứu đơn ----------
   var lookup=document.getElementById('lookup'), lookupPhone=document.getElementById('lookupPhone'), lookupResult=document.getElementById('lookupResult');
-  function openLookup(){ lookup.classList.add('show'); ovl.classList.add('show'); document.body.style.overflow='hidden'; setTimeout(function(){ lookupPhone.focus(); },50); }
+  function openLookup(){ lookup.classList.add('show'); ovl.classList.add('show'); document.body.style.overflow='hidden';
+    try{ var sp=localStorage.getItem('jb_phone'); if(sp && !lookupPhone.value){ lookupPhone.value=sp; doLookup(); } }catch(e){}
+    setTimeout(function(){ lookupPhone.focus(); },50); }
   function closeLookup(){ lookup.classList.remove('show'); if(!modal.classList.contains('show')&&!drawer.classList.contains('show')){ ovl.classList.remove('show'); document.body.style.overflow=''; } }
   var tl=document.getElementById('trackLink'), tlf=document.getElementById('trackLinkF');
   if(tl) tl.addEventListener('click',function(e){ e.preventDefault(); menuEl.classList.remove('open'); openLookup(); });
@@ -1104,9 +1106,20 @@ document.documentElement.classList.add('js');
     fetch('/api/tra-cuu?sdt='+encodeURIComponent(ph)).then(function(r){ return r.json(); }).then(function(j){
       if(!j.ok){ throw new Error(j.error||'loi'); }
       if(!j.don || !j.don.length){ lookupResult.innerHTML='<div style="text-align:center;padding:16px;color:var(--ink-soft);font-size:14.5px">Không tìm thấy đơn cho số này.<br>Cần hỗ trợ? <a href="'+ZALO+'" target="_blank" rel="noopener" style="color:var(--brand);font-weight:800">Nhắn Zalo</a>.</div>'; return; }
+      var VIDMAP={}; PRODUCTS.forEach(function(p){ (p.variations||[]).forEach(function(v){ if(v.id) VIDMAP[v.id]={ma:p.ma,ten:p.ten}; }); });
       lookupResult.innerHTML=j.don.map(function(o){
         var badge='<span style="display:inline-block;background:'+stColor(o.trang_thai)+';color:#fff;font-size:12px;font-weight:800;padding:3px 10px;border-radius:999px">'+o.trang_thai+'</span>';
-        var its=(o.items||[]).map(function(i){ return '<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--ink-soft);padding:2px 0"><span>'+i.ten+'</span><span>x'+i.sl+'</span></div>'; }).join('');
+        var canReview=/đã giao|đã nhận|hoàn tất|thành công/i.test(o.trang_thai||'');
+        var its=(o.items||[]).map(function(i){
+          var line='<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--ink-soft);padding:2px 0"><span>'+i.ten+'</span><span>x'+i.sl+'</span></div>';
+          if(canReview){ var pm=VIDMAP[i.vid];
+            if(pm){ var done=false; try{ done=!!localStorage.getItem('jb_rv_'+o.madon+'_'+pm.ma); }catch(e){}
+              if(done){ line+='<div style="font-size:12px;color:#1E8E4A;font-weight:700;padding:1px 0 6px">✓ Bạn đã đánh giá mẫu này</div>'; }
+              else{ line+='<div class="ordrv" data-ma="'+esc(pm.ma)+'" data-order="'+esc(String(o.madon))+'" data-ten="'+esc(pm.ten)+'"><button type="button" class="rvbtn" style="margin:2px 0 8px;font-size:12.5px;font-weight:800;color:var(--brand);background:var(--brand-tint);border:1px solid var(--brand);border-radius:8px;padding:5px 11px;cursor:pointer">⭐ Đánh giá sản phẩm này</button></div>'; }
+            }
+          }
+          return line;
+        }).join('');
         var vc='';
         if(o.ma_van_don||o.doi_tac_vc||o.tracking_link){
           vc='<div style="margin-top:8px;font-size:13px;color:var(--ink-soft)">'
@@ -1124,7 +1137,59 @@ document.documentElement.classList.add('js');
           +vc+tt
           +'</div>';
       }).join('');
+      wireOrderReviews();
     }).catch(function(){ lookupResult.innerHTML='<div style="text-align:center;padding:16px;color:var(--brand);font-size:14px">Tra cứu lỗi. Vui lòng thử lại hoặc nhắn Zalo.</div>'; });
+  }
+  // ----- Đánh giá sản phẩm từ "Đơn hàng của tôi" (chỉ đơn đã giao) — có upload ảnh khách -----
+  function resizeUpload(file){
+    return new Promise(function(resolve){
+      if(!file || !/^image\//.test(file.type||'')) return resolve(null);
+      var img=new Image(), url=URL.createObjectURL(file);
+      img.onload=function(){
+        var mx=1000, w=img.width, h=img.height;
+        if(w>mx||h>mx){ if(w>=h){ h=Math.round(h*mx/w); w=mx; } else { w=Math.round(w*mx/h); h=mx; } }
+        var c=document.createElement('canvas'); c.width=w; c.height=h;
+        c.getContext('2d').drawImage(img,0,0,w,h); URL.revokeObjectURL(url);
+        var data; try{ data=c.toDataURL('image/jpeg',0.72); }catch(e){ return resolve(null); }
+        fetch('/api/anh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({img:data})})
+          .then(function(r){return r.json();}).then(function(j){ resolve(j&&j.ok?j.url:null); }).catch(function(){ resolve(null); });
+      };
+      img.onerror=function(){ URL.revokeObjectURL(url); resolve(null); };
+      img.src=url;
+    });
+  }
+  function wireOrderReviews(){
+    lookupResult.querySelectorAll('.ordrv').forEach(function(box){
+      var btn=box.querySelector('.rvbtn'); if(!btn) return;
+      btn.addEventListener('click',function(){ buildRvForm(box); });
+    });
+  }
+  function buildRvForm(box){
+    var ma=box.getAttribute('data-ma'), order=box.getAttribute('data-order'), ten=box.getAttribute('data-ten');
+    box.innerHTML='<div style="background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:12px;margin:4px 0 10px">'
+      +'<div style="font-size:13px;font-weight:800;margin-bottom:6px">Đánh giá: '+esc(ten)+'</div>'
+      +'<div class="starpick" style="font-size:26px;letter-spacing:3px">'+[1,2,3,4,5].map(function(k){return '<span data-k="'+k+'" style="cursor:pointer;color:#d9d0c4">★</span>';}).join('')+'</div>'
+      +'<textarea placeholder="Chia sẻ cảm nhận của bạn (không bắt buộc)" style="width:100%;margin-top:8px;min-height:58px;border:1px solid var(--line);border-radius:10px;padding:8px;font-family:inherit;font-size:13.5px;box-sizing:border-box;background:var(--surface);color:var(--ink)"></textarea>'
+      +'<label style="display:inline-block;margin-top:8px;font-size:13px;color:var(--brand);font-weight:700;cursor:pointer">📷 Thêm ảnh (tối đa 4)<input type="file" accept="image/*" multiple style="display:none"></label>'
+      +'<div class="rvprev" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"></div>'
+      +'<button type="button" class="rvsend" style="margin-top:10px;width:100%;background:var(--brand);color:#fff;border:none;border-radius:10px;padding:10px;font-weight:800;font-family:inherit;cursor:pointer">Gửi đánh giá</button>'
+      +'</div>';
+    var picked=0, pick=box.querySelector('.starpick');
+    pick.querySelectorAll('span').forEach(function(sp){ sp.addEventListener('click',function(){ picked=parseInt(sp.getAttribute('data-k'),10); pick.querySelectorAll('span').forEach(function(x){ x.style.color=(parseInt(x.getAttribute('data-k'),10)<=picked)?'#F0B84B':'#d9d0c4'; }); }); });
+    var files=[], fi=box.querySelector('input[type=file]'), prev=box.querySelector('.rvprev');
+    function renderPrev(){ prev.innerHTML=''; files.forEach(function(f,ix){ var u=URL.createObjectURL(f); var d=document.createElement('div'); d.style.cssText='position:relative;width:52px;height:52px'; d.innerHTML='<img src="'+u+'" style="width:52px;height:52px;object-fit:cover;border-radius:8px;border:1px solid var(--line)"><span style="position:absolute;top:-6px;right:-6px;background:#B23B33;color:#fff;width:18px;height:18px;border-radius:50%;font-size:12px;line-height:18px;text-align:center;cursor:pointer">×</span>'; d.querySelector('span').addEventListener('click',function(){ files.splice(ix,1); renderPrev(); }); prev.appendChild(d); }); }
+    fi.addEventListener('change',function(){ Array.prototype.slice.call(fi.files).forEach(function(f){ if(files.length<4 && /^image\//.test(f.type||'')) files.push(f); }); renderPrev(); fi.value=''; });
+    box.querySelector('.rvsend').addEventListener('click',function(){
+      if(!picked){ toast('Vui lòng chọn số sao'); return; }
+      var sb=box.querySelector('.rvsend'); sb.disabled=true; sb.textContent='Đang gửi…';
+      var nm=(function(){ try{ return localStorage.getItem('jb_name')||'Khách'; }catch(e){ return 'Khách'; } })();
+      Promise.all(files.map(resizeUpload)).then(function(urls){
+        return fetch('/api/danh-gia',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ma:ma, sao:picked, ten:nm, noidung:(box.querySelector('textarea').value||''), anh:urls.filter(Boolean)})});
+      }).then(function(r){return r.json();}).then(function(j){
+        if(j&&j.ok){ try{ localStorage.setItem('jb_rv_'+order+'_'+ma,'1'); }catch(e){} box.innerHTML='<div style="color:#1E8E4A;font-weight:800;font-size:13.5px;padding:6px 0">✓ Cảm ơn bạn đã đánh giá! 💛</div>'; }
+        else{ throw new Error(); }
+      }).catch(function(){ var s2=box.querySelector('.rvsend'); if(s2){ s2.disabled=false; s2.textContent='Gửi đánh giá'; } toast('Chưa gửi được, thử lại nhé'); });
+    });
   }
   document.getElementById('lookupBtn').addEventListener('click',doLookup);
   lookupPhone.addEventListener('keydown',function(e){ if(e.key==='Enter') doLookup(); });
