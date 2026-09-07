@@ -82,7 +82,7 @@ export default async function handler(req, res) {
       const sao = Math.max(1, Math.min(5, parseInt(b.sao, 10) || 0));
       const ten = (b.ten || "Khách").toString().trim().slice(0, 40) || "Khách";
       const noidung = (b.noidung || "").toString().trim().slice(0, 500);
-      const anh = Array.isArray(b.anh) ? b.anh.filter(function (u) { return typeof u === "string" && /^https:\/\//.test(u); }).slice(0, 6) : [];
+      const anh = Array.isArray(b.anh) ? b.anh.filter(function (u) { return typeof u === "string" && (/^https:\/\//.test(u) || /^\/api\/anh\?id=[A-Za-z0-9]+$/.test(u)); }).slice(0, 6) : [];
       // luc: cho phep set ngay (seed du lieu moi) neu la ISO hop le trong vong 1 nam qua & khong o tuong lai; nguoc lai dung now.
       let luc = new Date().toISOString();
       if (b.luc) { const t = Date.parse(b.luc); const now = Date.now(); if (!isNaN(t) && t <= now && t >= now - 1200 * 864e5) luc = new Date(t).toISOString(); }

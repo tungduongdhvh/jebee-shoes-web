@@ -44,7 +44,7 @@ export default async function handler(req, res) {
       const p = o.partner || {};
       const items = (o.items || o.order_items || []).map(function (it) {
         const vi = it.variation_info || {};
-        return { ten: vi.name || vi.product_name || vi.product_display_id || "Sản phẩm", sl: it.quantity || 1, anh: imgUrl(vi.image || (vi.images && vi.images[0])) };
+        return { ten: vi.name || vi.product_name || vi.product_display_id || "Sản phẩm", sl: it.quantity || 1, anh: imgUrl(vi.image || (vi.images && vi.images[0])), vid: it.variation_id || vi.id || null };
       });
       // hanh trinh (status_history): chi giu cac buoc CO ma trang thai (bo cac dong ten nhan vien)
       let hanh_trinh = [];
