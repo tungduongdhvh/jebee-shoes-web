@@ -564,7 +564,7 @@
         <div class="code" id="pdCode"></div>
         <h2 id="pdName"></h2>
         <div class="pd-price"><span class="p" id="pdPrice"></span><span class="o" id="pdOld"></span><span class="d" id="pdDisc" style="display:none"></span></div>
-        <div class="sold"><span class="st">★</span> 4.8 · Freeship toàn quốc · Đổi size 15 ngày</div>
+        <div class="sold" id="pdSold"><span class="st">★</span> 4.8 · Freeship toàn quốc · Đổi size 15 ngày</div>
         <button type="button" class="pd-share" id="pdShare">🔗 Copy link đặt mẫu này</button>
         <div id="pdColorWrap"><div class="pd-lbl">Màu sắc: <span id="pdColorSel" style="color:var(--brand)"></span></div><div class="opts" id="pdColors"></div></div>
         <div id="pdSizeWrap"><div class="pd-lbl">Kích cỡ: <span id="pdSizeSel" style="color:var(--brand)"></span></div><div class="opts" id="pdSizes"></div></div>
@@ -744,6 +744,13 @@ document.documentElement.classList.add('js');
     var oEl=document.getElementById('pdOld'), dEl=document.getElementById('pdDisc');
     if(g[1]>g[0]){ oEl.textContent=vnd(g[1]); oEl.style.display=''; dEl.textContent='-'+Math.round((1-g[0]/g[1])*100)+'%'; dEl.style.display=''; }
     else{ oEl.style.display='none'; dEl.style.display='none'; }
+    // Lượt bán + sao THẬT (TikTok nền + đơn web) trong trang đặt hàng
+    var pdS=document.getElementById('pdSold');
+    if(pdS){
+      var sd=SOLD[p.ma.toUpperCase()]; var ag=(window.AGG||{})[p.ma.toUpperCase()];
+      if(sd){ var tong=sd.b+((ag&&ag.ban)||0); pdS.innerHTML='<span class="st">★</span> '+sd.s.toFixed(1).replace('.',',')+' · Đã bán '+fmtSold(tong)+' · Freeship toàn quốc'; }
+      else{ pdS.innerHTML='<span class="st">★</span> 4,8 · Freeship toàn quốc · Đổi size 15 ngày'; }
+    }
     // colors
     var cols=colorsOf(p);
     pdColors.innerHTML='';
