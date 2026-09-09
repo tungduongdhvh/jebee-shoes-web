@@ -256,6 +256,16 @@
   /* danh gia */
   .pd-reviews{padding:20px 28px 26px; border-top:1px solid var(--line)}
   .pd-reviews h3{font-size:16px; font-weight:900; margin-bottom:12px}
+  .pd-desc{padding:22px 28px; border-top:1px solid var(--line)}
+  .pd-desc h3{font-size:16px; font-weight:900; margin-bottom:12px}
+  .pd-desc .desc-body{font-size:14.5px; color:var(--ink-soft); line-height:1.65}
+  .pd-desc .desc-body p{margin:0 0 10px}
+  .pd-desc .desc-body a{color:var(--brand); font-weight:800}
+  .pd-desc .desc-h{font-weight:800; color:var(--ink); margin-top:16px}
+  .pd-desc .desc-feats{list-style:none; margin:6px 0 10px; padding:0}
+  .pd-desc .desc-feats li{padding:4px 0; color:var(--ink-soft)}
+  .pd-desc .desc-imgs{margin-top:14px}
+  .pd-desc .desc-imgs img{width:100%; border-radius:12px; display:block; margin:8px 0}
   .rv-avg{display:flex; align-items:center; gap:12px; margin-bottom:14px}
   .rv-avg .big{font-size:30px; font-weight:900; color:var(--brand); line-height:1}
   .rv-stars{color:var(--star); letter-spacing:2px; font-size:15px}
@@ -579,6 +589,7 @@
         <div class="pd-note"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:2px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>Chọn màu &amp; size để xem tồn kho thực tế. Cần tư vấn nhanh? <a href="https://zalo.me/0396589658" target="_blank" rel="noopener" style="color:var(--brand);font-weight:800">Nhắn Zalo</a>.</span></div>
       </div>
     </div>
+    <div class="pd-desc" id="pdDesc"></div>
     <div class="pd-reviews" id="pdReviews"></div>
   </div>
 </div>
@@ -662,6 +673,28 @@ document.documentElement.classList.add('js');
   };
   function gd(id){ return "https://lh3.googleusercontent.com/d/"+id+"=w1200"; }
   function driveImgs(ma){ var k=(ma||'').toUpperCase(); var a=GIMG[k]?GIMG[k].slice():[]; if(B29[k]){ if(a.length){ a[0]=B29[k]; } else { a=[B29[k]]; } } return a.map(gd); }
+  // Ảnh MÔ TẢ sản phẩm (sếp gửi bộ riêng): mã -> [fileId Drive], xếp dọc to như TikTok. Gắn khi sếp gửi.
+  var MOTA={};
+  function loadDesc(p){
+    var el=document.getElementById('pdDesc'); if(!el) return;
+    var m=(p.ten_goc||p.ten||'').match(/(\d{1,2}(?:[.,]\d)?)\s*cm/i); var cm=m?m[1].replace(',','.'):'7–13';
+    var ids=MOTA[(p.ma||'').toUpperCase()]||[];
+    var imgs=ids.map(function(id){ return '<img loading="lazy" src="'+gd(id)+'" alt="Mô tả '+esc(p.ma)+'">'; }).join('');
+    el.innerHTML='<h3>Mô tả sản phẩm</h3><div class="desc-body">'
+      +'<p><b>'+esc(p.ten)+'</b> — giày độn đế nữ giúp bạn <b>cao thêm '+cm+'cm</b> mà nhìn tự nhiên như dáng chân thật, không ai biết là giày độn.</p>'
+      +'<ul class="desc-feats">'
+      +'<li>👟 <b>Tăng chiều cao '+cm+'cm</b> kín đáo, tôn dáng tức thì</li>'
+      +'<li>☁️ <b>Đế PU siêu nhẹ</b>, đi êm chân cả ngày không mỏi</li>'
+      +'<li>✨ <b>Chất liệu cao cấp</b>, đường may chắc chắn, form chuẩn đẹp</li>'
+      +'<li>🛡️ <b>Hàng thật 100%</b> — được kiểm tra hàng trước khi nhận</li>'
+      +'</ul>'
+      +'<p class="desc-h">📏 Hướng dẫn chọn size</p>'
+      +'<p>Đo chiều dài bàn chân (cm) rồi đối chiếu bảng size của shop. Nếu ở giữa 2 size hoặc còn phân vân, <a href="'+ZALO+'" target="_blank" rel="noopener">nhắn Zalo</a> để Jebee tư vấn 1-1 nhanh nhất.</p>'
+      +'<p class="desc-h">🚚 Cam kết &amp; chính sách</p>'
+      +'<ul class="desc-feats"><li>✅ Freeship toàn quốc</li><li>✅ Đổi size trong 15 ngày nếu không vừa</li><li>✅ Bảo hành đế 12 tháng</li><li>✅ Đóng gói cẩn thận, giao nhanh</li></ul>'
+      +(imgs?('<div class="desc-imgs">'+imgs+'</div>'):'')
+      +'</div>';
+  }
   function vnd(n){ return (n||0).toLocaleString('vi-VN')+'₫'; }
   function heightBucket(name){
     var m=(name||'').match(/(\d{1,2})\s*cm/i); if(!m) return '';
@@ -764,6 +797,7 @@ document.documentElement.classList.add('js');
     document.getElementById('pdColorWrap').style.display=(cols.length===1&&cols[0]==='Mặc định')?'none':'';
     setGallery(allImagesOf(p));   // dải ảnh: banner + thành phần (Drive) + ảnh màu (POS)
     selectColor(cols[0], true);   // giữ ảnh to = BANNER khi mới mở (không nhảy sang ảnh màu)
+    loadDesc(p);
     loadReviews(p.ma);
     // Link riêng cho mẫu (deep-link cho quảng cáo) — cập nhật URL + reset nút copy
     try{ history.replaceState(null,'', '/?sp='+encodeURIComponent(p.ma)); }catch(e){}
