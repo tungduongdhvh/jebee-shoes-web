@@ -10,6 +10,26 @@ export default async function handler(req, res) {
 
   // ----- GET: doc thu cau truc don (an toan) -----
   if (req.method === "GET") {
+    // debug tam: liet ke nhan vien (de map nv-> user_id)
+    if (req.query && req.query.users) {
+      try {
+        const r = await fetch(base + "/users?api_key=" + encodeURIComponent(key));
+        const t = await r.text(); let j = null; try { j = JSON.parse(t); } catch (e) {}
+        const list = (j && (j.data || j.users || j.entries)) || [];
+        return res.status(200).json({ http: r.status, n: list.length, users: list.map(function (u) { return { id: u.id, name: u.name || u.fb_name || u.username || u.email }; }), raw: (j ? undefined : t.slice(0, 200)) });
+      } catch (e) { return res.status(500).json({ error: String((e && e.message) || e) }); }
+    }
+    // debug tam: xem truong "phan cong" tren 1 don gan nhat
+    if (req.query && req.query.assignkeys) {
+      try {
+        const r = await fetch(base + "/orders?api_key=" + encodeURIComponent(key) + "&page_size=1&page=1");
+        const t = await r.text(); let j = null; try { j = JSON.parse(t); } catch (e) {}
+        const o = ((j && (j.data || j.orders || j.entries)) || [])[0] || {};
+        const asg = {};
+        Object.keys(o).forEach(function (k) { if (/assign|seller|assignee|marketer|staff|creator|handler/i.test(k)) asg[k] = o[k]; });
+        return res.status(200).json({ http: r.status, assign_fields: asg, all_keys: Object.keys(o) });
+      } catch (e) { return res.status(500).json({ error: String((e && e.message) || e) }); }
+    }
     try {
       const r = await fetch(base + "/orders?api_key=" + encodeURIComponent(key) + "&page_size=1&page=1");
       const text = await r.text();
