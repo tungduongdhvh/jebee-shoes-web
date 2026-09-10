@@ -60,8 +60,18 @@ export default async function handler(req, res) {
 
     const pay = b.thanhtoan === "ck" ? "Chuyen khoan (QR)" : "COD";
     const dong = (b.items || []).map(function (x) { return (x.ma || "") + " " + (x.mau || "") + " sz" + (x.size || "") + " x" + x.qty; }).join("; ");
+    // NGUON don (nhan vien / page fb / chien dich) tu link quang cao
+    var ngLine = " | NGUON: truc tiep/khong ro";
+    try {
+      const ng = b.nguon || {};
+      const parts = [];
+      ["nv", "page", "pg", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"].forEach(function (kk) {
+        if (ng[kk]) parts.push(kk + "=" + String(ng[kk]).replace(/[|]/g, "/").slice(0, 80));
+      });
+      if (parts.length) ngLine = " | NGUON: " + parts.join("; ");
+    } catch (e) {}
     const note = "[WEB jebeeshoes.vn] TT:" + pay + " | " + k.ten + " | " + k.sdt + " | " + k.diachi
-      + (k.ghichu ? " | Ghi chu: " + k.ghichu : "") + " | " + dong + " | Tong ~" + (b.tong || 0);
+      + (k.ghichu ? " | Ghi chu: " + k.ghichu : "") + " | " + dong + " | Tong ~" + (b.tong || 0) + ngLine;
 
     const payload = {
       items: items,
