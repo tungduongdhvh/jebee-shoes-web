@@ -16,7 +16,8 @@ export default async function handler(req, res) {
         const r = await fetch(base + "/users?api_key=" + encodeURIComponent(key));
         const t = await r.text(); let j = null; try { j = JSON.parse(t); } catch (e) {}
         const list = (j && (j.data || j.users || j.entries)) || [];
-        return res.status(200).json({ http: r.status, n: list.length, users: list.map(function (u) { return { id: u.id, name: u.name || u.fb_name || u.username || u.email }; }), raw: (j ? undefined : t.slice(0, 200)) });
+        const nm = function (u) { const x = u.user || u; return x.name || x.full_name || x.display_name || x.fb_name || x.username || x.email || (x.user_id && x.user_id.name) || ""; };
+        return res.status(200).json({ http: r.status, n: list.length, sample_keys: Object.keys(list[0] || {}), users: list.map(function (u) { return { id: u.id || (u.user && u.user.id), name: nm(u) }; }), raw: (j ? undefined : t.slice(0, 200)) });
       } catch (e) { return res.status(500).json({ error: String((e && e.message) || e) }); }
     }
     // debug tam: xem truong "phan cong" tren 1 don gan nhat
