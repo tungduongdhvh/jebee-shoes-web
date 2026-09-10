@@ -10,27 +10,6 @@ export default async function handler(req, res) {
 
   // ----- GET: doc thu cau truc don (an toan) -----
   if (req.method === "GET") {
-    // debug tam: liet ke nhan vien (de map nv-> user_id)
-    if (req.query && req.query.users) {
-      try {
-        const r = await fetch(base + "/users?api_key=" + encodeURIComponent(key));
-        const t = await r.text(); let j = null; try { j = JSON.parse(t); } catch (e) {}
-        const list = (j && (j.data || j.users || j.entries)) || [];
-        const nm = function (u) { const x = u.user || u; return x.name || x.full_name || x.display_name || x.fb_name || x.username || x.email || (x.user_id && x.user_id.name) || ""; };
-        return res.status(200).json({ http: r.status, n: list.length, users: list.map(function (u) { return { name: nm(u), user_id: u.user_id || (u.user && u.user.id), role: u.role }; }), raw: (j ? undefined : t.slice(0, 200)) });
-      } catch (e) { return res.status(500).json({ error: String((e && e.message) || e) }); }
-    }
-    // debug tam: xem truong "phan cong" tren 1 don gan nhat
-    if (req.query && req.query.assignkeys) {
-      try {
-        const r = await fetch(base + "/orders?api_key=" + encodeURIComponent(key) + "&page_size=1&page=1");
-        const t = await r.text(); let j = null; try { j = JSON.parse(t); } catch (e) {}
-        const o = ((j && (j.data || j.orders || j.entries)) || [])[0] || {};
-        const asg = {};
-        Object.keys(o).forEach(function (k) { if (/assign|seller|assignee|marketer|staff|creator|handler/i.test(k)) asg[k] = o[k]; });
-        return res.status(200).json({ http: r.status, assign_fields: asg, all_keys: Object.keys(o) });
-      } catch (e) { return res.status(500).json({ error: String((e && e.message) || e) }); }
-    }
     try {
       const r = await fetch(base + "/orders?api_key=" + encodeURIComponent(key) + "&page_size=1&page=1");
       const text = await r.text();
@@ -82,9 +61,9 @@ export default async function handler(req, res) {
     const pay = b.thanhtoan === "ck" ? "Chuyen khoan (QR)" : "COD";
     const dong = (b.items || []).map(function (x) { return (x.ma || "") + " " + (x.mau || "") + " sz" + (x.size || "") + " x" + x.qty; }).join("; ");
     // NGUON don (nhan vien / page fb / chien dich) tu link quang cao
+    const ng = b.nguon || {};
     var ngLine = " | NGUON: truc tiep/khong ro";
     try {
-      const ng = b.nguon || {};
       const parts = [];
       ["nv", "page", "pg", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"].forEach(function (kk) {
         if (ng[kk]) parts.push(kk + "=" + String(ng[kk]).replace(/[|]/g, "/").slice(0, 80));
@@ -93,6 +72,15 @@ export default async function handler(req, res) {
     } catch (e) {}
     const note = "[WEB jebeeshoes.vn] TT:" + pay + " | " + k.ten + " | " + k.sdt + " | " + k.diachi
       + (k.ghichu ? " | Ghi chu: " + k.ghichu : "") + " | " + dong + " | Tong ~" + (b.tong || 0) + ngLine;
+
+    // PHAN CONG tu dong: map ma nhan vien (nv=) -> user_id POS (assigning_seller_id)
+    // Link ads cua tung nhan vien: https://jebeeshoes.vn/?nv=<ma>&page=<ten_page>
+    const NVMAP = {
+      hoa: "fa19314b-e5d1-47eb-a482-904e5009577b",   // Vu Kieu Hoa
+      hoanh: "695e759d-04a9-42cd-ad3f-efb1de29db74"   // Truong Hoanh
+    };
+    const nvCode = String(ng.nv || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+    const sellerId = NVMAP[nvCode] || null;
 
     const payload = {
       items: items,
@@ -106,6 +94,14 @@ export default async function handler(req, res) {
       bill_phone_number: k.sdt,
       customer: { name: k.ten, phone_number: k.sdt }
     };
+    // Tu dong phan cong don cho dung nhan vien chay ads
+    if (sellerId) payload.assigning_seller_id = sellerId;
+    // Ghi nguon native cua Pancake (de loc/thong ke tren POS) — best-effort
+    if (ng.utm_source || ng.nv) payload.p_utm_source = String(ng.utm_source || ("nv_" + nvCode)).slice(0, 80);
+    if (ng.utm_medium) payload.p_utm_medium = String(ng.utm_medium).slice(0, 80);
+    if (ng.utm_campaign) payload.p_utm_campaign = String(ng.utm_campaign).slice(0, 80);
+    if (ng.utm_content) payload.p_utm_content = String(ng.utm_content).slice(0, 80);
+    if (ng.utm_term) payload.p_utm_term = String(ng.utm_term).slice(0, 80);
 
     const url = base + "/orders?api_key=" + encodeURIComponent(key);
     const post = async function (pl) {
@@ -115,9 +111,11 @@ export default async function handler(req, res) {
       return { rr: rr, tt: tt, jj: jj };
     };
     let { rr: r, tt: text, jj: j } = await post(payload);
-    // Neu that bai va co the -> tao lai KHONG the (thang the la best-effort, khong pha vo don)
-    if ((!r.ok || (j && j.success === false)) && payload.tags) {
-      const pl2 = Object.assign({}, payload); delete pl2.tags;
+    // Neu that bai -> tao lai bo cac field phu (the, phan cong, utm) — best-effort, KHONG pha vo don
+    if (!r.ok || (j && j.success === false)) {
+      const pl2 = Object.assign({}, payload);
+      delete pl2.tags; delete pl2.assigning_seller_id;
+      delete pl2.p_utm_source; delete pl2.p_utm_medium; delete pl2.p_utm_campaign; delete pl2.p_utm_content; delete pl2.p_utm_term;
       ({ rr: r, tt: text, jj: j } = await post(pl2));
     }
     if (!r.ok || (j && j.success === false)) {
