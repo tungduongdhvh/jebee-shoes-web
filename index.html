@@ -20,6 +20,16 @@ fbq('track', 'PageView');
 src="https://www.facebook.com/tr?id=1610885197344731&ev=PageView&noscript=1"
 /></noscript>
 <!-- End Meta Pixel Code -->
+<script>
+/* Ghi nhận NGUỒN đơn (nhân viên / page facebook / chiến dịch) từ tham số link quảng cáo — chạy sớm trước khi URL bị đổi */
+(function(){ try{
+  var q=new URLSearchParams(location.search||'');
+  var keys=['nv','page','pg','utm_source','utm_medium','utm_campaign','utm_content','utm_term','fbclid'];
+  var g={}, has=false;
+  keys.forEach(function(k){ var v=q.get(k); if(v){ g[k]=String(v).slice(0,80); has=true; } });
+  if(has){ g._t=new Date().toISOString().slice(0,10); g._ref=(document.referrer||'').slice(0,100); localStorage.setItem('jb_src', JSON.stringify(g)); }
+}catch(e){} })();
+</script>
 <meta name="description" content="Jebee Shoes – giày độn đế nữ, giày tăng chiều cao nữ cao 7–13cm: sneaker độn đế nữ, giày thể thao nữ tăng chiều cao, giày Quảng Châu loại 1. Đế PU siêu nhẹ, êm chân, freeship toàn quốc, đổi size 15 ngày.">
 <meta name="keywords" content="giày nữ độn đế, giày đế độn nữ, giày độn đế nữ, giày tăng chiều cao nữ, giày thể thao nữ tăng chiều cao, sneaker độn đế nữ, giày quảng châu loại 1, giày thời trang nữ độn đế, Jebee Shoes">
 <meta name="robots" content="index, follow, max-image-preview:large">
@@ -1112,9 +1122,11 @@ document.documentElement.classList.add('js');
     var ph=phone.replace(/\s/g,'');
     var btn=document.getElementById('placeOrder'); btn.disabled=true; btn.textContent='Đang gửi đơn…';
     var tong=cartTotal();
+    var nguon=null; try{ nguon=JSON.parse(localStorage.getItem('jb_src')||'null'); }catch(e){}
     var payload={ khach:{ ten:name, sdt:ph, diachi:addr, ghichu:note },
       thanhtoan:PAYM,
       items:CART.map(function(i){ return { variation_id:i.vid, sku:i.sku, ma:i.ma, ten:i.ten, mau:i.mau, size:i.size, gia:i.gia, gia_pos:i.gia_pos, qty:i.qty }; }),
+      nguon:nguon,
       tong:tong };
     fetch('/api/dat-hang',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) })
       .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
