@@ -3,6 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Meta Pixel Code -->
+<script>
+!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)}(window, document,'script',
+'https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', '1610885197344731');
+fbq('track', 'PageView');
+</script>
+<noscript><img height="1" width="1" style="display:none"
+src="https://www.facebook.com/tr?id=1610885197344731&ev=PageView&noscript=1"
+/></noscript>
+<!-- End Meta Pixel Code -->
 <meta name="description" content="Jebee Shoes – giày độn đế nữ, giày tăng chiều cao nữ cao 7–13cm: sneaker độn đế nữ, giày thể thao nữ tăng chiều cao, giày Quảng Châu loại 1. Đế PU siêu nhẹ, êm chân, freeship toàn quốc, đổi size 15 ngày.">
 <meta name="keywords" content="giày nữ độn đế, giày đế độn nữ, giày độn đế nữ, giày tăng chiều cao nữ, giày thể thao nữ tăng chiều cao, sneaker độn đế nữ, giày quảng châu loại 1, giày thời trang nữ độn đế, Jebee Shoes">
 <meta name="robots" content="index, follow, max-image-preview:large">
@@ -996,7 +1013,9 @@ document.documentElement.classList.add('js');
     var ex=CART.filter(function(i){return i.key===key;})[0];
     if(ex){ ex.qty=Math.min(ex.qty+q, v.ton); }
     else{ CART.push({ key:key, ma:p.ma, ten:p.ten, mau:SEL.color, size:SEL.size, gia:g[0], gia_pos:(v.gia||0), qty:Math.min(q,v.ton), anh:(imgsForColor(p,SEL.color)[0]||p.anh||''), vid:v.id, sku:v.sku, ton:v.ton }); }
-    saveCart(); return true;
+    saveCart();
+    try{ if(window.fbq) fbq('track','AddToCart',{value:(g[0]*q), currency:'VND', content_type:'product', content_ids:[p.ma]}); }catch(e){}
+    return true;
   }
   document.getElementById('btnAdd').addEventListener('click',function(){ if(addToCart()){ toast('Đã thêm vào giỏ 🛒'); } });
   document.getElementById('btnBuy').addEventListener('click',function(){ if(addToCart()){ closeModal(); openDrawer('checkout'); } });
@@ -1023,6 +1042,7 @@ document.documentElement.classList.add('js');
       document.getElementById('toCheckout').addEventListener('click',function(){ renderDrawer('checkout'); });
     } else if(view==='checkout'){
       dTitle.textContent='Thông tin đặt hàng'; PAYM='cod';
+      try{ if(window.fbq) fbq('track','InitiateCheckout',{value:cartTotal(), currency:'VND', num_items:CART.length}); }catch(e){}
       dBody.innerHTML='<button class="backlink" id="backCart">← Về giỏ hàng</button>'+
         '<div class="field"><label>Họ và tên *</label><input id="fName" placeholder="Nguyễn Thị A"></div>'+
         '<div class="field"><label>Số điện thoại *</label><input id="fPhone" inputmode="tel" placeholder="09xx xxx xxx"></div>'+
@@ -1103,6 +1123,8 @@ document.documentElement.classList.add('js');
           var prods=[]; CART.forEach(function(i){ if(!prods.some(function(x){return x.ma===i.ma;})) prods.push({ma:i.ma, ten:i.ten}); });
           LAST={ tong:tong, phone:ph, name:name, madon:(res.j.madon||''), items:prods };
           try{ localStorage.setItem('jb_phone',ph); localStorage.setItem('jb_name',name); }catch(e){}
+          // Meta Pixel: ghi nhận CHUYỂN ĐỔI (đơn hàng) cho Ads Manager
+          try{ if(window.fbq) fbq('track','Purchase',{value:tong, currency:'VND', content_type:'product', num_items:(prods.length||1)}); }catch(e){}
           CART=[]; saveCart();
           renderDrawer(PAYM==='ck' ? 'payment' : 'done');
         }
