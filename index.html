@@ -870,6 +870,7 @@ document.documentElement.classList.add('js');
     // Link riêng cho mẫu (deep-link cho quảng cáo) — cập nhật URL + reset nút copy
     try{ history.replaceState(null,'', '/?sp='+encodeURIComponent(p.ma)); }catch(e){}
     var sh=document.getElementById('pdShare'); if(sh){ sh.classList.remove('done'); sh.textContent='🔗 Copy link đặt mẫu này'; }
+    try{ if(window.gtag) gtag('event','view_item',{currency:'VND', value:g[0], items:[{item_id:p.ma, item_name:p.ten, price:g[0]}]}); }catch(e){}
     modal.classList.add('show'); ovl.classList.add('show'); document.body.style.overflow='hidden';
   }
   function selectColor(color, keepMain){
@@ -1035,6 +1036,7 @@ document.documentElement.classList.add('js');
     else{ CART.push({ key:key, ma:p.ma, ten:p.ten, mau:SEL.color, size:SEL.size, gia:g[0], gia_pos:(v.gia||0), qty:Math.min(q,v.ton), anh:(imgsForColor(p,SEL.color)[0]||p.anh||''), vid:v.id, sku:v.sku, ton:v.ton }); }
     saveCart();
     try{ if(window.fbq) fbq('track','AddToCart',{value:(g[0]*q), currency:'VND', content_type:'product', content_ids:[p.ma]}); }catch(e){}
+    try{ if(window.gtag) gtag('event','add_to_cart',{currency:'VND', value:(g[0]*q), items:[{item_id:p.ma, item_name:p.ten, price:g[0], quantity:q}]}); }catch(e){}
     return true;
   }
   document.getElementById('btnAdd').addEventListener('click',function(){ if(addToCart()){ toast('Đã thêm vào giỏ 🛒'); } });
@@ -1063,6 +1065,7 @@ document.documentElement.classList.add('js');
     } else if(view==='checkout'){
       dTitle.textContent='Thông tin đặt hàng'; PAYM='cod';
       try{ if(window.fbq) fbq('track','InitiateCheckout',{value:cartTotal(), currency:'VND', num_items:CART.length}); }catch(e){}
+      try{ if(window.gtag) gtag('event','begin_checkout',{currency:'VND', value:cartTotal(), items:CART.map(function(i){return {item_id:i.ma, item_name:i.ten, price:i.gia, quantity:i.qty};})}); }catch(e){}
       dBody.innerHTML='<button class="backlink" id="backCart">← Về giỏ hàng</button>'+
         '<div class="field"><label>Họ và tên *</label><input id="fName" placeholder="Nguyễn Thị A"></div>'+
         '<div class="field"><label>Số điện thoại *</label><input id="fPhone" inputmode="tel" placeholder="09xx xxx xxx"></div>'+
@@ -1147,6 +1150,7 @@ document.documentElement.classList.add('js');
           try{ localStorage.setItem('jb_phone',ph); localStorage.setItem('jb_name',name); }catch(e){}
           // Meta Pixel: ghi nhận CHUYỂN ĐỔI (đơn hàng) cho Ads Manager
           try{ if(window.fbq) fbq('track','Purchase',{value:tong, currency:'VND', content_type:'product', num_items:(prods.length||1)}); }catch(e){}
+          try{ if(window.gtag) gtag('event','purchase',{transaction_id:(res.j.madon||('JB'+Date.now())), currency:'VND', value:tong, items:CART.map(function(i){return {item_id:i.ma, item_name:i.ten, price:i.gia, quantity:i.qty};})}); }catch(e){}
           CART=[]; saveCart();
           renderDrawer(PAYM==='ck' ? 'payment' : 'done');
         }
