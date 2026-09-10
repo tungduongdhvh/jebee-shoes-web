@@ -62,25 +62,32 @@ export default async function handler(req, res) {
     const dong = (b.items || []).map(function (x) { return (x.ma || "") + " " + (x.mau || "") + " sz" + (x.size || "") + " x" + x.qty; }).join("; ");
     // NGUON don (nhan vien / page fb / chien dich) tu link quang cao
     const ng = b.nguon || {};
+    // PHAN CONG tu dong: map ma nhan vien (nv=) -> user_id POS (assigning_seller_id) + ten page FB
+    // Link ads tung mau: https://jebeeshoes.vn/?sp=<MA>&nv=<ma_nv>
+    const NVMAP = {
+      hoa: "fa19314b-e5d1-47eb-a482-904e5009577b",   // Vu Kieu Hoa
+      hoanh: "695e759d-04a9-42cd-ad3f-efb1de29db74"   // Truong Hoanh
+    };
+    const NVNAME = { hoa: "Vu Kieu Hoa", hoanh: "Truong Hoanh" };
+    const NVPAGE = {
+      hoa: "Anh Giay Don - QC Cao Cap",             // page cua Vu Kieu Hoa
+      hoanh: "Jebee Shoes - Vua Giay Don Cao Cap"   // page cua Truong Hoanh
+    };
+    const nvCode = String(ng.nv || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+    const sellerId = NVMAP[nvCode] || null;
+    // Tu dong dien ten page + ten nhan vien theo nv (neu link khong ghi san page)
+    if (sellerId) { if (!ng.page && NVPAGE[nvCode]) ng.page = NVPAGE[nvCode]; ng.nvname = NVNAME[nvCode]; }
+
     var ngLine = " | NGUON: truc tiep/khong ro";
     try {
       const parts = [];
-      ["nv", "page", "pg", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"].forEach(function (kk) {
+      ["nv", "nvname", "page", "pg", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"].forEach(function (kk) {
         if (ng[kk]) parts.push(kk + "=" + String(ng[kk]).replace(/[|]/g, "/").slice(0, 80));
       });
       if (parts.length) ngLine = " | NGUON: " + parts.join("; ");
     } catch (e) {}
     const note = "[WEB jebeeshoes.vn] TT:" + pay + " | " + k.ten + " | " + k.sdt + " | " + k.diachi
       + (k.ghichu ? " | Ghi chu: " + k.ghichu : "") + " | " + dong + " | Tong ~" + (b.tong || 0) + ngLine;
-
-    // PHAN CONG tu dong: map ma nhan vien (nv=) -> user_id POS (assigning_seller_id)
-    // Link ads cua tung nhan vien: https://jebeeshoes.vn/?nv=<ma>&page=<ten_page>
-    const NVMAP = {
-      hoa: "fa19314b-e5d1-47eb-a482-904e5009577b",   // Vu Kieu Hoa
-      hoanh: "695e759d-04a9-42cd-ad3f-efb1de29db74"   // Truong Hoanh
-    };
-    const nvCode = String(ng.nv || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
-    const sellerId = NVMAP[nvCode] || null;
 
     const payload = {
       items: items,
