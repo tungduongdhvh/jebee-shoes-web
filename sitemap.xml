@@ -8,9 +8,21 @@
   </url>
   <url>
     <loc>https://jebeeshoes.vn/blog.html</loc>
-    <lastmod>2026-09-10</lastmod>
+    <lastmod>2026-09-11</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://jebeeshoes.vn/blog-tu-ti-chieu-cao.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://jebeeshoes.vn/blog-dau-chan-cao-got.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
   </url>
   <url>
     <loc>https://jebeeshoes.vn/blog-do-chan-chon-size.html</loc>
