@@ -752,14 +752,31 @@ document.documentElement.classList.add('js');
   function gd(id){ return "https://lh3.googleusercontent.com/d/"+id+"=w1200"; }
   function driveImgs(ma){ var k=(ma||'').toUpperCase(); var a=GIMG[k]?GIMG[k].slice():[]; if(B29[k]){ if(a.length){ a[0]=B29[k]; } else { a=[B29[k]]; } } return a.map(gd); }
   // Ảnh MÔ TẢ sản phẩm (sếp gửi bộ riêng): mã -> [fileId Drive], xếp dọc to như TikTok. Gắn khi sếp gửi.
-  var MOTA={};
+  var MOTA={
+    JB02:["1uZiY5tX5GLJ6RtlNh0Vv8YFxTK7NHX7m","129_sRgffIFu1sB_IUtrAlW7YOqWVu8o7","1Q_d5uErbL4Ry4AkL8_bxqJOIDTcgusOF","1ggnq0w28s6jlouQxdEHk3QdYczuFD5Va","1hVyJgMiw3BpgDHnaHOpjlD02U7LX3a13","18DcdPK3rbPTFZ7yW8tv_wOR4U2wtqKyq","1z6whGQgmsu26JltM9Nk0wgRzNfuUwpP3"]
+  };
+  // Mô tả THẬT theo tài liệu sản phẩm Jebee (Drive): mã -> HTML mô tả
+  var DESC={
+    JB02:'<p><b>SANDAL NỮ ĐẾ XUỒNG JEBEE JB02 – HACK DÁNG 9CM</b><br><span style="color:var(--ink-soft)">Siêu nhẹ · Chống nước · Phong cách tối giản &amp; đường phố</span></p>'
+      +'<p>Bạn muốn sở hữu đôi chân dài miên man và phong cách trẻ trung như các "nàng thơ" Hoa Ngữ? Siêu phẩm <b>Sandal JB02</b> từ <b>Jebee Shoes</b> chính là bí quyết giúp bạn thăng hạng nhan sắc, tự tin sải bước với chiều cao đột phá nhưng vẫn cực kỳ thoải mái.</p>'
+      +'<p class="desc-h">✨ Vì sao JB02 là "siêu phẩm" hot trend?</p>'
+      +'<ul class="desc-feats"><li><b>Hack dáng 9cm:</b> đế xuồng dày 9cm cao thêm tự nhiên, dàn đều trọng lượng nên đi cả ngày vẫn nhẹ, không mỏi.</li><li><b>Chất liệu EVA cao cấp:</b> siêu nhẹ, đàn hồi cao, <b>chống thấm nước tuyệt đối</b> — thoải mái đi mưa, đi biển.</li><li><b>Đế chống trượt:</b> vân rãnh thông minh tăng ma sát, an toàn trên mọi địa hình.</li><li><b>Phong cách "nàng thơ":</b> khỏe khoắn, dễ thương, tối giản — dễ phối từ váy maxi đến quần short.</li><li><b>Êm ái tối đa:</b> lòng dép ôm khít bàn chân, nâng niu mọi bước đi.</li></ul>'
+      +'<p class="desc-h">📋 Thông tin chi tiết</p>'
+      +'<ul class="desc-feats"><li><b>Thương hiệu:</b> Jebee Shoes</li><li><b>Mã sản phẩm:</b> JB02</li><li><b>Chất liệu:</b> EVA cao cấp (siêu nhẹ, chống nước)</li><li><b>Chiều cao đế:</b> 9cm</li><li><b>Phong cách:</b> Hàn Quốc, dễ thương, streetwear</li><li><b>Kích cỡ:</b> 35–39 (form chuẩn)</li></ul>'
+      +'<p class="desc-h">📏 Tư vấn chọn size</p>'
+      +'<p>Hàng chuẩn size — chọn đúng size dép thường đi hàng ngày là vừa. Mu bàn chân dày hoặc cần tư vấn kỹ hơn, <a href="https://zalo.me/0396589658" target="_blank" rel="noopener">nhắn Zalo</a> để Jebee hỗ trợ 24/7.</p>'
+      +'<p class="desc-h">🎁 Quyền lợi khi mua tại Jebee</p>'
+      +'<ul class="desc-feats"><li>✅ Hàng chuẩn mẫu, y hình &amp; video (mới 2025)</li><li>✅ Chất liệu EVA xịn, không mùi, cực bền</li><li>✅ Giao nhanh, đóng gói cẩn thận, ship hỏa tốc</li></ul>'
+      +'<p class="desc-h">🧼 Mẹo bảo quản</p>'
+      +'<p>Chất EVA chống nước nên dễ vệ sinh bằng xà phòng loãng. Tránh phơi nắng gắt quá lâu để giữ màu và form dáng.</p>'
+  };
   function loadDesc(p){
     var el=document.getElementById('pdDesc'); if(!el) return;
     var m=(p.ten_goc||p.ten||'').match(/(\d{1,2}(?:[.,]\d)?)\s*cm/i); var cm=m?m[1].replace(',','.'):'7–13';
     var ids=MOTA[(p.ma||'').toUpperCase()]||[];
     var imgs=ids.map(function(id){ return '<img loading="lazy" src="'+gd(id)+'" alt="Mô tả '+esc(p.ma)+'">'; }).join('');
-    el.innerHTML='<h3>Mô tả sản phẩm</h3><div class="desc-body">'
-      +'<p><b>'+esc(p.ten)+'</b> — giày độn đế nữ giúp bạn <b>cao thêm '+cm+'cm</b> mà nhìn tự nhiên như dáng chân thật, không ai biết là giày độn.</p>'
+    var real=DESC[(p.ma||'').toUpperCase()];
+    var body=real||('<p><b>'+esc(p.ten)+'</b> — giày độn đế nữ giúp bạn <b>cao thêm '+cm+'cm</b> mà nhìn tự nhiên như dáng chân thật, không ai biết là giày độn.</p>'
       +'<ul class="desc-feats">'
       +'<li>👟 <b>Tăng chiều cao '+cm+'cm</b> kín đáo, tôn dáng tức thì</li>'
       +'<li>☁️ <b>Đế PU siêu nhẹ</b>, đi êm chân cả ngày không mỏi</li>'
@@ -769,7 +786,8 @@ document.documentElement.classList.add('js');
       +'<p class="desc-h">📏 Hướng dẫn chọn size</p>'
       +'<p>Đo chiều dài bàn chân (cm) rồi đối chiếu bảng size của shop. Nếu ở giữa 2 size hoặc còn phân vân, <a href="'+ZALO+'" target="_blank" rel="noopener">nhắn Zalo</a> để Jebee tư vấn 1-1 nhanh nhất.</p>'
       +'<p class="desc-h">🚚 Cam kết &amp; chính sách</p>'
-      +'<ul class="desc-feats"><li>✅ Freeship toàn quốc</li><li>✅ Đổi size trong 15 ngày nếu không vừa</li><li>✅ Bảo hành đế 12 tháng</li><li>✅ Đóng gói cẩn thận, giao nhanh</li></ul>'
+      +'<ul class="desc-feats"><li>✅ Freeship toàn quốc</li><li>✅ Đổi size trong 15 ngày nếu không vừa</li><li>✅ Bảo hành đế 12 tháng</li><li>✅ Đóng gói cẩn thận, giao nhanh</li></ul>');
+    el.innerHTML='<h3>Mô tả sản phẩm</h3><div class="desc-body">'+body
       +(imgs?('<div class="desc-imgs">'+imgs+'</div>'):'')
       +'</div>';
   }
