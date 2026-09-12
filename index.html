@@ -141,7 +141,9 @@ src="https://www.facebook.com/tr?id=1610885197344731&ev=PageView&noscript=1"
   .chip b{color:var(--ink)}
   .hero-media{position:relative}
   .hero-media .frame{border-radius:24px; overflow:hidden; box-shadow:var(--shadow-lift); border:1px solid var(--line); aspect-ratio:1/1; background:var(--surface-2)}
-  .hero-media .frame img{width:100%; height:100%; object-fit:cover}
+  .hero-media .frame img{width:100%; height:100%; object-fit:cover; cursor:pointer; transition:opacity .35s ease, transform .4s ease}
+  .hero-media .frame:hover img{transform:scale(1.03)}
+  .badge-h .n, .badge-r b, .badge-r span{transition:opacity .25s ease}
   .badge-h{position:absolute; left:-14px; bottom:26px; background:var(--brand); color:var(--btn-text); border-radius:16px; padding:14px 18px; box-shadow:var(--shadow-lift); text-align:center; line-height:1}
   .badge-h .n{font-size:30px; font-weight:900; display:block}
   .badge-h .l{font-size:10.5px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; margin-top:5px; opacity:.9}
@@ -497,9 +499,9 @@ src="https://www.facebook.com/tr?id=1610885197344731&ev=PageView&noscript=1"
         </div>
       </div>
       <div class="hero-media reveal">
-        <div class="frame"><img id="heroImg" alt="Sneaker độn đế Jebee — tôn dáng tự nhiên"></div>
-        <div class="badge-h"><span class="n">+10<small style="font-size:15px">cm</small></span><span class="l">Giấu đế</span></div>
-        <div class="badge-r"><div><div class="st">★★★★★</div></div><div><b>4.8</b><span>60K+ đã bán</span></div></div>
+        <div class="frame"><img id="heroImg" alt="Sneaker độn đế Jebee — tôn dáng tự nhiên" role="button" tabindex="0" title="Bấm để xem & đặt mẫu này"></div>
+        <div class="badge-h"><span class="n" id="heroCm">+10<small style="font-size:15px">cm</small></span><span class="l">Giấu đế</span></div>
+        <div class="badge-r"><div><div class="st">★★★★★</div></div><div><b id="heroStars">4.8</b><span id="heroSold">60K+ đã bán</span></div></div>
       </div>
     </div>
   </section>
@@ -1675,6 +1677,53 @@ document.documentElement.classList.add('js');
   document.getElementById('lookupBtn').addEventListener('click',doLookup);
   lookupPhone.addEventListener('keydown',function(e){ if(e.key==='Enter') doLookup(); });
 
+  // ---------- HERO slideshow: tự đổi ảnh (mẫu khác / màu khác) + thông tin theo từng mẫu; bấm ảnh mở trang đặt hàng ----------
+  function initHeroSlideshow(){
+    var img=document.getElementById('heroImg'); if(!img) return;
+    var elCm=document.getElementById('heroCm'), elStars=document.getElementById('heroStars'), elSold=document.getElementById('heroSold');
+    var media=document.querySelector('.hero-media');
+    // Dựng danh sách slide: ưu tiên 1 ảnh/mẫu trước (khoe nhiều mẫu), rồi thêm các màu khác của từng mẫu
+    var firsts=[], extras=[];
+    PRODUCTS.forEach(function(p){
+      var sd=SOLD[(p.ma||'').toUpperCase()];
+      var cmm=(p.ten_goc||p.ten||'').match(/(\d{1,2})\s*cm/i);
+      var seen={}, imgs=[];
+      (p.variations||[]).forEach(function(v){ if(v.anh && !seen[v.anh]){ seen[v.anh]=1; imgs.push(v.anh); } });
+      if(!imgs.length && p.anh) imgs=[p.anh];
+      imgs.slice(0,3).forEach(function(src,ix){
+        var s={ p:p, img:src, cm:(cmm?cmm[1]:''), sold:(sd?sd.b:null), stars:(sd?sd.s:null) };
+        (ix===0?firsts:extras).push(s);
+      });
+    });
+    var HERO=firsts.concat(extras); if(!HERO.length) return;
+    var cur=0, curProd=HERO[0].p;
+    function paint(s){
+      curProd=s.p;
+      if(elCm) elCm.innerHTML=(s.cm?('+'+s.cm):'+10')+'<small style="font-size:15px">cm</small>';
+      if(elStars) elStars.textContent=(s.stars!=null?s.stars.toFixed(1).replace('.',','):'4,8');
+      if(elSold) elSold.textContent=(s.sold!=null?(fmtSold(s.sold)+' đã bán'):'Còn hàng');
+      img.alt='Giày độn đế Jebee '+(s.p.ma||'')+' — '+(s.p.ten||'');
+    }
+    function show(i, instant){
+      cur=(i%HERO.length+HERO.length)%HERO.length; var s=HERO[cur];
+      var pre=new Image(); pre.src=s.img;                 // nạp trước cho mượt
+      if(instant){ img.src=s.img; img.style.opacity='1'; paint(s); return; }
+      img.style.opacity='0';                              // mờ đi
+      setTimeout(function(){ img.src=s.img; img.style.opacity='1'; paint(s); }, 350);  // đổi ảnh + info rồi hiện lại
+    }
+    show(0, true);
+    var paused=false;
+    setInterval(function(){
+      if(paused || document.hidden) return;
+      var m=document.getElementById('modal'); if(m && m.classList.contains('show')) return;  // dừng khi đang xem chi tiết
+      show(cur+1, false);
+    }, 2000);
+    if(media){ media.addEventListener('mouseenter',function(){ paused=true; }); media.addEventListener('mouseleave',function(){ paused=false; }); }
+    function openCur(){ if(curProd && GIA[(curProd.ma||'').toUpperCase()]) openModal(curProd); }  // bấm ảnh → trang đặt hàng mẫu đang hiện
+    img.addEventListener('click', openCur);
+    img.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); openCur(); } });
+  }
+
   // ---------- tải sản phẩm ----------
   updateCount();
   fetch('/api/ton-kho').then(function(r){return r.json();}).then(function(j){
@@ -1692,9 +1741,7 @@ document.documentElement.classList.add('js');
     renderGrid();
     loadAgg();
     openDeepLink();  // nếu URL có ?sp=MA -> mở thẳng modal đặt hàng của mẫu đó
-    // ảnh hero = mẫu đầu có ảnh
-    var withImg=PRODUCTS.filter(function(p){return p.anh;})[0];
-    if(withImg){ var h=document.getElementById('heroImg'); if(h) h.src=withImg.anh; }
+    initHeroSlideshow();  // ảnh hero tự chạy qua các mẫu/màu + thông tin đổi theo, bấm ảnh mở trang đặt hàng
   }).catch(function(){ loadinfo.textContent='Không tải được sản phẩm. Vui lòng tải lại trang hoặc nhắn Zalo để đặt hàng.'; });
 })();
 </script>
