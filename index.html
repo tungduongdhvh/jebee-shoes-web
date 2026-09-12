@@ -1285,7 +1285,10 @@ document.documentElement.classList.add('js');
     var q=parseInt(qInput.value,10)||1; if(q>v.ton){ qInput.value=v.ton; }
     qInput.max=v.ton;
   }
-  function closeModal(){ modal.classList.remove('show'); ovl.classList.remove('show'); document.body.style.overflow=''; try{ history.replaceState(null,'','/'); }catch(e){} }
+  var searchOpenedModal=false; // đánh dấu mẫu được mở TỪ ô tìm kiếm → đóng lại thì tự xóa ô tìm
+  function closeModal(){ modal.classList.remove('show'); ovl.classList.remove('show'); document.body.style.overflow=''; try{ history.replaceState(null,'','/'); }catch(e){}
+    if(searchOpenedModal){ searchOpenedModal=false; if(typeof applySearch==='function') applySearch('', null); }
+  }
   // ----- Deep-link: mở thẳng 1 mẫu qua URL ?sp=MA (dùng cho quảng cáo Facebook) -----
   function findProd(sp){
     if(!sp) return null;
@@ -1528,7 +1531,7 @@ document.documentElement.classList.add('js');
     if(navsearch) navsearch.classList.remove('open');   // thu gọn ô tìm trên header
     if(headSearch) headSearch.blur();
     if(prodSearch) prodSearch.blur();                   // ẩn bàn phím điện thoại
-    if(p && GIA[(p.ma||'').toUpperCase()]){ openModal(p); }   // ra trang đặt hàng của mẫu
+    if(p && GIA[(p.ma||'').toUpperCase()]){ searchOpenedModal=true; openModal(p); }   // ra trang đặt hàng của mẫu (đóng lại sẽ tự xóa ô tìm)
     else { goToResults(); }                                    // hiện danh sách bộ sưu tập đã lọc
   }
   if(prodSearch){
