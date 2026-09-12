@@ -753,7 +753,7 @@ document.documentElement.classList.add('js');
   function driveImgs(ma){ var k=(ma||'').toUpperCase(); var a=GIMG[k]?GIMG[k].slice():[]; if(B29[k]){ if(a.length){ a[0]=B29[k]; } else { a=[B29[k]]; } } return a.map(gd); }
   // Ảnh MÔ TẢ sản phẩm (sếp gửi bộ riêng): mã -> [fileId Drive], xếp dọc to như TikTok. Gắn khi sếp gửi.
   var MOTA={
-    JB02:["1uZiY5tX5GLJ6RtlNh0Vv8YFxTK7NHX7m","129_sRgffIFu1sB_IUtrAlW7YOqWVu8o7","1Q_d5uErbL4Ry4AkL8_bxqJOIDTcgusOF","1ggnq0w28s6jlouQxdEHk3QdYczuFD5Va","1hVyJgMiw3BpgDHnaHOpjlD02U7LX3a13","18DcdPK3rbPTFZ7yW8tv_wOR4U2wtqKyq","1z6whGQgmsu26JltM9Nk0wgRzNfuUwpP3"]
+    JB02:["/mota/JB02/1.jpg","/mota/JB02/2.jpg","/mota/JB02/3.jpg","/mota/JB02/4.jpg","/mota/JB02/5.jpg","/mota/JB02/6.jpg","/mota/JB02/7.jpg","/mota/JB02/8.jpg","/mota/JB02/9.jpg","/mota/JB02/10.jpg","/mota/JB02/11.jpg","/mota/JB02/12.jpg","/mota/JB02/13.jpg"]
   };
   // Mô tả THẬT theo tài liệu sản phẩm Jebee (Drive): mã -> HTML mô tả
   var DESC={
@@ -774,7 +774,7 @@ document.documentElement.classList.add('js');
     var el=document.getElementById('pdDesc'); if(!el) return;
     var m=(p.ten_goc||p.ten||'').match(/(\d{1,2}(?:[.,]\d)?)\s*cm/i); var cm=m?m[1].replace(',','.'):'7–13';
     var ids=MOTA[(p.ma||'').toUpperCase()]||[];
-    var imgs=ids.map(function(id){ return '<img loading="lazy" src="'+gd(id)+'" alt="Mô tả '+esc(p.ma)+'">'; }).join('');
+    var imgs=ids.map(function(id){ var src=/^(https?:|\/)/.test(id)?id:gd(id); return '<img loading="lazy" src="'+src+'" alt="Mô tả '+esc(p.ma)+'">'; }).join('');
     var real=DESC[(p.ma||'').toUpperCase()];
     var body=real||('<p><b>'+esc(p.ten)+'</b> — giày độn đế nữ giúp bạn <b>cao thêm '+cm+'cm</b> mà nhìn tự nhiên như dáng chân thật, không ai biết là giày độn.</p>'
       +'<ul class="desc-feats">'
