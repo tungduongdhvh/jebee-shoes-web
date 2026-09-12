@@ -257,7 +257,9 @@ src="https://www.facebook.com/tr?id=1610885197344731&ev=PageView&noscript=1"
   .searchbar .sclear:hover{background:var(--brand); color:var(--btn-text)}
   .noresult{text-align:center; color:var(--ink-soft); font-size:15px; padding:30px 12px; line-height:1.6}
   .noresult a{color:var(--brand); font-weight:800}
-  .filters{display:flex; gap:9px; flex-wrap:wrap; margin-bottom:26px}
+  .filters{display:flex; gap:9px; flex-wrap:wrap; margin-bottom:26px; align-items:center}
+  .filters-price{margin-top:-14px}
+  .filters-lbl{font-size:13px; font-weight:800; color:var(--ink-mut); margin-right:2px}
   .filters button{font-family:inherit; font-size:13.5px; font-weight:700; color:var(--ink-soft); background:var(--surface); border:1.5px solid var(--line); padding:9px 16px; border-radius:999px; cursor:pointer; transition:border-color .15s, color .15s, background .15s}
   .filters button:hover{border-color:var(--brand); color:var(--brand)}
   .filters button.on{background:var(--brand); color:var(--btn-text); border-color:var(--brand)}
@@ -526,7 +528,7 @@ src="https://www.facebook.com/tr?id=1610885197344731&ev=PageView&noscript=1"
       </div>
       <div class="searchbar reveal" id="searchbar">
         <svg class="si" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg>
-        <input type="search" id="prodSearch" placeholder="Tìm mã giày hoặc từ khóa… (VD: JB707, boot, độn 9cm, lông cừu)" autocomplete="off" aria-label="Tìm sản phẩm">
+        <input type="search" id="prodSearch" placeholder="Tìm mã giày, từ khóa hoặc giá… (VD: JB707, boot, độn 9cm, dưới 700k)" autocomplete="off" aria-label="Tìm sản phẩm">
         <button type="button" class="sclear" id="prodSearchClear" aria-label="Xóa tìm kiếm" hidden>✕</button>
       </div>
       <div class="filters" id="filters">
@@ -534,6 +536,13 @@ src="https://www.facebook.com/tr?id=1610885197344731&ev=PageView&noscript=1"
         <button data-filter="7-8">Độn 7–8cm</button>
         <button data-filter="9-10">Độn 9–10cm</button>
         <button data-filter="11-13">Độn 11–13cm</button>
+      </div>
+      <div class="filters filters-price" id="priceFilters">
+        <span class="filters-lbl">Giá:</span>
+        <button class="on" data-price="all">Tất cả giá</button>
+        <button data-price="lt500">Dưới 500k</button>
+        <button data-price="500-700">500k–700k</button>
+        <button data-price="gt700">Trên 700k</button>
       </div>
       <div class="grid" id="grid"></div>
       <div class="noresult" id="noResult" hidden>Không tìm thấy mẫu nào khớp “<span id="nrQ"></span>”. Thử từ khóa khác, hoặc <a href="https://zalo.me/0396589658" target="_blank" rel="noopener">nhắn Zalo</a> để được tư vấn nhé! 💛</div>
@@ -1013,6 +1022,46 @@ document.documentElement.classList.add('js');
   }
   // Bỏ dấu tiếng Việt để tìm kiếm không phân biệt dấu (vd "long cuu" khớp "lông cừu")
   function srchNorm(s){ return (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/g,'d').replace(/\s+/g,' ').trim(); }
+  // Đọc số tiền từ 1 token: "700k"->700000, "1tr"/"1trieu"->1000000, "1tr2"->1200000, "800000"/"800.000"->800000
+  function priceVal(numStr, unit, tail){
+    var s=String(numStr).trim();
+    if(unit==='tr'||unit==='trieu'){ var n=parseFloat(s.replace(',','.')); var v=n*1e6; if(tail) v+=parseInt(tail,10)*1e5; return Math.round(v); } // triệu: dấu chấm là thập phân (1.2tr)
+    var num=parseInt(s.replace(/[.,]/g,''),10); // k / nghìn / đồng: bỏ dấu phân cách nghìn (800.000)
+    if(unit==='k'||unit==='nghin'||unit==='ngan') return num*1000;
+    return num; // đã là đồng
+  }
+  // Tách điều kiện giá ra khỏi câu tìm (trả {min,max,rest}); rest là phần từ khóa còn lại (đã bỏ dấu)
+  function parsePrice(norm){
+    var min=null, max=null, used=[];
+    var U='(k|tr|trieu|nghin|ngan)';
+    var N='(\\d[\\d.,]*)\\s*'+U+'?(\\d)?';
+    function ok(v){ return (v!=null && v>=10000); } // chỉ coi là GIÁ khi ≥ 10.000đ (tránh nhầm "7-8cm")
+    // Khoảng giá: "500-800k", "500k den 800k", "tu 500 toi 800k"
+    var mr=norm.match(new RegExp('(?:tu\\s*)?'+N+'\\s*(?:-|den|toi|~)\\s*'+N));
+    if(mr){
+      var u2=mr[5]||mr[2]||''; // nếu một vế thiếu đơn vị thì mượn đơn vị của vế kia
+      var a=priceVal(mr[1],mr[2]||u2,mr[3]);
+      var b=priceVal(mr[4],mr[5]||u2,mr[6]);
+      if(ok(a)&&ok(b)){ min=Math.min(a,b); max=Math.max(a,b); used.push(mr[0]); }
+    }
+    if(min===null && max===null){
+      var mmax=norm.match(new RegExp('(?:duoi|re hon|<=?|<|toi da|khong qua)\\s*'+N));
+      if(mmax){ var vx=priceVal(mmax[1],mmax[2],mmax[3]); if(ok(vx)){ max=vx; used.push(mmax[0]); } }
+      var mmin=norm.match(new RegExp('(?:tren|hon|cao hon|>=?|>|tu|toi thieu)\\s*'+N));
+      if(mmin){ var vn=priceVal(mmin[1],mmin[2],mmin[3]); if(ok(vn)){ min=vn; used.push(mmin[0]); } }
+      if(min===null && max===null){ // token giá đơn lẻ CÓ đơn vị → tầm giá đó (±12%)
+        var ml=norm.match(new RegExp('(\\d[\\d.,]*)\\s*'+U+'(\\d)?'));
+        if(ml){ var v=priceVal(ml[1],ml[2],ml[3]); if(ok(v)){ min=Math.round(v*0.88); max=Math.round(v*1.12); used.push(ml[0]); } }
+      }
+      if(min===null && max===null){ // số trần ≥ 6 chữ số (vd 800000) → coi là giá theo đồng, tầm ±12%
+        var mb=norm.match(/\b(\d{6,})\b/);
+        if(mb){ var vb=parseInt(mb[1],10); if(vb>=100000){ min=Math.round(vb*0.88); max=Math.round(vb*1.12); used.push(mb[1]); } }
+      }
+    }
+    var rest=norm; used.forEach(function(u){ rest=rest.replace(u,' '); });
+    rest=rest.replace(/\b(gia|khoang|tam|vnd|dong)\b/g,' ').replace(/\s+/g,' ').trim();
+    return {min:min, max:max, rest:rest};
+  }
   function cardHTML(p){
     var g=GIA[p.ma.toUpperCase()]; if(!g) return '';
     var disc=g[1]>g[0]?Math.round((1-g[0]/g[1])*100):0;
@@ -1023,6 +1072,7 @@ document.documentElement.classList.add('js');
     var art=document.createElement('article');
     art.className='card reveal'; art.setAttribute('data-h',hb); art.setAttribute('data-ma',p.ma);
     art.setAttribute('data-search', srchNorm(p.ma+' '+(p.ten||'')+' '+(p.ten_goc||'')+' '+mau.join(' ')));
+    art.setAttribute('data-price', g[0]);
     art.innerHTML=
       '<div class="thumb"><img loading="lazy" src="'+(driveImgs(p.ma)[0]||p.anh||'')+'" alt="'+p.ten+'">'+
         '<div class="thumb-tags">'+(cmtag?'<span class="tag-h">Độn '+cmtag[1]+'cm</span>':'')+(disc?'<span class="tag-sale">-'+disc+'%</span>':'')+'</div></div>'+
@@ -1415,39 +1465,52 @@ document.documentElement.classList.add('js');
   var toastEl=document.getElementById('toast'), toastT;
   function toast(msg){ toastEl.textContent=msg; toastEl.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(function(){ toastEl.classList.remove('show'); },2600); }
 
-  // ---------- filter + xem thêm ----------
-  var LIMIT=6, expanded=false, curFilter='all', curSearch='';
+  // ---------- filter + tìm kiếm + xem thêm ----------
+  var LIMIT=6, expanded=false, curFilter='all', curSearch='', sMin=null, sMax=null;
+  var PRICE_RANGES={ all:null, lt500:{max:499999}, '500-700':{min:500000,max:700000}, gt700:{min:700001} };
+  var curPrice='all';
   var morewrap=document.getElementById('morewrap'), morebtn=document.getElementById('morebtn');
   var noResult=document.getElementById('noResult');
   morebtn.addEventListener('click',function(){ expanded=true; applyView(); });
+  function priceOK(price){
+    var r=PRICE_RANGES[curPrice];
+    if(r){ if(r.min!=null && price<r.min) return false; if(r.max!=null && price>r.max) return false; }
+    if(sMin!=null && price<sMin) return false;
+    if(sMax!=null && price>sMax) return false;
+    return true;
+  }
   function applyView(){
-    var q=curSearch;
+    var q=curSearch, priceActive=(curPrice!=='all'||sMin!=null||sMax!=null);
+    var typing=(curSearchRaw!=='');   // khách đang gõ tìm kiếm (chữ hoặc giá) → hiện hết kết quả, bỏ giới hạn 6 mẫu
     var cards=document.querySelectorAll('#grid .card'); var count=0, extra=0, shown=0;
     cards.forEach(function(c){
-      var show;
-      if(q){ // Đang tìm kiếm: khớp theo từ khóa, bỏ qua filter & giới hạn 6 mẫu → hiện hết kết quả
-        show=(c.getAttribute('data-search')||'').indexOf(q)>=0;
-      } else { // Bình thường: lọc theo độ cao + giới hạn hiển thị
-        var match=(curFilter==='all'||c.getAttribute('data-h')===curFilter);
-        show=match;
-        if(match && !expanded){ count++; if(count>LIMIT){ show=false; extra++; } }
-      }
+      var passText=(!q || (c.getAttribute('data-search')||'').indexOf(q)>=0);
+      var passHeight=(curFilter==='all'||c.getAttribute('data-h')===curFilter);
+      var passPrice=priceOK(parseInt(c.getAttribute('data-price')||'0',10));
+      var match=passText && passHeight && passPrice;
+      var show=match;
+      if(match && !typing && !expanded){ count++; if(count>LIMIT){ show=false; extra++; } }
       c.classList.toggle('hide',!show);
       if(show) shown++;
     });
-    if(!q && !expanded && extra>0){ morebtn.textContent='Xem thêm '+extra+' mẫu ▾'; morewrap.style.display='block'; }
+    if(!typing && !expanded && extra>0){ morebtn.textContent='Xem thêm '+extra+' mẫu ▾'; morewrap.style.display='block'; }
     else{ morewrap.style.display='none'; }
-    if(noResult){ noResult.hidden=!(q && shown===0); var nq=document.getElementById('nrQ'); if(nq) nq.textContent=curSearchRaw; }
+    var hasQuery=(typing || priceActive);
+    if(noResult){ noResult.hidden=!(hasQuery && shown===0); var nq=document.getElementById('nrQ'); if(nq) nq.textContent=(curSearchRaw||'lựa chọn này'); }
   }
   var fbox=document.getElementById('filters');
   fbox.addEventListener('click',function(ev){ var b=ev.target.closest('button'); if(!b) return; fbox.querySelectorAll('button').forEach(function(x){x.classList.remove('on');}); b.classList.add('on'); curFilter=b.getAttribute('data-filter'); expanded=false; applyView(); });
+  var pbox=document.getElementById('priceFilters');
+  if(pbox) pbox.addEventListener('click',function(ev){ var b=ev.target.closest('button'); if(!b) return; pbox.querySelectorAll('button').forEach(function(x){x.classList.remove('on');}); b.classList.add('on'); curPrice=b.getAttribute('data-price'); expanded=false; applyView(); });
 
   // ---------- TÌM KIẾM sản phẩm (header + Bộ sưu tập, dùng chung 1 logic) ----------
   var curSearchRaw='';
   var prodSearch=document.getElementById('prodSearch'), prodSearchClear=document.getElementById('prodSearchClear');
   var headSearch=document.getElementById('headSearch'), navsearch=document.getElementById('navsearch'), navSearchBtn=document.getElementById('navSearchBtn');
   function applySearch(raw, fromEl){
-    curSearchRaw=(raw||'').trim(); curSearch=srchNorm(curSearchRaw);
+    curSearchRaw=(raw||'').trim();
+    var pp=parsePrice(srchNorm(curSearchRaw));   // tách điều kiện giá khỏi từ khóa
+    sMin=pp.min; sMax=pp.max; curSearch=pp.rest;
     [prodSearch, headSearch].forEach(function(inp){ if(inp && inp!==fromEl && inp.value!==raw) inp.value=raw; });
     if(prodSearchClear) prodSearchClear.hidden=!curSearchRaw;
     expanded=false; applyView();
