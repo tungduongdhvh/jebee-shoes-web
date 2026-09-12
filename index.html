@@ -275,7 +275,13 @@ src="https://www.facebook.com/tr?id=1610885197344731&ev=PageView&noscript=1"
   .modal.show{display:flex}
   .modal-in{background:var(--bg); border-radius:20px; max-width:920px; width:100%; max-height:92vh; overflow:auto; box-shadow:var(--shadow-lift); pointer-events:auto; position:relative}
   .modal-close{position:absolute; top:12px; right:12px; z-index:5; width:38px; height:38px; border-radius:50%; background:var(--surface); border:1px solid var(--line); cursor:pointer; display:grid; place-items:center; color:var(--ink)}
-  .pd-share{margin:10px 0 2px; display:inline-flex; align-items:center; gap:6px; font-family:inherit; font-size:12.5px; font-weight:700; color:var(--brand); background:var(--surface); border:1px dashed var(--line-strong); border-radius:9px; padding:7px 12px; cursor:pointer; transition:background .15s}
+  .pd-quick{display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:10px 0 2px}
+  .pd-jump{display:inline-flex; align-items:center; gap:6px; font-family:inherit; font-size:12.5px; font-weight:800; color:var(--btn-text,#fff); background:var(--brand); border:0; border-radius:9px; padding:7px 14px; cursor:pointer; transition:filter .15s, transform .12s}
+  .pd-jump:hover{filter:brightness(1.07)}
+  .pd-jump:active{transform:translateY(1px)}
+  .pd-jump .pd-jump-ar{font-weight:900; transition:transform .2s}
+  .pd-jump:hover .pd-jump-ar{transform:translateY(2px)}
+  .pd-share{display:inline-flex; align-items:center; gap:6px; font-family:inherit; font-size:12.5px; font-weight:700; color:var(--brand); background:var(--surface); border:1px dashed var(--line-strong); border-radius:9px; padding:7px 12px; cursor:pointer; transition:background .15s}
   .pd-share:hover{background:var(--surface-2)}
   .pd-share.done{color:#1E8E4A; border-color:#1E8E4A; border-style:solid}
   .pd{display:grid; grid-template-columns:1fr 1fr; gap:0}
@@ -653,7 +659,7 @@ src="https://www.facebook.com/tr?id=1610885197344731&ev=PageView&noscript=1"
         <div class="pd-price"><span class="p" id="pdPrice"></span><span class="o" id="pdOld"></span><span class="d" id="pdDisc" style="display:none"></span></div>
         <div class="pd-flash"><span class="l"><span class="fs-bolt">⚡</span> FLASH SALE — giá sốc kết thúc sau</span><span class="fs-time" data-flash>--:--:--</span></div>
         <div class="sold" id="pdSold"><span class="st">★</span> 4.8 · Freeship toàn quốc · Đổi size 15 ngày</div>
-        <button type="button" class="pd-share" id="pdShare">🔗 Copy link đặt mẫu này</button>
+        <div class="pd-quick"><button type="button" class="pd-jump" id="pdToReviews"><span class="pd-jump-t">Xem đánh giá</span> <span class="pd-jump-ar" aria-hidden="true">↓</span></button><button type="button" class="pd-share" id="pdShare">🔗 Copy link đặt mẫu này</button></div>
         <div id="pdColorWrap"><div class="pd-lbl">Màu sắc: <span id="pdColorSel" style="color:var(--brand)"></span></div><div class="opts" id="pdColors"></div></div>
         <div id="pdSizeWrap"><div class="pd-lbl">Kích cỡ: <span id="pdSizeSel" style="color:var(--brand)"></span></div><div class="opts" id="pdSizes"></div></div>
         <div class="qtyrow">
@@ -1058,6 +1064,9 @@ document.documentElement.classList.add('js');
       if(sd){ var tong=sd.b+((ag&&ag.ban)||0); pdS.innerHTML='<span class="st">★</span> '+sd.s.toFixed(1).replace('.',',')+' · Đã bán '+fmtSold(tong)+' · Freeship toàn quốc'; }
       else{ pdS.innerHTML='<span class="st">★</span> 4,8 · Freeship toàn quốc · Đổi size 15 ngày'; }
     }
+    // Nhãn nút "Xem đánh giá" kèm số lượng thật (nếu có)
+    var pdJumpT=document.querySelector('#pdToReviews .pd-jump-t');
+    if(pdJumpT){ pdJumpT.textContent=(ag&&ag.n)?('Xem '+ag.n+' đánh giá'):'Xem đánh giá'; }
     // colors
     var cols=colorsOf(p);
     pdColors.innerHTML='';
@@ -1220,6 +1229,13 @@ document.documentElement.classList.add('js');
     function done(){ btn.classList.add('done'); btn.textContent='✓ Đã copy! Dán link vào quảng cáo'; toast('Đã copy link: '+link); }
     if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(link).then(done).catch(function(){ window.prompt('Copy link mẫu này:', link); }); }
     else { window.prompt('Copy link mẫu này:', link); }
+  });
+  var pdJumpBtn=document.getElementById('pdToReviews');
+  if(pdJumpBtn) pdJumpBtn.addEventListener('click',function(){
+    var rv=document.getElementById('pdReviews'); if(!rv) return;
+    var sc=document.querySelector('#modal .modal-in');
+    if(sc){ sc.scrollTo({top:rv.offsetTop-8, behavior:'smooth'}); }
+    else { rv.scrollIntoView({behavior:'smooth', block:'start'}); }
   });
   document.getElementById('modalClose').addEventListener('click',closeModal);
   ovl.addEventListener('click',function(){ closeModal(); closeDrawer(); });
