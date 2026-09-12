@@ -121,6 +121,11 @@ src="https://www.facebook.com/tr?id=1610885197344731&ev=PageView&noscript=1"
   .cart{position:relative; width:42px; height:42px; border-radius:50%; border:1.5px solid rgba(255,255,255,.45); display:grid; place-items:center; color:#fff; background:none; cursor:pointer}
   .cart:hover{border-color:#fff}
   .cart b{position:absolute; top:-5px; right:-5px; background:#F0B84B; color:#5E1512; font-size:10px; min-width:18px; height:18px; border-radius:9px; display:grid; place-items:center; padding:0 4px; font-weight:900}
+  .navsearch{display:flex; align-items:center}
+  .navsearch-btn{width:42px; height:42px; border-radius:50%; border:1.5px solid rgba(255,255,255,.45); background:none; color:#fff; cursor:pointer; display:grid; place-items:center; flex:none}
+  .navsearch-btn:hover{border-color:#fff}
+  .navsearch-in{width:0; min-width:0; opacity:0; padding:0; border:0; height:38px; border-radius:999px; background:#fff; color:#3A2B12; font-family:inherit; font-size:14px; outline:none; transition:width .25s ease, opacity .2s, padding .2s, margin-right .2s}
+  .navsearch.open .navsearch-in{width:190px; opacity:1; padding:0 14px; margin-right:8px}
   .burger{display:none; background:none; border:0; color:#fff; cursor:pointer; padding:6px}
   .burger svg{width:26px; height:26px; display:block}
   .hero{padding:58px 0 30px}
@@ -243,6 +248,15 @@ src="https://www.facebook.com/tr?id=1610885197344731&ev=PageView&noscript=1"
   .flash .cd b{background:#F0B84B; color:#3A1512; font-weight:900; font-size:17px; min-width:40px; padding:6px 0; text-align:center; border-radius:8px}
   .flash .cd i{font-style:normal; font-weight:900; color:#F0B84B}
   .flash .code-off{font-size:13px; opacity:.85} .flash .code-off b{color:#F0B84B}
+  .searchbar{display:flex; align-items:center; gap:10px; background:var(--surface); border:1.5px solid var(--line-strong); border-radius:999px; padding:11px 16px; margin-bottom:16px; max-width:540px; transition:border-color .15s, box-shadow .15s}
+  .searchbar:focus-within{border-color:var(--brand); box-shadow:0 0 0 3px rgba(178,59,51,.12)}
+  .searchbar .si{color:var(--ink-mut); flex:none}
+  .searchbar input{flex:1; min-width:0; border:0; background:none; font-family:inherit; font-size:15px; color:var(--ink); outline:none}
+  .searchbar input::-webkit-search-cancel-button{display:none}
+  .searchbar .sclear{flex:none; width:26px; height:26px; border-radius:50%; border:0; background:var(--line); color:var(--ink-soft); cursor:pointer; font-size:12px; line-height:1; display:grid; place-items:center; transition:background .15s, color .15s}
+  .searchbar .sclear:hover{background:var(--brand); color:var(--btn-text)}
+  .noresult{text-align:center; color:var(--ink-soft); font-size:15px; padding:30px 12px; line-height:1.6}
+  .noresult a{color:var(--brand); font-weight:800}
   .filters{display:flex; gap:9px; flex-wrap:wrap; margin-bottom:26px}
   .filters button{font-family:inherit; font-size:13.5px; font-weight:700; color:var(--ink-soft); background:var(--surface); border:1.5px solid var(--line); padding:9px 16px; border-radius:999px; cursor:pointer; transition:border-color .15s, color .15s, background .15s}
   .filters button:hover{border-color:var(--brand); color:var(--brand)}
@@ -416,6 +430,7 @@ src="https://www.facebook.com/tr?id=1610885197344731&ev=PageView&noscript=1"
     .grid{grid-template-columns:repeat(2,1fr)!important; gap:12px}
     .pains,.rgrid,.vgrid,.fgrid,.blog-grid{grid-template-columns:1fr}
     .nav{gap:14px} .nav-cta .btn-zalo{display:none}
+    .nav-cta{gap:8px} .navsearch.open .navsearch-in{width:132px}
     .sec-head{flex-direction:column; align-items:flex-start; gap:6px}
     .card .body{padding:12px 12px 15px; gap:7px}
     .card h3{font-size:14px} .price{font-size:16.5px} .price-old{font-size:12px}
@@ -443,6 +458,12 @@ src="https://www.facebook.com/tr?id=1610885197344731&ev=PageView&noscript=1"
       <a href="#footer">Liên hệ</a>
     </nav>
     <div class="nav-cta">
+      <div class="navsearch" id="navsearch">
+        <input type="search" id="headSearch" class="navsearch-in" placeholder="Tìm mã giày, từ khóa…" autocomplete="off" aria-label="Tìm kiếm sản phẩm">
+        <button type="button" class="navsearch-btn" id="navSearchBtn" aria-label="Tìm kiếm sản phẩm">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg>
+        </button>
+      </div>
       <a class="btn btn-zalo" href="https://zalo.me/0396589658" target="_blank" rel="noopener">Tư vấn Zalo</a>
       <button class="cart" id="cartBtn" aria-label="Giỏ hàng">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
@@ -503,6 +524,11 @@ src="https://www.facebook.com/tr?id=1610885197344731&ev=PageView&noscript=1"
         </div>
         <a class="see-all" href="https://zalo.me/0396589658" target="_blank" rel="noopener">Cần tư vấn? Nhắn Zalo →</a>
       </div>
+      <div class="searchbar reveal" id="searchbar">
+        <svg class="si" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg>
+        <input type="search" id="prodSearch" placeholder="Tìm mã giày hoặc từ khóa… (VD: JB707, boot, độn 9cm, lông cừu)" autocomplete="off" aria-label="Tìm sản phẩm">
+        <button type="button" class="sclear" id="prodSearchClear" aria-label="Xóa tìm kiếm" hidden>✕</button>
+      </div>
       <div class="filters" id="filters">
         <button class="on" data-filter="all">Tất cả</button>
         <button data-filter="7-8">Độn 7–8cm</button>
@@ -510,6 +536,7 @@ src="https://www.facebook.com/tr?id=1610885197344731&ev=PageView&noscript=1"
         <button data-filter="11-13">Độn 11–13cm</button>
       </div>
       <div class="grid" id="grid"></div>
+      <div class="noresult" id="noResult" hidden>Không tìm thấy mẫu nào khớp “<span id="nrQ"></span>”. Thử từ khóa khác, hoặc <a href="https://zalo.me/0396589658" target="_blank" rel="noopener">nhắn Zalo</a> để được tư vấn nhé! 💛</div>
       <div class="loadinfo" id="loadinfo">Đang tải sản phẩm từ kho…</div>
       <div class="morewrap" id="morewrap"><button class="morebtn" id="morebtn" type="button">Xem thêm ▾</button></div>
     </div>
@@ -984,6 +1011,8 @@ document.documentElement.classList.add('js');
     if(d) return '<span class="st">★</span> '+d.s.toFixed(1).replace('.',',')+' · Đã bán '+fmtSold(d.b);
     return '<span class="st">★</span> 4.8 · Còn hàng';
   }
+  // Bỏ dấu tiếng Việt để tìm kiếm không phân biệt dấu (vd "long cuu" khớp "lông cừu")
+  function srchNorm(s){ return (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/g,'d').replace(/\s+/g,' ').trim(); }
   function cardHTML(p){
     var g=GIA[p.ma.toUpperCase()]; if(!g) return '';
     var disc=g[1]>g[0]?Math.round((1-g[0]/g[1])*100):0;
@@ -993,6 +1022,7 @@ document.documentElement.classList.add('js');
     var cmtag=(p.ten_goc||p.ten||'').match(/(\d{1,2})\s*cm/i);
     var art=document.createElement('article');
     art.className='card reveal'; art.setAttribute('data-h',hb); art.setAttribute('data-ma',p.ma);
+    art.setAttribute('data-search', srchNorm(p.ma+' '+(p.ten||'')+' '+(p.ten_goc||'')+' '+mau.join(' ')));
     art.innerHTML=
       '<div class="thumb"><img loading="lazy" src="'+(driveImgs(p.ma)[0]||p.anh||'')+'" alt="'+p.ten+'">'+
         '<div class="thumb-tags">'+(cmtag?'<span class="tag-h">Độn '+cmtag[1]+'cm</span>':'')+(disc?'<span class="tag-sale">-'+disc+'%</span>':'')+'</div></div>'+
@@ -1386,22 +1416,54 @@ document.documentElement.classList.add('js');
   function toast(msg){ toastEl.textContent=msg; toastEl.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(function(){ toastEl.classList.remove('show'); },2600); }
 
   // ---------- filter + xem thêm ----------
-  var LIMIT=6, expanded=false, curFilter='all';
+  var LIMIT=6, expanded=false, curFilter='all', curSearch='';
   var morewrap=document.getElementById('morewrap'), morebtn=document.getElementById('morebtn');
+  var noResult=document.getElementById('noResult');
   morebtn.addEventListener('click',function(){ expanded=true; applyView(); });
   function applyView(){
-    var cards=document.querySelectorAll('#grid .card'); var count=0, extra=0;
+    var q=curSearch;
+    var cards=document.querySelectorAll('#grid .card'); var count=0, extra=0, shown=0;
     cards.forEach(function(c){
-      var match=(curFilter==='all'||c.getAttribute('data-h')===curFilter);
-      var show=match;
-      if(match && !expanded){ count++; if(count>LIMIT){ show=false; extra++; } }
+      var show;
+      if(q){ // Đang tìm kiếm: khớp theo từ khóa, bỏ qua filter & giới hạn 6 mẫu → hiện hết kết quả
+        show=(c.getAttribute('data-search')||'').indexOf(q)>=0;
+      } else { // Bình thường: lọc theo độ cao + giới hạn hiển thị
+        var match=(curFilter==='all'||c.getAttribute('data-h')===curFilter);
+        show=match;
+        if(match && !expanded){ count++; if(count>LIMIT){ show=false; extra++; } }
+      }
       c.classList.toggle('hide',!show);
+      if(show) shown++;
     });
-    if(!expanded && extra>0){ morebtn.textContent='Xem thêm '+extra+' mẫu ▾'; morewrap.style.display='block'; }
+    if(!q && !expanded && extra>0){ morebtn.textContent='Xem thêm '+extra+' mẫu ▾'; morewrap.style.display='block'; }
     else{ morewrap.style.display='none'; }
+    if(noResult){ noResult.hidden=!(q && shown===0); var nq=document.getElementById('nrQ'); if(nq) nq.textContent=curSearchRaw; }
   }
   var fbox=document.getElementById('filters');
   fbox.addEventListener('click',function(ev){ var b=ev.target.closest('button'); if(!b) return; fbox.querySelectorAll('button').forEach(function(x){x.classList.remove('on');}); b.classList.add('on'); curFilter=b.getAttribute('data-filter'); expanded=false; applyView(); });
+
+  // ---------- TÌM KIẾM sản phẩm (header + Bộ sưu tập, dùng chung 1 logic) ----------
+  var curSearchRaw='';
+  var prodSearch=document.getElementById('prodSearch'), prodSearchClear=document.getElementById('prodSearchClear');
+  var headSearch=document.getElementById('headSearch'), navsearch=document.getElementById('navsearch'), navSearchBtn=document.getElementById('navSearchBtn');
+  function applySearch(raw, fromEl){
+    curSearchRaw=(raw||'').trim(); curSearch=srchNorm(curSearchRaw);
+    [prodSearch, headSearch].forEach(function(inp){ if(inp && inp!==fromEl && inp.value!==raw) inp.value=raw; });
+    if(prodSearchClear) prodSearchClear.hidden=!curSearchRaw;
+    expanded=false; applyView();
+  }
+  function goToResults(){ var s=document.getElementById('products'); if(s) s.scrollIntoView({behavior:'smooth', block:'start'}); }
+  if(prodSearch){ prodSearch.addEventListener('input',function(){ applySearch(this.value, this); }); }
+  if(prodSearchClear){ prodSearchClear.addEventListener('click',function(){ applySearch('', null); if(prodSearch) prodSearch.focus(); }); }
+  if(headSearch){
+    headSearch.addEventListener('input',function(){ applySearch(this.value, this); });
+    headSearch.addEventListener('focus', goToResults);
+    headSearch.addEventListener('keydown',function(e){ if(e.key==='Enter'){ goToResults(); } });
+  }
+  if(navSearchBtn){ navSearchBtn.addEventListener('click',function(){
+    var opened=navsearch.classList.toggle('open');
+    if(opened){ if(headSearch) headSearch.focus(); } else { applySearch('', null); }
+  }); }
 
   // ---------- reveal ----------
   var io=new IntersectionObserver(function(es){ es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } }); },{threshold:.12, rootMargin:'0px 0px -8% 0px'});
