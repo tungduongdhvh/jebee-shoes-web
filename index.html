@@ -1517,16 +1517,33 @@ document.documentElement.classList.add('js');
     expanded=false; applyView();
   }
   function goToResults(){ var s=document.getElementById('products'); if(s) s.scrollIntoView({behavior:'smooth', block:'start'}); }
-  if(prodSearch){ prodSearch.addEventListener('input',function(){ applySearch(this.value, this); }); }
+  // Ấn "Tìm" (Enter / nút kính lúp): khớp đúng 1 mẫu → mở thẳng trang đặt hàng; tìm chung (giá/chiều cao/nhiều mẫu) → cuộn tới danh sách kết quả
+  function submitSearch(){
+    applyView();
+    var p=findProd(curSearchRaw);   // gõ đúng mã giày → mở luôn mẫu đó
+    if(!p){
+      var vis=[].slice.call(document.querySelectorAll('#grid .card')).filter(function(c){ return !c.classList.contains('hide'); });
+      if(vis.length===1) p=findProd(vis[0].getAttribute('data-ma'));   // chỉ còn đúng 1 kết quả → mở luôn
+    }
+    if(navsearch) navsearch.classList.remove('open');   // thu gọn ô tìm trên header
+    if(headSearch) headSearch.blur();
+    if(prodSearch) prodSearch.blur();                   // ẩn bàn phím điện thoại
+    if(p && GIA[(p.ma||'').toUpperCase()]){ openModal(p); }   // ra trang đặt hàng của mẫu
+    else { goToResults(); }                                    // hiện danh sách bộ sưu tập đã lọc
+  }
+  if(prodSearch){
+    prodSearch.addEventListener('input',function(){ applySearch(this.value, this); });
+    prodSearch.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); submitSearch(); } });
+  }
   if(prodSearchClear){ prodSearchClear.addEventListener('click',function(){ applySearch('', null); if(prodSearch) prodSearch.focus(); }); }
   if(headSearch){
     headSearch.addEventListener('input',function(){ applySearch(this.value, this); });
-    headSearch.addEventListener('focus', goToResults);
-    headSearch.addEventListener('keydown',function(e){ if(e.key==='Enter'){ goToResults(); } });
+    headSearch.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); submitSearch(); } });
   }
   if(navSearchBtn){ navSearchBtn.addEventListener('click',function(){
-    var opened=navsearch.classList.toggle('open');
-    if(opened){ if(headSearch) headSearch.focus(); } else { applySearch('', null); }
+    if(!navsearch.classList.contains('open')){ navsearch.classList.add('open'); if(headSearch) headSearch.focus(); goToResults(); }
+    else if((headSearch.value||'').trim()){ submitSearch(); }              // đang mở & có chữ → TÌM (không đóng nữa)
+    else { navsearch.classList.remove('open'); applySearch('', null); }    // đang mở & trống → đóng lại
   }); }
 
   // ---------- reveal ----------
