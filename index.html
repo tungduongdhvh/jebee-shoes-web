@@ -1267,6 +1267,7 @@ document.documentElement.classList.add('js');
         html+='<div class="rv-empty">Chưa có đánh giá. Mua hàng xong bạn sẽ được mời đánh giá đầu tiên nhé! 💛</div>';
       }
       pdReviews.innerHTML=html;
+      var jt=document.querySelector('#pdToReviews .pd-jump-t'); if(jt) jt.textContent=n>0?('Xem '+n+' đánh giá'):'Xem đánh giá';  // đồng bộ nhãn nút với tổng thực
     }
     pdReviews.innerHTML='<h3>Đánh giá sản phẩm</h3><div class="rv-empty">Đang tải…</div>';
     fetch('/api/danh-gia?ma='+encodeURIComponent(ma)).then(function(r){return r.json();}).then(function(j){
