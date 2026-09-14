@@ -313,6 +313,8 @@ src="https://www.facebook.com/tr?id=1610885197344731&ev=PageView&noscript=1"
   .pd-main{position:relative; aspect-ratio:1/1; border-radius:14px; overflow:hidden; background:var(--surface); border:1px solid var(--line)}
   .pd-main img{width:100%; height:100%; object-fit:cover}
   .pd-main iframe{position:absolute; inset:0; width:100%; height:100%; border:0; background:#000}
+  /* Khi phát video: khung chuyển sang dạng dọc (9/16) như TikTok để video to, không bị thanh điều khiển che */
+  .pd-main.has-video{aspect-ratio:9/16; width:auto; max-height:74vh; margin-left:auto; margin-right:auto; background:#000}
   .pd-thumbs{display:flex; gap:8px; margin-top:12px; flex-wrap:wrap}
   .pd-thumbs img{width:58px; height:58px; object-fit:cover; border-radius:9px; border:2px solid transparent; cursor:pointer; background:var(--surface)}
   .pd-thumbs img.on{border-color:var(--brand)}
@@ -1139,8 +1141,8 @@ document.documentElement.classList.add('js');
   };
   var pdMain=document.getElementById('pdMain'), pdThumbs=document.getElementById('pdThumbs');
   var pdVideo=document.getElementById('pdVideo'), curVideoId=null;
-  function showVideo(){ if(!curVideoId||!pdVideo) return; pdVideo.src='https://drive.google.com/file/d/'+curVideoId+'/preview'; pdVideo.hidden=false; }
-  function hideVideo(){ if(pdVideo){ pdVideo.hidden=true; if(pdVideo.src && pdVideo.src.indexOf('drive.google.com')>-1) pdVideo.src='about:blank'; } }
+  function showVideo(){ if(!curVideoId||!pdVideo) return; pdVideo.src='https://drive.google.com/file/d/'+curVideoId+'/preview'; pdVideo.hidden=false; if(pdVideo.parentElement) pdVideo.parentElement.classList.add('has-video'); }
+  function hideVideo(){ if(pdVideo){ pdVideo.hidden=true; if(pdVideo.parentElement) pdVideo.parentElement.classList.remove('has-video'); if(pdVideo.src && pdVideo.src.indexOf('drive.google.com')>-1) pdVideo.src='about:blank'; } }
   var pdColors=document.getElementById('pdColors'), pdSizes=document.getElementById('pdSizes');
   var pdStock=document.getElementById('pdStock'), qInput=document.getElementById('qInput');
   function colorsOf(p){ var a=[]; p.variations.forEach(function(v){ var c=v.mau||'Mặc định'; if(a.indexOf(c)<0) a.push(c); }); return a; }
