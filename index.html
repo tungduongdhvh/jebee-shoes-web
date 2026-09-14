@@ -1140,7 +1140,7 @@ document.documentElement.classList.add('js');
   var pdMain=document.getElementById('pdMain'), pdThumbs=document.getElementById('pdThumbs');
   var pdVideo=document.getElementById('pdVideo'), curVideoId=null;
   function showVideo(){ if(!curVideoId||!pdVideo) return; pdVideo.src='https://drive.google.com/file/d/'+curVideoId+'/preview'; pdVideo.hidden=false; }
-  function hideVideo(){ if(pdVideo){ pdVideo.hidden=true; pdVideo.src=''; } }
+  function hideVideo(){ if(pdVideo){ pdVideo.hidden=true; if(pdVideo.src && pdVideo.src.indexOf('drive.google.com')>-1) pdVideo.src='about:blank'; } }
   var pdColors=document.getElementById('pdColors'), pdSizes=document.getElementById('pdSizes');
   var pdStock=document.getElementById('pdStock'), qInput=document.getElementById('qInput');
   function colorsOf(p){ var a=[]; p.variations.forEach(function(v){ var c=v.mau||'Mặc định'; if(a.indexOf(c)<0) a.push(c); }); return a; }
