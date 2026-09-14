@@ -312,9 +312,12 @@ src="https://www.facebook.com/tr?id=1610885197344731&ev=PageView&noscript=1"
   .pd-media{background:var(--surface-2); padding:22px}
   .pd-main{position:relative; aspect-ratio:1/1; border-radius:14px; overflow:hidden; background:var(--surface); border:1px solid var(--line)}
   .pd-main img{width:100%; height:100%; object-fit:cover}
-  .pd-main iframe{position:absolute; inset:0; width:100%; height:100%; border:0; background:#000}
-  /* Khi phát video: khung chuyển sang dạng dọc (9/16) như TikTok để video to, không bị thanh điều khiển che */
+  .pd-main video{position:absolute; inset:0; width:100%; height:100%; border:0; background:#000; object-fit:contain}
+  /* Khi phát video: khung chuyển sang dạng dọc (9/16) như TikTok để video to, tự chạy */
   .pd-main.has-video{aspect-ratio:9/16; width:100%; max-width:420px; margin-left:auto; margin-right:auto; background:#000}
+  .pd-main .vmute{position:absolute; right:12px; bottom:12px; z-index:4; width:42px; height:42px; border-radius:50%; background:rgba(0,0,0,.55); border:0; color:#fff; align-items:center; justify-content:center; cursor:pointer; display:none; padding:0}
+  .pd-main.has-video .vmute{display:flex}
+  .pd-main .vmute svg{width:22px; height:22px}
   .pd-thumbs{display:flex; gap:8px; margin-top:12px; flex-wrap:wrap}
   .pd-thumbs img{width:58px; height:58px; object-fit:cover; border-radius:9px; border:2px solid transparent; cursor:pointer; background:var(--surface)}
   .pd-thumbs img.on{border-color:var(--brand)}
@@ -704,7 +707,7 @@ src="https://www.facebook.com/tr?id=1610885197344731&ev=PageView&noscript=1"
     <button class="modal-close" id="modalClose" aria-label="Đóng">✕</button>
     <div class="pd">
       <div class="pd-media">
-        <div class="pd-main"><img id="pdMain" alt=""><iframe id="pdVideo" title="Video sản phẩm" allow="autoplay; fullscreen" allowfullscreen hidden></iframe></div>
+        <div class="pd-main"><img id="pdMain" alt=""><video id="pdVideo" muted loop playsinline webkit-playsinline preload="metadata" hidden></video><button id="pdMute" class="vmute" type="button" aria-label="Bật/tắt tiếng" hidden></button></div>
         <div class="pd-thumbs" id="pdThumbs"></div>
       </div>
       <div class="pd-info">
@@ -1140,9 +1143,21 @@ document.documentElement.classList.add('js');
     JB598:"13QZkF6FCNREdZAmA1lMFLDFXJCNnZCij", JB606:"1Gq3BGMIQv-4L4FX-DUZL5EkjZuM4PPKi", JB707:"12I1ZHhdHWc0j0xUjMkpfG3BJCQQjckOy"
   };
   var pdMain=document.getElementById('pdMain'), pdThumbs=document.getElementById('pdThumbs');
-  var pdVideo=document.getElementById('pdVideo'), curVideoId=null;
-  function showVideo(){ if(!curVideoId||!pdVideo) return; pdVideo.src='https://drive.google.com/file/d/'+curVideoId+'/preview'; pdVideo.hidden=false; if(pdVideo.parentElement) pdVideo.parentElement.classList.add('has-video'); }
-  function hideVideo(){ if(pdVideo){ pdVideo.hidden=true; if(pdVideo.parentElement) pdVideo.parentElement.classList.remove('has-video'); if(pdVideo.src && pdVideo.src.indexOf('drive.google.com')>-1) pdVideo.src='about:blank'; } }
+  var pdVideo=document.getElementById('pdVideo'), pdMute=document.getElementById('pdMute'), curVideoSrc=null;
+  var ICON_MUTED='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z" opacity=".35"/><path d="M4 4L20 20" stroke="currentColor" stroke-width="2"/></svg>';
+  var ICON_ON='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4.03v8.05A4.5 4.5 0 0 0 16.5 12zM14 3.23v2.06a7 7 0 0 1 0 13.42v2.06a9 9 0 0 0 0-17.54z"/></svg>';
+  function updateMuteIcon(){ if(pdMute&&pdVideo) pdMute.innerHTML = pdVideo.muted ? ICON_MUTED : ICON_ON; }
+  function showVideo(){
+    if(!curVideoSrc||!pdVideo) return;
+    if(pdVideo.getAttribute('src')!==curVideoSrc){ pdVideo.src=curVideoSrc; }
+    pdVideo.hidden=false;
+    if(pdVideo.parentElement) pdVideo.parentElement.classList.add('has-video');
+    pdVideo.muted=true; updateMuteIcon();
+    var pr=pdVideo.play(); if(pr&&pr.catch) pr.catch(function(){});
+    Array.prototype.forEach.call(pdThumbs.children,function(x){ x.classList.toggle('on', x.classList.contains('vthumb')); });
+  }
+  function hideVideo(){ if(pdVideo){ try{pdVideo.pause();}catch(e){} pdVideo.hidden=true; if(pdVideo.parentElement) pdVideo.parentElement.classList.remove('has-video'); } }
+  if(pdMute){ pdMute.addEventListener('click',function(e){ e.stopPropagation(); if(!pdVideo) return; pdVideo.muted=!pdVideo.muted; if(!pdVideo.muted){ var p=pdVideo.play(); if(p&&p.catch) p.catch(function(){}); } updateMuteIcon(); }); }
   var pdColors=document.getElementById('pdColors'), pdSizes=document.getElementById('pdSizes');
   var pdStock=document.getElementById('pdStock'), qInput=document.getElementById('qInput');
   function colorsOf(p){ var a=[]; p.variations.forEach(function(v){ var c=v.mau||'Mặc định'; if(a.indexOf(c)<0) a.push(c); }); return a; }
@@ -1190,7 +1205,7 @@ document.documentElement.classList.add('js');
       pdColors.appendChild(b);
     });
     document.getElementById('pdColorWrap').style.display=(cols.length===1&&cols[0]==='Mặc định')?'none':'';
-    curVideoId=VIDEO[p.ma.toUpperCase()]||null;   // video mẫu (nếu có) làm slide đầu
+    curVideoSrc=VIDEO[p.ma.toUpperCase()] ? ('videos/'+p.ma.toUpperCase()+'.mp4') : null;   // video mẫu tự chạy
     setGallery(allImagesOf(p));   // dải ảnh: banner + thành phần (Drive) + ảnh màu (POS)
     selectColor(cols[0], true);   // giữ ảnh to = BANNER khi mới mở (không nhảy sang ảnh màu)
     loadDesc(p);
@@ -1200,6 +1215,7 @@ document.documentElement.classList.add('js');
     var sh=document.getElementById('pdShare'); if(sh){ sh.classList.remove('done'); sh.textContent='🔗 Copy link đặt mẫu này'; }
     try{ if(window.gtag) gtag('event','view_item',{currency:'VND', value:g[0], items:[{item_id:p.ma, item_name:p.ten, price:g[0]}]}); }catch(e){}
     modal.classList.add('show'); ovl.classList.add('show'); document.body.style.overflow='hidden';
+    if(curVideoSrc) showVideo();   // video mẫu TỰ CHẠY (muted) ngay khi mở sản phẩm
   }
   function selectColor(color, keepMain){
     SEL.color=color; SEL.size=null; SEL.variation=null;
@@ -1237,7 +1253,8 @@ document.documentElement.classList.add('js');
   function setGallery(imgs){
     pdThumbs.innerHTML=''; hideVideo();
     var first=imgs[0]||''; pdMain.src=first;
-    if(curVideoId){   // slide đầu = video mẫu (giống sàn), bấm để phát
+    if(curVideoSrc){   // slide đầu = video mẫu (giống sàn), tự chạy khi mở
+      if(pdVideo){ pdVideo.poster=first||''; }
       var vt=document.createElement('div'); vt.className='vthumb';
       if(first) vt.style.backgroundImage="url('"+first+"')";
       vt.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg><span class="vlbl">VIDEO</span>';
