@@ -310,11 +310,17 @@ src="https://www.facebook.com/tr?id=1610885197344731&ev=PageView&noscript=1"
   .pd-share.done{color:#1E8E4A; border-color:#1E8E4A; border-style:solid}
   .pd{display:grid; grid-template-columns:1fr 1fr; gap:0}
   .pd-media{background:var(--surface-2); padding:22px}
-  .pd-main{aspect-ratio:1/1; border-radius:14px; overflow:hidden; background:var(--surface); border:1px solid var(--line)}
+  .pd-main{position:relative; aspect-ratio:1/1; border-radius:14px; overflow:hidden; background:var(--surface); border:1px solid var(--line)}
   .pd-main img{width:100%; height:100%; object-fit:cover}
+  .pd-main iframe{position:absolute; inset:0; width:100%; height:100%; border:0; background:#000}
   .pd-thumbs{display:flex; gap:8px; margin-top:12px; flex-wrap:wrap}
   .pd-thumbs img{width:58px; height:58px; object-fit:cover; border-radius:9px; border:2px solid transparent; cursor:pointer; background:var(--surface)}
   .pd-thumbs img.on{border-color:var(--brand)}
+  .pd-thumbs .vthumb{width:58px; height:58px; border-radius:9px; border:2px solid transparent; cursor:pointer; position:relative; flex:none; background:#111 center/cover no-repeat; overflow:hidden}
+  .pd-thumbs .vthumb.on{border-color:var(--brand)}
+  .pd-thumbs .vthumb::before{content:""; position:absolute; inset:0; background:rgba(0,0,0,.34)}
+  .pd-thumbs .vthumb svg{position:absolute; inset:0; margin:auto; width:20px; height:20px; color:#fff}
+  .pd-thumbs .vthumb .vlbl{position:absolute; left:0; right:0; bottom:2px; text-align:center; font-size:8.5px; font-weight:800; color:#fff; letter-spacing:.04em}
   .pd-info{padding:30px 28px}
   .pd-info .code{font-size:11px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-mut)}
   .pd-info h2{font-size:22px; font-weight:900; margin:8px 0 14px; line-height:1.25}
@@ -696,7 +702,7 @@ src="https://www.facebook.com/tr?id=1610885197344731&ev=PageView&noscript=1"
     <button class="modal-close" id="modalClose" aria-label="Đóng">✕</button>
     <div class="pd">
       <div class="pd-media">
-        <div class="pd-main"><img id="pdMain" alt=""></div>
+        <div class="pd-main"><img id="pdMain" alt=""><iframe id="pdVideo" title="Video sản phẩm" allow="autoplay; fullscreen" allowfullscreen hidden></iframe></div>
         <div class="pd-thumbs" id="pdThumbs"></div>
       </div>
       <div class="pd-info">
@@ -1120,7 +1126,21 @@ document.documentElement.classList.add('js');
 
   // ---------- modal chi tiết ----------
   var modal=document.getElementById('modal'), ovl=document.getElementById('ovl');
+  // Video mẫu từng mẫu (Drive, công khai) — mã -> fileId; nhúng iframe /preview
+  var VIDEO={
+    JB02:"1pPwxdo5UdDxbb229V_tJ12ofbEEga_Sb", JB08LOT:"1RvheUhSp7a1vqmrMDNQsL9dPwzGxCRgR", JB111A:"1wgUcbugvZU-R8en41p9MOBd-tW3Ld3jU",
+    JB139:"1KTVeBu3LprZnFlepUuEzsW1WqRaBgp1k", JB1317:"1GgvWOALKYGYthPkmmWilRXrokOVfjrFe", JB1320:"1Gnj7QovAQ1bsjhdckaKPNMKF17xlTk8F",
+    JB17:"1gyZhdkPaLSjzU_hcfsPY23au4Yx31MMq", JB18:"16edDH3wXoli6sT7a-QnNhGNhfPdJ9WUs", JB182:"10atSNvV42SAU2AiWqfokR95saAX1mEH7",
+    JB20:"112yicX1XMIJrsr4B8PIIWJb0JwiiPrq4", JB2632:"1H4VFKdoXhZfrtoYv9fKGTq3tivMrFGc0", JB25:"1vLt4ylFYs0eA1VBdzGm6MrBG14U7L33L",
+    JB27:"1Nx6yREL5FnoKcE-tQKu0hMoiHRHlEy49", JB286:"1eebLakuiaEsk0swZsaKCDEPEZ1QU7GAj", JB393:"1QIxjzsqpRZ5lLOno4YZWp8jOFxZ7CkXe",
+    JB5359:"1FUJS_jnSxyshTgt9nWypXptEByl_Gwcu", JB552:"19TJ1lQ7cR2tcXTjGNIGQeUb9Kny9s_H6", JB5536:"1a5vi6upPcfQAfo5qAoMg9BNGWpMOY46R",
+    JB569:"1EzJzOS1-kwKDNO14TM6RhLxFx47w2gan", JB572:"1zQ4ZhLTbnHq6ZKCaHXjYcgzsMLEzITf0", JB597:"1wQrLhUX-6jw2Ckh6GFC-S86MY6qse0uk",
+    JB598:"13QZkF6FCNREdZAmA1lMFLDFXJCNnZCij", JB606:"1Gq3BGMIQv-4L4FX-DUZL5EkjZuM4PPKi", JB707:"12I1ZHhdHWc0j0xUjMkpfG3BJCQQjckOy"
+  };
   var pdMain=document.getElementById('pdMain'), pdThumbs=document.getElementById('pdThumbs');
+  var pdVideo=document.getElementById('pdVideo'), curVideoId=null;
+  function showVideo(){ if(!curVideoId||!pdVideo) return; pdVideo.src='https://drive.google.com/file/d/'+curVideoId+'/preview'; pdVideo.hidden=false; }
+  function hideVideo(){ if(pdVideo){ pdVideo.hidden=true; pdVideo.src=''; } }
   var pdColors=document.getElementById('pdColors'), pdSizes=document.getElementById('pdSizes');
   var pdStock=document.getElementById('pdStock'), qInput=document.getElementById('qInput');
   function colorsOf(p){ var a=[]; p.variations.forEach(function(v){ var c=v.mau||'Mặc định'; if(a.indexOf(c)<0) a.push(c); }); return a; }
@@ -1168,6 +1188,7 @@ document.documentElement.classList.add('js');
       pdColors.appendChild(b);
     });
     document.getElementById('pdColorWrap').style.display=(cols.length===1&&cols[0]==='Mặc định')?'none':'';
+    curVideoId=VIDEO[p.ma.toUpperCase()]||null;   // video mẫu (nếu có) làm slide đầu
     setGallery(allImagesOf(p));   // dải ảnh: banner + thành phần (Drive) + ảnh màu (POS)
     selectColor(cols[0], true);   // giữ ảnh to = BANNER khi mới mở (không nhảy sang ảnh màu)
     loadDesc(p);
@@ -1212,15 +1233,22 @@ document.documentElement.classList.add('js');
     updateStock();
   }
   function setGallery(imgs){
-    pdThumbs.innerHTML='';
+    pdThumbs.innerHTML=''; hideVideo();
     var first=imgs[0]||''; pdMain.src=first;
+    if(curVideoId){   // slide đầu = video mẫu (giống sàn), bấm để phát
+      var vt=document.createElement('div'); vt.className='vthumb';
+      if(first) vt.style.backgroundImage="url('"+first+"')";
+      vt.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg><span class="vlbl">VIDEO</span>';
+      vt.addEventListener('click',function(){ showVideo(); Array.prototype.forEach.call(pdThumbs.children,function(x){x.classList.remove('on');}); vt.classList.add('on'); });
+      pdThumbs.appendChild(vt);
+    }
     imgs.forEach(function(u,i){
       var im=document.createElement('img'); im.src=u; if(i===0) im.className='on';
-      im.addEventListener('click',function(){ pdMain.src=u; Array.prototype.forEach.call(pdThumbs.children,function(x){x.classList.remove('on');}); im.classList.add('on'); });
+      im.addEventListener('click',function(){ hideVideo(); pdMain.src=u; Array.prototype.forEach.call(pdThumbs.children,function(x){x.classList.remove('on');}); im.classList.add('on'); });
       pdThumbs.appendChild(im);
     });
   }
-  function showMain(url){ pdMain.src=url; Array.prototype.forEach.call(pdThumbs.children,function(x){ x.classList.toggle('on', x.src===url); }); }
+  function showMain(url){ hideVideo(); pdMain.src=url; Array.prototype.forEach.call(pdThumbs.children,function(x){ x.classList.toggle('on', x.tagName==='IMG' && x.src===url); }); }
 
   // ---------- đánh giá (reviews) ----------
   var pdReviews=document.getElementById('pdReviews'), AGG={};
@@ -1319,7 +1347,7 @@ document.documentElement.classList.add('js');
     qInput.max=v.ton;
   }
   var searchOpenedModal=false; // đánh dấu mẫu được mở TỪ ô tìm kiếm → đóng lại thì tự xóa ô tìm
-  function closeModal(){ modal.classList.remove('show'); ovl.classList.remove('show'); document.body.style.overflow=''; try{ history.replaceState(null,'','/'); }catch(e){}
+  function closeModal(){ hideVideo(); modal.classList.remove('show'); ovl.classList.remove('show'); document.body.style.overflow=''; try{ history.replaceState(null,'','/'); }catch(e){}
     if(searchOpenedModal){ searchOpenedModal=false; if(typeof applySearch==='function') applySearch('', null); }
   }
   // ----- Deep-link: mở thẳng 1 mẫu qua URL ?sp=MA (dùng cho quảng cáo Facebook) -----
