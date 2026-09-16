@@ -1,9 +1,6 @@
 {
-  "rewrites": [
-    {
-      "source": "/",
-      "has": [{ "type": "query", "key": "sp" }],
-      "destination": "/api/og"
-    }
+  "routes": [
+    { "src": "/", "has": [{ "type": "query", "key": "sp" }], "dest": "/api/og" },
+    { "handle": "filesystem" }
   ]
 }
