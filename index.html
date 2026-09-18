@@ -774,6 +774,33 @@ document.documentElement.classList.add('js');
     JB5359:[750000,1300000], JB393:[632000,1016000], JB707:[726000,1081000], JB139:[670000,1148000],
     JB111A:[899000,1447000], JB18:[518000,833000], JB08LOT:[200000,345000], JB02:[170000,275000]
   };
+  // Tên mẫu TĨNH (mở modal tức thì khi vào link ?sp= trước khi POS tải xong; tên thật POS sẽ ghi đè)
+  var PNAME={
+    JB25:"Giày độn đế thời trang phong cách Hàn Quốc",
+    JB597:"Giày thể thao nữ 8cm 2025, da bò tách vật liệu cao cấp siêu nhẹ",
+    JB572:"Giày Nữ 10cm Đế Bánh Mì - Da Lộn Cao Cấp, Siêu Nhẹ, Dễ Phối Đồ",
+    JB17:"Giày thể thao nữ đế bố cao 12cm siêu nhẹ, hack dáng tự nhiên",
+    JB5536:"Giày thể thao nữ độn đế 9cm lưới thoáng khí, siêu nhẹ, êm chân",
+    JB1320:"Giày nữ thời trang da bò tách lớp phong cách thể thao cao 8cm",
+    JB606:"Giày thời trang nữ xuân hè da bò tách lớp tăng chiều cao 8cm",
+    JB27:"Giày thể thao độn đế, phong cách Hàn Quốc",
+    JB598:"Giày thể thao nữ thoáng khí da bò đế êm nhẹ - tăng chiều cao 9cm",
+    JB286:"Giày thể thao lưới thoáng khí tăng chiều cao 9cm",
+    JB552:"Đế siêu nhẹ Tăng Chiều Cao 8cm - Da bò tách lớp, phong cách Old Skool",
+    JB182:"Dép sandal nữ mùa hè hottrend chất da mềm kết hợp lưới thoáng khí",
+    JB569:"Giày thể thao nữ da bò tách đôi hack chiều cao 8cm, siêu nhẹ và êm ái",
+    JB1317:"Giày nữ slip-on đế xuồng 8cm, da bò hoặc lưới cao cấp siêu nhẹ",
+    JB2632:"Boot Nữ Cao 9cm - Đế Xuồng, Chống Trơn Trượt, Da Bò Tách Cao Cấp",
+    JB20:"Bốt cổ cao da trơn cao cấp đế polyurethane siêu nhẹ cao 7cm",
+    JB5359:"Giày thể thao cá tính cao 9cm, da bò tách lớp cao cấp",
+    JB393:"Giày thể thao đế xuồng cao 9cm da bò thật hàng QC L1 cao cấp siêu nhẹ",
+    JB707:"Giày nữ 13cm phối đồ dễ dàng, hàng L1 QC da bò đế siêu nhẹ",
+    JB139:"Giày thể thao nữ đế bằng tăng chiều cao 10cm chất liệu da bò cao cấp",
+    JB111A:"Giày thể thao lông cừu Mông Cổ thật, giữ ấm chân, đế siêu mềm cao 5cm",
+    JB18:"Bốt cổ len tăng chiều cao 8cm phong cách Hàn Quốc",
+    JB08LOT:"Dép Sandal nữ đế xuồng hở mũi 6,5cm EVA cao cấp phong cách dễ thương",
+    JB02:"Dép Sandal nữ đế xuồng EVA cao cấp hottrend Triệu Lộ Tư"
+  };
   // ===== ẢNH GALLERY từ Google Drive (banner + ảnh thành phần), theo mã JB — thứ tự: banner trước =====
   var GIMG={
     JB27:["1qYJZPKzdm8qVJoF28EqP0zY10bL4rAsI","1WENHVpzwrPvgrcer9LJZmOYNlacb05ji","1BBQ_ZI7PEe1VgskHKW9LFcEqYNw9_gKU","1buuvhk73Dxy4oamo1F1OJnRVXA-w9fcO","1dvQLqJd4A12nXW-dEevSElpcIkVDlh1j","1SyTyFamWQuNwfN8iITVkfQroejZHkoad","17CkN6U6oi-mEPR6__k3mhZz4AYhvQZId"],
@@ -1194,8 +1221,9 @@ document.documentElement.classList.add('js');
     // Nhãn nút "Xem đánh giá" kèm số lượng thật (nếu có)
     var pdJumpT=document.querySelector('#pdToReviews .pd-jump-t');
     if(pdJumpT){ var seedN=(SEEDRV[p.ma.toUpperCase()]||[]).length; var totN=((ag&&ag.n)||0)+seedN; pdJumpT.textContent=totN?('Xem '+totN+' đánh giá'):'Xem đánh giá'; }
-    // colors
-    var cols=colorsOf(p);
+    // colors — khi MỞ TỨC THÌ từ dữ liệu tĩnh (stub) thì chưa có màu/size; sẽ điền sau khi POS về
+    var loading = !!p._stub; SEL.loading = loading;
+    var cols = loading ? [] : colorsOf(p);
     pdColors.innerHTML='';
     cols.forEach(function(c){
       var b=document.createElement('button'); b.className='opt color'; b.type='button';
@@ -1204,10 +1232,11 @@ document.documentElement.classList.add('js');
       b.addEventListener('click',function(){ selectColor(c); });
       pdColors.appendChild(b);
     });
-    document.getElementById('pdColorWrap').style.display=(cols.length===1&&cols[0]==='Mặc định')?'none':'';
+    document.getElementById('pdColorWrap').style.display=(loading||(cols.length===1&&cols[0]==='Mặc định'))?'none':'';
     curVideoSrc=VIDEO[p.ma.toUpperCase()] ? ('videos/'+p.ma.toUpperCase()+'.mp4') : null;   // video mẫu tự chạy
     setGallery(allImagesOf(p));   // dải ảnh: banner + thành phần (Drive) + ảnh màu (POS)
-    selectColor(cols[0], true);   // giữ ảnh to = BANNER khi mới mở (không nhảy sang ảnh màu)
+    if(loading){ document.getElementById('pdSizeWrap').style.display='none'; SEL.color=null; SEL.size=null; SEL.variation=null; updateStock(); }
+    else { selectColor(cols[0], true); }   // giữ ảnh to = BANNER khi mới mở (không nhảy sang ảnh màu)
     loadDesc(p);
     loadReviews(p.ma);
     // Link riêng cho mẫu (deep-link cho quảng cáo) — cập nhật URL + reset nút copy
@@ -1357,6 +1386,7 @@ document.documentElement.classList.add('js');
   }
   function updateStock(){
     var v=SEL.variation, btnBuy=document.getElementById('btnBuy'), btnAdd=document.getElementById('btnAdd');
+    if(SEL.loading){ pdStock.innerHTML='<b>Đang tải màu &amp; size…</b>'; btnBuy.disabled=true; btnAdd.disabled=true; return; }
     var hasSize=document.getElementById('pdSizeWrap').style.display!=='none';
     if(hasSize && !SEL.size){ pdStock.textContent='Vui lòng chọn size'; btnBuy.disabled=true; btnAdd.disabled=true; return; }
     if(!v || v.ton<=0){ pdStock.innerHTML='<b>Tạm hết size này</b>'; btnBuy.disabled=true; btnAdd.disabled=true; return; }
@@ -1376,13 +1406,43 @@ document.documentElement.classList.add('js');
     for(var i=0;i<PRODUCTS.length;i++){ if((PRODUCTS[i].ma||'').toUpperCase().replace(/[^A-Z0-9]/g,'')===key) return PRODUCTS[i]; }
     return null;
   }
-  function openDeepLink(){
+  function getSpParam(){
+    var sp=new URLSearchParams(location.search).get('sp');
+    if(!sp && location.hash){ var h=location.hash.replace(/^#/,''); if(/^sp=/i.test(h)) sp=h.slice(3); else if(/^JB/i.test(h)) sp=h; }
+    return sp;
+  }
+  var _dlStub=false;
+  // Mở TỨC THÌ trang đặt hàng từ dữ liệu tĩnh (ảnh + tên + giá + mô tả + video) — KHÔNG chờ POS
+  function openStub(sp){
+    var k=(sp||'').toString().toUpperCase().replace(/[^A-Z0-9]/g,'');
+    if(!k || !GIA[k]) return false;
+    var stub={ ma:k, ten:(PNAME[k]||('Mẫu '+k)), ten_goc:(PNAME[k]||''), variations:[], images:driveImgs(k), anh:(driveImgs(k)[0]||''), _stub:true };
+    openModal(stub); return true;
+  }
+  // Điền màu/size/tồn thật khi POS về — GIỮ NGUYÊN ảnh chính + video đang chạy (không reset gallery)
+  function fillVariations(p){
+    if(!p) return;
+    SEL.prod=p; SEL.loading=false;
+    document.getElementById('pdName').textContent=p.ten;
+    var cols=colorsOf(p);
+    pdColors.innerHTML='';
+    cols.forEach(function(c){
+      var b=document.createElement('button'); b.className='opt color'; b.type='button';
+      var im=imgsForColor(p,c)[0];
+      b.innerHTML=(im?'<img src="'+im+'" alt="">':'')+'<span>'+c+'</span>';
+      b.addEventListener('click',function(){ selectColor(c); });
+      pdColors.appendChild(b);
+    });
+    document.getElementById('pdColorWrap').style.display=(cols.length===1&&cols[0]==='Mặc định')?'none':'';
+    selectColor(cols[0], true);   // dựng size + tồn; keepMain=true nên không đổi ảnh, không dừng video
+  }
+  function openDeepLinkInstant(){ try{ var sp=getSpParam(); if(sp) _dlStub=openStub(sp); }catch(e){} }
+  function openDeepLinkUpgrade(){
     try{
-      var sp=new URLSearchParams(location.search).get('sp');
-      if(!sp && location.hash){ var h=location.hash.replace(/^#/,''); if(/^sp=/i.test(h)) sp=h.slice(3); else if(/^JB/i.test(h)) sp=h; }
-      if(!sp) return;
-      var p=findProd(sp);
-      if(p) setTimeout(function(){ openModal(p); },150);
+      var sp=getSpParam(); if(!sp) return;
+      var p=findProd(sp); if(!p) return;
+      if(modal.classList.contains('show') && SEL && SEL.prod && SEL.prod._stub){ fillVariations(p); }  // nâng cấp modal đang mở
+      else if(!_dlStub){ openModal(p); }   // stub không mở được (mã lạ) -> mở bình thường; nếu khách đã tự đóng thì để yên
     }catch(e){}
   }
   var pdShareBtn=document.getElementById('pdShare');
@@ -1826,6 +1886,7 @@ document.documentElement.classList.add('js');
 
   // ---------- tải sản phẩm ----------
   updateCount();
+  openDeepLinkInstant();   // MỞ NGAY trang đặt hàng của mẫu (?sp=) từ dữ liệu tĩnh, không chờ POS
   fetch('/api/ton-kho').then(function(r){return r.json();}).then(function(j){
     var list=(j&&j.san_pham)||[];
     // chỉ giữ sản phẩm có trong bảng giá + còn ít nhất 1 biến thể còn hàng
@@ -1840,7 +1901,7 @@ document.documentElement.classList.add('js');
     loadinfo.style.display='none';
     renderGrid();
     loadAgg();
-    openDeepLink();  // nếu URL có ?sp=MA -> mở thẳng modal đặt hàng của mẫu đó
+    openDeepLinkUpgrade();  // POS đã về -> điền màu/size/tồn thật vào modal đang mở (hoặc mở nếu chưa)
     initHeroSlideshow();  // ảnh hero tự chạy qua các mẫu/màu + thông tin đổi theo, bấm ảnh mở trang đặt hàng
   }).catch(function(){ loadinfo.textContent='Không tải được sản phẩm. Vui lòng tải lại trang hoặc nhắn Zalo để đặt hàng.'; });
 })();
