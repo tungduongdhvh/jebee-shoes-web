@@ -772,7 +772,8 @@ document.documentElement.classList.add('js');
     JB598:[678000,1064000], JB286:[734000,1165000], JB552:[702000,1114000], JB182:[260000,433000],
     JB569:[670000,1063000], JB1317:[624000,990000], JB2632:[678000,1076000], JB20:[670000,993000],
     JB5359:[750000,1300000], JB393:[632000,1016000], JB707:[726000,1081000], JB139:[670000,1148000],
-    JB111A:[899000,1447000], JB18:[518000,833000], JB08LOT:[200000,345000], JB02:[170000,275000]
+    JB111A:[899000,1447000], JB18:[518000,833000], JB08LOT:[200000,345000], JB02:[170000,275000],
+    JB553:[734000,1165000]
   };
   // Tên mẫu TĨNH (mở modal tức thì khi vào link ?sp= trước khi POS tải xong; tên thật POS sẽ ghi đè)
   var PNAME={
@@ -799,7 +800,8 @@ document.documentElement.classList.add('js');
     JB111A:"Giày thể thao lông cừu Mông Cổ thật, giữ ấm chân, đế siêu mềm cao 5cm",
     JB18:"Bốt cổ len tăng chiều cao 8cm phong cách Hàn Quốc",
     JB08LOT:"Dép Sandal nữ đế xuồng hở mũi 6,5cm EVA cao cấp phong cách dễ thương",
-    JB02:"Dép Sandal nữ đế xuồng EVA cao cấp hottrend Triệu Lộ Tư"
+    JB02:"Dép Sandal nữ đế xuồng EVA cao cấp hottrend Triệu Lộ Tư",
+    JB553:"Giày thể thao nữ độn đế 9cm lưới thoáng khí, siêu nhẹ, đi êm chân"
   };
   // ===== ẢNH GALLERY từ Google Drive (banner + ảnh thành phần), theo mã JB — thứ tự: banner trước =====
   var GIMG={
@@ -826,7 +828,8 @@ document.documentElement.classList.add('js');
     JB08LOT:["1kkU09LrPpRGS1Qmh5n8oQbBWCTEqQVQa","1ClpS6e7KX6qBqdxrnDxUYeDyTjBLBNl0","1CNk2WvVnmImPEH-d4wPU1GLBFDuYuUa9","1DrgayT-brKNfWajjmtxIWSHHx4aHlAbt","15JnVjeaja7nh5NurUiRv25h4kCr_sBM_","16f0Vv4RVinuNu_qWW_pV3hvMhDau2zYg","1ARTNVMFtzXBTHHVISaCWMHFAtUVmGDil"],
     JB139:["1eLDigyIDKC6CLsl0Nyqz2x1YYGcdpa92","1bkyKkhVW5C1Zg-AWWZ6Z-tNLWzKfLvu9","1c9RiyoGDoa3xvI4RovQT0tEzKaQ-sS-L","1sK8hMaUZZzb3ofIt1XW8cOhXwrj7mSIz","1JBThouUB7EQ8AK7sDO4qR0VK_fEOKRkG","1EJ3Fwr8xpDGo6x6FyOtLyOAtAT1R4TPQ"],
     JB17:["1G0tDqYIv2JEqxHtwRh2DltO6HVMxBWaI","1vGRm2uIevZy9F9z1j49xuTy_O3pBTOGO","1CY1e6jR59p8qHt0be0_ysKH_OorshL3C","1lUV7J6rDUBDgTkv_bzAEpGLA0GV7GafS","1gRjKZhBz76C3znc4CQh4xJmecumODJhm","1tsUmFHv1mR_4bFS4TzUAPoPL3hcyV2E0","1wdh6Tyvx7hP80ha7UQryyMTpnVZ7BQUJ"],
-    JB1317:["1Hdun1A4gOTphTjibbsPu6h_UWs_8wrUQ","17SsPX99u3ZfgaamXx00e5JCisNnMVMh9","1Yalef9IUPjeDLjz2N73n-llUfwBhM7yD","1cSqf71SV8bmEQQXrrXFuglcHFrNovava","1M6wAtWTEEkH78BJmvQ0A46bprmnqn6n9","1cjPACg2FghzMNourySzMETNqEojLuBzm","1dCsVL2DDkfBUaHmyRUFuUorNTC71843l"]
+    JB1317:["1Hdun1A4gOTphTjibbsPu6h_UWs_8wrUQ","17SsPX99u3ZfgaamXx00e5JCisNnMVMh9","1Yalef9IUPjeDLjz2N73n-llUfwBhM7yD","1cSqf71SV8bmEQQXrrXFuglcHFrNovava","1M6wAtWTEEkH78BJmvQ0A46bprmnqn6n9","1cjPACg2FghzMNourySzMETNqEojLuBzm","1dCsVL2DDkfBUaHmyRUFuUorNTC71843l"],
+    JB553:["1wJfNuINc700zX8p7gKW-Vedgou0YhsUT","1Lhlp7Uog3vpbX4h9PMqMu77zI-_ocYWt","1vvx4laZfQHOrIWLgP6QNhMv8uDQ0s3MM","1EJPOGs3dSBz_j1exl9j_72C956I1fZAQ","1rvcBZkyMmY_TuDNeCUCIwOdHWkTrB7KJ","1Tg420-92W_jcfNpJCigIHV1Bp3doG2hS","1rVURLXiR8-CA-eQj__Dozw0cmMpFp0qM"]
   };
   // Ảnh BÌA (cover) = Banner trang trí dịp Quốc khánh 2/9 — ghi đè ảnh bìa cũ
   var B29={
@@ -1167,7 +1170,7 @@ document.documentElement.classList.add('js');
     JB27:"1Nx6yREL5FnoKcE-tQKu0hMoiHRHlEy49", JB286:"1eebLakuiaEsk0swZsaKCDEPEZ1QU7GAj", JB393:"1QIxjzsqpRZ5lLOno4YZWp8jOFxZ7CkXe",
     JB5359:"1FUJS_jnSxyshTgt9nWypXptEByl_Gwcu", JB552:"19TJ1lQ7cR2tcXTjGNIGQeUb9Kny9s_H6", JB5536:"1a5vi6upPcfQAfo5qAoMg9BNGWpMOY46R",
     JB569:"1EzJzOS1-kwKDNO14TM6RhLxFx47w2gan", JB572:"1zQ4ZhLTbnHq6ZKCaHXjYcgzsMLEzITf0", JB597:"1wQrLhUX-6jw2Ckh6GFC-S86MY6qse0uk",
-    JB598:"13QZkF6FCNREdZAmA1lMFLDFXJCNnZCij", JB606:"1Gq3BGMIQv-4L4FX-DUZL5EkjZuM4PPKi", JB707:"12I1ZHhdHWc0j0xUjMkpfG3BJCQQjckOy"
+    JB598:"13QZkF6FCNREdZAmA1lMFLDFXJCNnZCij", JB606:"1Gq3BGMIQv-4L4FX-DUZL5EkjZuM4PPKi", JB707:"12I1ZHhdHWc0j0xUjMkpfG3BJCQQjckOy", JB553:"1tWQotg3CdmN1UI4Zpu4JzCuokLJK0ZQ7"
   };
   var pdMain=document.getElementById('pdMain'), pdThumbs=document.getElementById('pdThumbs');
   var pdVideo=document.getElementById('pdVideo'), pdMute=document.getElementById('pdMute'), curVideoSrc=null;

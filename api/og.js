@@ -7,7 +7,8 @@ const PRICE = {
   JB25:648000, JB597:874000, JB572:670000, JB17:518000, JB5536:734000, JB1320:670000,
   JB606:694000, JB27:626000, JB598:678000, JB286:734000, JB552:702000, JB182:260000,
   JB569:670000, JB1317:624000, JB2632:678000, JB20:670000, JB5359:750000, JB393:632000,
-  JB707:726000, JB139:670000, JB111A:899000, JB18:518000, JB08LOT:200000, JB02:170000
+  JB707:726000, JB139:670000, JB111A:899000, JB18:518000, JB08LOT:200000, JB02:170000,
+  JB553:734000
 };
 
 // MA -> Google Drive file id (anh banner chinh cua mau)
@@ -23,7 +24,8 @@ const IMG = {
   JB25:"1KhrCSCrmms5VQyauvEo4jBuVP0Ah-sgK", JB02:"1IYp5ZyjlGMLB_rRwZ1aw9cedXpJWUaxk",
   JB111A:"1H4K5YSBhe6GOC-O7S1dltRUP527vL0VX", JB569:"1SydAJ_yqxeWTcl7jEeeE-LNq_1TVU6E6",
   JB08LOT:"1kkU09LrPpRGS1Qmh5n8oQbBWCTEqQVQa", JB139:"1eLDigyIDKC6CLsl0Nyqz2x1YYGcdpa92",
-  JB17:"1G0tDqYIv2JEqxHtwRh2DltO6HVMxBWaI", JB1317:"1Hdun1A4gOTphTjibbsPu6h_UWs_8wrUQ"
+  JB17:"1G0tDqYIv2JEqxHtwRh2DltO6HVMxBWaI", JB1317:"1Hdun1A4gOTphTjibbsPu6h_UWs_8wrUQ",
+  JB553:"1wJfNuINc700zX8p7gKW-Vedgou0YhsUT"
 };
 
 // MA -> ten hien thi (da lam sach)
@@ -51,7 +53,8 @@ const NAME = {
   JB111A:"Giày thể thao lông cừu Mông Cổ thật, giữ ấm chân, đế siêu mềm cao 5cm",
   JB18:"Bốt cổ len tăng chiều cao 8cm phong cách Hàn Quốc",
   JB08LOT:"Dép Sandal nữ đế xuồng hở mũi 6,5cm EVA cao cấp phong cách dễ thương",
-  JB02:"Dép Sandal nữ đế xuồng EVA cao cấp hottrend Triệu Lộ Tư"
+  JB02:"Dép Sandal nữ đế xuồng EVA cao cấp hottrend Triệu Lộ Tư",
+  JB553:"Giày thể thao nữ độn đế 9cm lưới thoáng khí, siêu nhẹ, đi êm chân"
 };
 
 function attrEsc(s){
