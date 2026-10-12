@@ -1,6 +1,37 @@
 {
   "routes": [
-    { "src": "/", "has": [{ "type": "query", "key": "sp" }], "dest": "/api/og" },
-    { "handle": "filesystem" }
+    {
+      "src": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "chamcong.jebeeshoes.vn"
+        }
+      ],
+      "dest": "/chamcong/index.html"
+    },
+    {
+      "src": "/(.+)",
+      "has": [
+        {
+          "type": "host",
+          "value": "chamcong.jebeeshoes.vn"
+        }
+      ],
+      "dest": "/chamcong/$1"
+    },
+    {
+      "src": "/",
+      "has": [
+        {
+          "type": "query",
+          "key": "sp"
+        }
+      ],
+      "dest": "/api/og"
+    },
+    {
+      "handle": "filesystem"
+    }
   ]
 }

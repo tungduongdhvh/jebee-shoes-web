@@ -1,4 +1,5 @@
 User-agent: *
+Disallow: /chamcong/
 Allow: /
 
 Sitemap: https://jebeeshoes.vn/sitemap.xml
