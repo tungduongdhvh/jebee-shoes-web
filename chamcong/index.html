@@ -244,6 +244,7 @@ details.day .list{border:0;border-top:1px solid var(--line);border-radius:0}
 .banner + .banner{margin-top:8px}
 .locbox{display:flex;flex-direction:column;gap:8px;align-items:center}
 .loc .acts{gap:8px}
+.segrow{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:3px 0}
 </style>
 </head>
 <body>
@@ -343,6 +344,18 @@ function calcLate(segs, priorInTimes, time) {
 function lateReg(st, mon, regs) {
   var sun = addDays(mon, 6);
   return regs.some(function (r) { return r.staffId === st.id && r.date >= mon && r.date <= sun && r.at && r.at.slice(0, 10) >= mon; });
+}
+/* Báo bận ca */
+function caTxt(ca) {
+  var k = String(ca || '').split('|'), f = S.boot.shifts.filter(function (x) { return x.id === k[0]; })[0];
+  return (f ? f.name : 'Linh hoạt') + ' ' + (k[1] || '') + '–' + (k[2] || '');
+}
+// Thời điểm báo so với giờ vào ca: báo trước (từ hôm trước), báo trong ngày, hay giải trình sau khi ca đã bắt đầu
+function busyTiming(date, start, when) {
+  var d = String(when).slice(0, 10), t = String(when).slice(11, 16);
+  if (d < date) return { cls: 'p-good', txt: 'Báo trước' };
+  if (d === date && t < start) return { cls: 'p-warn', txt: 'Báo trong ngày' };
+  return { cls: 'p-bad', txt: 'Giải trình sau' };
 }
 function weekState(st, mon, regs) {
   var sun = addDays(mon, 6);
@@ -483,12 +496,24 @@ var Demo = (function () {
   function admin(p) { if (String(p.admin) !== (db().adminPin || '8888')) fail('Mã PIN quản lý không đúng.', 'AUTH'); }
   function pub(s) { return { id: s.id, name: s.name, role: s.role, shop: s.shop, shift: s.shift, status: s.status }; }
   function myRegs(id, from, to) { return db().regs.filter(function (r) { return (!id || r.staffId === id) && r.date >= from && r.date <= to; }); }
+  function myBusy(id) { return db().requests.filter(function (q) { return q.staffId === id && q.kind === 'Báo bận ca'; }); }
   var H = {
+    busy: function (p) {
+      var s = auth(p), n = vnNow(), D = db(), reason = String(p.reason || '').trim();
+      if (!reason) fail('Ghi lý do bận để quản lý xét.');
+      var seg = D.regs.filter(function (r) { return r.staffId === s.id && r.date === p.date && r.shift === p.shift && r.start === p.start; })[0];
+      if (!seg) fail('Không tìm thấy ca này trong lịch đã đăng ký.');
+      var key = seg.shift + '|' + seg.start + '|' + seg.end;
+      if (D.requests.some(function (q) { return q.staffId === s.id && q.kind === 'Báo bận ca' && q.from === p.date && q.ca === key && q.status !== 'Từ chối'; })) fail('Bạn đã báo bận ca này rồi.');
+      D.requests.push({ id: 'q' + Date.now(), created: n.date + ' ' + n.time.slice(0, 5), staffId: s.id, name: s.name, kind: 'Báo bận ca', from: p.date, to: p.date, reason: reason, status: 'Chờ duyệt', ca: key });
+      save();
+      return { busy: myBusy(s.id) };
+    },
     boot: function () { return { company: 'Jebee Shoes', staff: db().staff.map(pub), shops: SHOPS, shifts: SHIFTS, settings: { gps: true, photo: true, graceFlex: GF }, now: vnNow() }; },
     login: function (p) { return pub(auth(p)); },
     today: function (p) {
       var s = auth(p), n = vnNow(), mon = monday(n.date);
-      return { now: n, records: db().records.filter(function (r) { return r.staffId === s.id && r.date === n.date; }), regs: myRegs(s.id, mon, addDays(mon, 13)) };
+      return { now: n, records: db().records.filter(function (r) { return r.staffId === s.id && r.date === n.date; }), regs: myRegs(s.id, addDays(mon, -7), addDays(mon, 13)), busy: myBusy(s.id) };
     },
     punch: function (p) {
       var s = auth(p), n = vnNow(), D = db();
@@ -525,7 +550,7 @@ var Demo = (function () {
       D.regs = D.regs.filter(function (r) { return old.indexOf(r) < 0; });
       out.forEach(function (o, i) { o.id = 'g' + Date.now() + i; o.staffId = s.id; o.at = n.date + ' ' + n.time.slice(0, 5); D.regs.push(o); });
       save();
-      return { regs: myRegs(s.id, thisMon, addDays(thisMon, 13)) };
+      return { regs: myRegs(s.id, addDays(thisMon, -7), addDays(thisMon, 13)) };
     },
     history: function (p) {
       var s = auth(p), m = String(p.month || '');
@@ -549,7 +574,19 @@ var Demo = (function () {
       admin(p); var m = String(p.month || ''), n = vnNow();
       return { staff: db().staff.map(pub), records: db().records.filter(function (r) { return r.date.indexOf(m) === 0 || r.date === n.date; }), requests: db().requests.slice().reverse(), regs: db().regs.slice(), now: n, sheetUrl: '' };
     },
-    decide: function (p) { admin(p); db().requests.forEach(function (q) { if (q.id === p.id) q.status = p.status; }); save(); return true; },
+    decide: function (p) {
+      admin(p); var D = db();
+      D.requests.forEach(function (q) {
+        if (q.id !== p.id) return;
+        if (q.kind === 'Báo bận ca' && p.status === 'Đã duyệt' && q.status !== 'Đã duyệt') {
+          var k = q.ca.split('|'), day = D.regs.filter(function (r) { return r.staffId === q.staffId && r.date === q.from; });
+          var hit = day.filter(function (r) { return r.shift === k[0] && r.start === k[1]; })[0];
+          if (hit) { if (day.length === 1) { hit.shift = 'NGHỈ'; hit.start = hit.end = ''; } else D.regs.splice(D.regs.indexOf(hit), 1); }
+        }
+        q.status = p.status;
+      });
+      save(); return true;
+    },
     range: function (p) { admin(p); return { records: db().records.filter(function (r) { return r.date >= p.from && r.date <= p.to; }), regs: db().regs.slice() }; },
     reviewPunch: function (p) { admin(p); db().records.forEach(function (r) { if (r.id === p.id) r.review = p.ok ? 'ok' : 'rejected'; }); save(); return true; },
     photos: function (p) { admin(p); var o = {}; (p.ids || []).forEach(function (id) { if (shots[id]) o[id] = shots[id]; }); return o; },
@@ -814,10 +851,10 @@ function staffShell(inner) {
 }
 // Nhớ dữ liệu hôm nay trên máy để lần mở sau hiện ngay, không chờ máy chủ
 function saveToday() {
-  if (REAL && S.today && S.me) store('cc_today', { d: vnNow(S.offset).date, id: S.me.id, records: S.today.records, regs: S.regs });
+  if (REAL && S.today && S.me) store('cc_today', { d: vnNow(S.offset).date, id: S.me.id, records: S.today.records, regs: S.regs, busy: S.busyReqs || [] });
 }
 function applyToday(d) {
-  S.today = d; S.regs = d.regs; S.offset = REAL ? d.now.ts - Date.now() : 0; S.syncing = false;
+  S.today = d; S.regs = d.regs; S.busyReqs = d.busy || []; S.offset = REAL ? d.now.ts - Date.now() : 0; S.syncing = false;
   saveToday();
 }
 function startStaff() { S.tab = 'home'; routeStaff(); }
@@ -942,6 +979,28 @@ setInterval(function () {
 }, 1000);
 
 /* ---- Lịch ca: xem tuần này, đăng ký tuần sau ---- */
+function busyDialog(key) {
+  var k = key.split('|'), date = k[0], ca = k.slice(1).join('|'), n = vnNow(S.offset);
+  var tm = busyTiming(date, k[2], n.date + ' ' + n.time.slice(0, 5));
+  var note = tm.txt === 'Báo trước' ? 'Bạn đang báo trước ngày làm. Cảm ơn bạn đã báo sớm.'
+    : tm.txt === 'Báo trong ngày' ? 'Bạn đang báo ngay trong ngày làm. Lần sau cố gắng báo từ hôm trước để quản lý kịp xếp người.'
+      : 'Ca này đã bắt đầu hoặc đã qua, nên đây là giải trình sau. Ghi rõ chuyện gì đã xảy ra để quản lý xét.';
+  modal('<h3>Báo bận ca ' + esc(caTxt(ca)) + '</h3><div class="row" style="flex-wrap:wrap"><span class="mono small muted">' + WD[dow(date)] + ', ' + vnDate(date) + '</span><span class="pill ' + tm.cls + '">' + tm.txt + '</span></div>' +
+    '<p class="muted" style="margin:0">' + note + ' Quản lý duyệt thì ca này được gỡ khỏi lịch và không tính vắng; nếu bị từ chối mà bạn không đến thì vẫn tính vắng.</p>' +
+    '<div class="field"><label class="lbl" for="bzWhy">Lý do</label><textarea id="bzWhy" rows="3" placeholder="VD: con ốm phải đưa đi viện"></textarea></div>' +
+    '<div class="acts"><button class="btn" id="bzOk">Gửi báo bận</button><button class="btn sec" id="bzNo">Huỷ</button></div>');
+  $('#bzNo').onclick = function () { modal(''); };
+  setTimeout(function () { var t = $('#bzWhy'); if (t) t.focus(); }, 50);
+  $('#bzOk').onclick = function () {
+    var why = $('#bzWhy').value.trim(), btn = this;
+    if (!why) { $('#bzWhy').focus(); return toast('Ghi lý do trước khi gửi.', true); }
+    btn.disabled = true;
+    api('busy', { id: S.cred.id, pin: S.cred.pin, date: date, shift: k[1], start: k[2], reason: why }).then(function (r) {
+      S.busyReqs = r.busy; saveToday(); S.hist = null; modal(''); toast('Đã gửi báo bận, chờ quản lý duyệt');
+      if (S.tab === 'sched') renderSched();
+    }).catch(function (e) { btn.disabled = false; toast(e.error || 'Không gửi được, thử lại.', true); });
+  };
+}
 function buildForm(mon) {
   var days = [];
   for (var i = 0; i < 7; i++) {
@@ -953,8 +1012,9 @@ function buildForm(mon) {
 }
 function renderSched() {
   var n = vnNow(S.offset), thisMon = monday(n.date), nextMon = addDays(thisMon, 7);
-  var mon = S.sw === 'next' ? nextMon : thisMon, ws = weekState(S.me, mon, S.regs);
-  var editable = S.sw === 'next' || ws !== 'reg';
+  var mon = S.sw === 'next' ? nextMon : S.sw === 'prev' ? addDays(thisMon, -7) : thisMon, ws = weekState(S.me, mon, S.regs);
+  var editable = S.sw === 'next' || (S.sw === 'this' && ws !== 'reg');
+  var bz = S.busyReqs || [];
   if (!S.form || S.form.mon !== mon) S.form = buildForm(mon);
   var state = ws === 'reg' ? (lateReg(S.me, mon, S.regs) ? '<span class="pill p-warn">Đã đăng ký · trễ hạn</span>' : '<span class="pill p-good">Đã đăng ký</span>') : '<span class="pill p-bad">Chưa đăng ký</span>';
   var rows = S.form.days.map(function (d, i) {
@@ -966,21 +1026,31 @@ function renderSched() {
         (d.LH ? '<div class="row flex-t"><input type="time" id="lhA' + i + '" data-i="' + i + '" data-k="a" value="' + d.a + '" aria-label="Giờ vào"><span class="muted">đến</span><input type="time" id="lhB' + i + '" data-i="' + i + '" data-k="b" value="' + d.b + '" aria-label="Giờ ra"></div>' : '');
     } else {
       var sg = segs(S.me, d.date, S.regs);
-      body = sg.length ? sg.map(function (g) { return '<div class="times">' + esc(segTxt(g)) + '</div>'; }).join('') : '<span class="muted small">Nghỉ</span>';
+      body = sg.length ? sg.map(function (g) {
+        var key = g.id + '|' + g.start + '|' + g.end;
+        var q = bz.filter(function (x) { return x.from === d.date && x.ca === key; }).pop();
+        var act = !q ? '<button class="btn sec sm" data-bz="' + esc(d.date + '|' + key) + '">Báo bận</button>'
+          : q.status === 'Chờ duyệt' ? '<span class="pill p-warn">Đã báo bận · chờ duyệt</span>'
+            : '<span class="pill p-bad">Báo bận bị từ chối</span>';
+        return '<div class="segrow"><span class="times">' + esc(segTxt(g)) + '</span>' + act + '</div>';
+      }).join('') : '<span class="muted small">' + (ws === 'reg' ? 'Nghỉ' : 'Không đăng ký') + '</span>';
+      body += bz.filter(function (x) { return x.from === d.date && x.status === 'Đã duyệt'; }).map(function (x) { return '<div class="small" style="color:var(--good)">Đã duyệt nghỉ ca ' + esc(caTxt(x.ca)) + '</div>'; }).join('');
     }
     var off = !d.LH && !Object.keys(d.on).some(function (k) { return d.on[k]; });
     return '<div class="li' + (d.date === n.date ? ' today' : '') + '"><div class="dayd"><b>' + d.date.slice(8) + '</b><span>' + WDS[dow(d.date)] + '</span></div><div class="main">' + body + '</div>' +
       (editable && off ? '<span class="pill p-mute">Nghỉ</span>' : '') + '</div>';
   }).join('');
   $('#main').innerHTML =
-    '<div class="monthbar" style="padding-top:8px"><h2 style="font-size:20px">Lịch ca</h2><div class="seg"><button data-w="this" aria-pressed="' + (S.sw === 'this') + '">Tuần này</button><button data-w="next" aria-pressed="' + (S.sw === 'next') + '">Tuần sau</button></div></div>' +
+    '<div class="monthbar" style="padding-top:8px"><h2 style="font-size:20px">Lịch ca</h2><div class="seg"><button data-w="prev" aria-pressed="' + (S.sw === 'prev') + '">Tuần trước</button><button data-w="this" aria-pressed="' + (S.sw === 'this') + '">Tuần này</button><button data-w="next" aria-pressed="' + (S.sw === 'next') + '">Tuần sau</button></div></div>' +
     '<div class="row" style="justify-content:space-between;margin:12px 0 8px;flex-wrap:wrap"><span class="mono small muted">' + dm(mon) + ' – ' + dm(addDays(mon, 6)) + '</span>' + state + '</div>' +
     (S.sw === 'next' ? '<p class="small muted" style="margin:0 0 10px">Chọn ca cho từng ngày, ngày không chọn là nghỉ. Hạn đăng ký: <b>24:00 Chủ nhật ' + dm(addDays(mon, -1)) + '</b>. Trước hạn sửa lại bao nhiêu lần cũng được.</p>'
       : editable ? '<p class="small muted" style="margin:0 0 10px">Bạn chưa đăng ký tuần này nên mỗi lượt chấm vào đều phải chờ quản lý duyệt. Đăng ký bổ sung ngay bên dưới: lưu xong là chốt, và quản lý sẽ thấy đây là đăng ký trễ hạn.</p>'
-        : '<p class="small muted" style="margin:0 0 10px">Ca tuần này đã chốt. Cần đổi ca thì gửi đơn hoặc nhắn quản lý.</p>') +
+        : S.sw === 'prev' ? '<p class="small muted" style="margin:0 0 10px">Tuần đã qua. Ca nào bạn vắng vì việc đột xuất thì bấm <b>Báo bận</b> ở ca đó để giải trình với quản lý.</p>'
+          : '<p class="small muted" style="margin:0 0 10px">Ca tuần này đã chốt. Bận ca nào thì bấm <b>Báo bận</b> ở ca đó, <b>nên báo từ hôm trước</b>. Có việc khẩn cấp thì vẫn gửi được sau để giải trình.</p>') +
     '<div class="list">' + rows + '</div>' +
     (editable ? '<div class="acts" style="margin-top:14px"><button class="btn" id="saveReg">Lưu đăng ký ' + (S.sw === 'next' ? 'tuần sau' : 'tuần này') + '</button><button class="btn sec" id="copyMon">Áp dụng Thứ Hai cho T3–T7</button></div>' : '');
   $$('.seg [data-w]').forEach(function (b) { b.onclick = function () { S.sw = b.getAttribute('data-w'); S.form = null; renderSched(); }; });
+  $$('[data-bz]').forEach(function (b) { b.onclick = function () { busyDialog(b.getAttribute('data-bz')); }; });
   if (!editable) return;
   $$('.chip').forEach(function (b) {
     b.onclick = function () {
@@ -1072,7 +1142,7 @@ function renderReq() {
   var today = vnNow(S.offset).date;
   var list = S.hist.requests.map(function (q) {
     return '<div class="li"><div class="main"><div class="row" style="justify-content:space-between"><b>' + esc(q.kind) + '</b>' + statusPill(q.status) + '</div>' +
-      '<div class="small muted mono">' + rangeTxt(q) + '</div>' + (q.reason ? '<div class="small">' + esc(q.reason) + '</div>' : '') + '</div></div>';
+      '<div class="small muted mono">' + rangeTxt(q) + (q.ca ? ' · ' + esc(caTxt(q.ca)) : '') + '</div>' + (q.reason ? '<div class="small">' + esc(q.reason) + '</div>' : '') + '</div></div>';
   }).join('');
   $('#main').innerHTML =
     '<h2 style="font-size:20px;padding-top:8px">Gửi đơn</h2>' +
@@ -1182,7 +1252,8 @@ function dayBlock(date, records, regs) {
     var sg = segs(st, date, regs), ds = dayStats(recs, sg, date, today, cur);
     var last = recs[recs.length - 1], lv = leaveMap(st.id, S.ad.requests, '')[date];
     var flagged = all.some(function (r) { return r.review === 'pending'; });
-    var pill, rank;
+    var pill, rank, absentHere = false;
+    var bzWait = S.ad.requests.some(function (q) { return q.staffId === st.id && q.kind === 'Báo bận ca' && q.from === date && q.status === 'Chờ duyệt'; });
     if (flagged) cnt.review++;
     if (ds.lateN) cnt.late++;
     if (recs.length) cnt.present++;
@@ -1191,7 +1262,7 @@ function dayBlock(date, records, regs) {
     else if (past) {
       if (!recs.length) {
         if (noData) { pill = '<span class="pill p-mute">Không có dữ liệu</span>'; rank = 8; }
-        else if (sg.length) { pill = '<span class="pill p-bad">Vắng</span>'; rank = 1; cnt.absent++; }
+        else if (sg.length) { pill = '<span class="pill p-bad">Vắng</span>'; rank = 1; absentHere = true; }
         else { pill = weekState(st, mon, regs) === 'none' ? '<span class="pill p-bad">Chưa đăng ký ca</span>' : '<span class="pill p-mute">Nghỉ</span>'; rank = 8; }
       } else {
         pill = ''; rank = 5;
@@ -1208,12 +1279,16 @@ function dayBlock(date, records, regs) {
       if (last && last.type === 'IN') { cnt.in++; pill = ds.lateN ? '<span class="pill p-warn">Muộn ' + mt(ds.lateM) + '</span>' : '<span class="pill p-good">Đang làm</span>'; rank = ds.lateN ? 2 : 4; }
       else if (running) {
         if (last) { pill = '<span class="pill p-warn">Ra giữa ca</span>'; rank = 3; }
-        else { pill = '<span class="pill p-bad">Chưa vào ca</span>'; rank = 1; cnt.absent++; }
+        else { pill = '<span class="pill p-bad">Chưa vào ca</span>'; rank = 1; absentHere = true; }
       }
       else if (last) { pill = '<span class="pill p-mute">Đã ra</span>'; rank = 5; }
       else if (coming) { pill = '<span class="pill p-mute">Ca ' + esc(coming.start) + '</span>'; rank = 6; }
       else if (!sg.length) { pill = weekState(st, mon, regs) === 'none' ? '<span class="pill p-bad">Chưa đăng ký ca</span>' : '<span class="pill p-mute">Nghỉ</span>'; rank = 8; }
-      else { pill = '<span class="pill p-bad">Vắng</span>'; rank = 1; cnt.absent++; }
+      else { pill = '<span class="pill p-bad">Vắng</span>'; rank = 1; absentHere = true; }
+    }
+    if (absentHere) {
+      if (bzWait) { pill = '<span class="pill p-warn">Báo bận · chờ duyệt</span>'; rank = 2; }
+      else cnt.absent++;
     }
     if (flagged) rank = 0;
     var plan = sg.length ? sg.map(segTxt).join(' · ') : 'Không có ca';
@@ -1349,7 +1424,8 @@ function renderAReview() {
   var done = S.ad.requests.filter(function (q) { return q.status !== 'Chờ duyệt'; }).slice(0, 15);
   var qHtml = qs.map(function (q) {
     return '<div class="reqcard"><div class="row" style="justify-content:space-between;flex-wrap:wrap"><b>' + esc(q.name) + ' · ' + esc(q.kind) + '</b><span class="mono small muted">' + rangeTxt(q) + '</span></div>' +
-      (q.reason ? '<div>' + esc(q.reason) + '</div>' : '') + '<div class="small muted">Gửi lúc ' + esc(q.created) + '</div>' +
+      (q.kind === 'Báo bận ca' ? (function () { var tm = busyTiming(q.from, q.ca.split('|')[1], q.created); return '<div class="row" style="flex-wrap:wrap"><b class="mono">' + esc(caTxt(q.ca)) + '</b><span class="pill ' + tm.cls + '">' + tm.txt + '</span></div>'; })() : '') +
+      (q.reason ? '<div>' + esc(q.reason) + '</div>' : '') + '<div class="small muted">Gửi lúc ' + esc(q.created) + (q.kind === 'Báo bận ca' ? ' · Duyệt thì ca này được gỡ khỏi lịch, không tính vắng' : '') + '</div>' +
       '<div class="acts"><button class="btn sm" data-q="' + esc(q.id) + '" data-s="Đã duyệt">Duyệt</button><button class="btn bad sm" data-q="' + esc(q.id) + '" data-s="Từ chối">Từ chối</button></div></div>';
   }).join('');
   var rHtml = rs.map(function (r) {
@@ -1438,6 +1514,7 @@ function start() {
       var ct = store('cc_today'), mine = ct && ct.id === cme.id;
       S.cred = cred; S.me = cme; S.syncing = true;
       S.regs = mine ? (ct.regs || []) : [];
+      S.busyReqs = mine ? (ct.busy || []) : [];
       S.today = { now: vnNow(), records: mine && ct.d === vnNow().date ? (ct.records || []) : [], regs: S.regs };
       S.tab = 'home'; staffShell(''); renderHome(); refreshLoc();
       painted = true;
