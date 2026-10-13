@@ -238,6 +238,8 @@ details.day[open] summary{background:var(--sunk)}
 details.day .list{border:0;border-top:1px solid var(--line);border-radius:0}
 .rgrow{margin-top:10px;flex-wrap:wrap}
 .rgrow input[type=date]{width:auto}
+.pinin{font:700 22px var(--mono);letter-spacing:.4em;text-align:center}
+.top .ghost{white-space:nowrap;padding:6px 10px}
 </style>
 </head>
 <body>
@@ -467,7 +469,7 @@ var Demo = (function () {
     if (!s || s.pin !== String(p.pin)) fail('Mã PIN không đúng.', 'AUTH');
     return s;
   }
-  function admin(p) { if (String(p.admin) !== '8888') fail('Mã PIN quản lý không đúng.', 'AUTH'); }
+  function admin(p) { if (String(p.admin) !== (db().adminPin || '8888')) fail('Mã PIN quản lý không đúng.', 'AUTH'); }
   function pub(s) { return { id: s.id, name: s.name, role: s.role, shop: s.shop, shift: s.shift, status: s.status }; }
   function myRegs(id, from, to) { return db().regs.filter(function (r) { return (!id || r.staffId === id) && r.date >= from && r.date <= to; }); }
   var H = {
@@ -528,6 +530,9 @@ var Demo = (function () {
       save(); return true;
     },
     adminLogin: function (p) { admin(p); return true; },
+    changePin: function (p) { var s = auth(p), np = String(p.newPin || ''); if (!/^\d{4}$/.test(np)) fail('Mã PIN mới phải gồm đúng 4 chữ số.'); s.pin = np; save(); return true; },
+    changeAdminPin: function (p) { admin(p); var np = String(p.newPin || ''); if (!/^\d{4}$/.test(np)) fail('Mã PIN mới phải gồm đúng 4 chữ số.'); db().adminPin = np; save(); return true; },
+    resetPin: function (p) { admin(p); db().staff.forEach(function (s) { if (s.id === p.staffId) s.pin = '1234'; }); save(); return true; },
     adminData: function (p) {
       admin(p); var m = String(p.month || ''), n = vnNow();
       return { staff: db().staff.map(pub), records: db().records.filter(function (r) { return r.date.indexOf(m) === 0 || r.date === n.date; }), requests: db().requests.slice().reverse(), regs: db().regs.slice(), now: n, sheetUrl: '' };
@@ -684,11 +689,51 @@ function submitPin() {
   p.then(function (me) {
     if (pinFor === '__admin') { S.admin = pin; store('cc_admin', pin); S.atab = 'today'; loadAdmin(); }
     else { S.cred = { id: pinFor, pin: pin }; S.me = me; store('cc_cred', S.cred); startStaff(); }
+    if (REAL && me && me.mustChange) pinDialog(true);
   }).catch(function (e) {
     pinBuf = ''; drawDots(); $('#pinErr').textContent = e.error || 'Không đăng nhập được.';
     var d = $('#dots'); d.classList.remove('shake'); void d.offsetWidth; d.classList.add('shake');
   });
 }
+/* Đổi mã PIN (nhân viên hoặc quản lý tuỳ đang đăng nhập vai nào). forced = đang dùng mã mặc định, bắt buộc đổi */
+function pinField(id, label) {
+  return '<div class="field"><label class="lbl" for="' + id + '">' + label + '</label><input type="password" id="' + id + '" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" class="pinin"></div>';
+}
+function pinDialog(forced) {
+  var isAdmin = !!S.admin, cur = isAdmin ? S.admin : S.cred.pin;
+  modal('<h3>' + (forced ? 'Đặt mã PIN riêng' : 'Đổi mã PIN' + (isAdmin ? ' quản lý' : '')) + '</h3>' +
+    (forced ? '<p class="muted" style="margin:0">Bạn đang dùng mã mặc định. Đặt mã PIN 4 số của riêng mình để người khác không ' + (isAdmin ? 'vào được màn quản lý.' : 'chấm công hộ được.') + '</p>' : '') +
+    (forced ? '' : pinField('pinOld', 'PIN hiện tại')) + pinField('pinNew', 'PIN mới (4 số)') + pinField('pinNew2', 'Nhập lại PIN mới') +
+    '<div class="err" id="pinMsg" style="text-align:left"></div>' +
+    '<div class="acts"><button class="btn" id="pinSave">Lưu mã PIN</button>' + (forced ? '' : '<button class="btn sec" id="pinCancel">Huỷ</button>') + '</div>');
+  if (!forced) $('#pinCancel').onclick = function () { modal(''); };
+  setTimeout(function () { var f = $(forced ? '#pinNew' : '#pinOld'); if (f) f.focus(); }, 50);
+  $('#pinSave').onclick = function () {
+    var old = forced ? cur : $('#pinOld').value, a = $('#pinNew').value, b = $('#pinNew2').value, msg = $('#pinMsg');
+    if (!forced && old !== cur) { msg.textContent = 'PIN hiện tại không đúng.'; return; }
+    if (!/^\d{4}$/.test(a)) { msg.textContent = 'PIN mới phải gồm đúng 4 chữ số.'; return; }
+    if (a !== b) { msg.textContent = 'Hai lần nhập PIN mới chưa giống nhau.'; return; }
+    if (a === cur) { msg.textContent = 'PIN mới phải khác PIN đang dùng.'; return; }
+    var btn = this; btn.disabled = true; msg.textContent = '';
+    var call = isAdmin ? api('changeAdminPin', { admin: cur, newPin: a }) : api('changePin', { id: S.cred.id, pin: cur, newPin: a });
+    call.then(function () {
+      if (isAdmin) { S.admin = a; store('cc_admin', a); } else { S.cred.pin = a; store('cc_cred', S.cred); }
+      modal(''); toast('Đã đổi mã PIN');
+    }).catch(function (e) { btn.disabled = false; msg.textContent = e.error || 'Không đổi được, thử lại.'; });
+  };
+}
+document.addEventListener('click', function (e) {
+  var t = e.target.closest ? e.target.closest('#chgPin,#admPin,[data-rp]') : null;
+  if (!t) return;
+  if (t.id === 'chgPin' || t.id === 'admPin') return pinDialog(false);
+  var id = t.getAttribute('data-rp'), name = t.getAttribute('data-name');
+  modal('<h3>Đặt lại PIN cho ' + esc(name) + '?</h3><p class="muted" style="margin:0">PIN của bạn này sẽ về <b class="mono">1234</b>. Lần đăng nhập tới, app bắt bạn ấy đặt PIN mới.</p><div class="acts"><button class="btn" id="rpOk">Đặt lại</button><button class="btn sec" id="rpNo">Huỷ</button></div>');
+  $('#rpNo').onclick = function () { modal(''); };
+  $('#rpOk').onclick = function () {
+    this.disabled = true;
+    api('resetPin', { admin: S.admin, staffId: id }).then(function () { modal(''); toast('Đã đặt lại PIN của ' + name + ' về 1234'); }).catch(function (er) { modal(''); toast(er.error, true); });
+  };
+});
 function logout() { RG.mode = 'today'; RG.from = RG.to = ''; RG.data = null; store('cc_cred', null); store('cc_admin', null); S.cred = S.me = S.admin = null; S.today = null; renderLogin(); }
 
 /* =========================================================
@@ -698,7 +743,7 @@ function staffShell(inner) {
   var sp = shopOf(S.me);
   var tabs = [['home', 'Hôm nay', ICON.home], ['sched', 'Lịch ca', ICON.week], ['hist', 'Công tháng', ICON.cal], ['req', 'Đơn từ', ICON.doc]];
   $('#root').innerHTML =
-    '<header class="top"><div class="in"><span class="av">' + esc(initials(S.me.name)) + '</span><div class="who"><b>' + esc(S.me.name) + '</b><span class="muted small">' + esc(S.me.role) + (sp ? ' · ' + esc(sp.name) : '') + '</span></div><button class="ghost" id="logout">Thoát</button></div></header>' +
+    '<header class="top"><div class="in"><span class="av">' + esc(initials(S.me.name)) + '</span><div class="who"><b>' + esc(S.me.name) + '</b><span class="muted small">' + esc(S.me.role) + (sp ? ' · ' + esc(sp.name) : '') + '</span></div><button class="ghost" id="chgPin">Đổi PIN</button><button class="ghost" id="logout">Thoát</button></div></header>' +
     '<main class="wrap" id="main">' + inner + '</main>' +
     '<nav class="tabs"><div class="in">' + tabs.map(function (t) { return '<button data-t="' + t[0] + '" aria-current="' + (S.tab === t[0]) + '">' + t[2] + t[1] + '</button>'; }).join('') + '</div></nav>';
   $('#logout').onclick = logout;
@@ -1256,6 +1301,9 @@ function renderASetup() {
     '<h2 style="font-size:20px">Cài đặt</h2>' +
     (REAL && S.ad.sheetUrl ? '<p>Nhân viên, PIN, ca làm và toạ độ cửa hàng sửa trực tiếp trong <a href="' + esc(S.ad.sheetUrl) + '" target="_blank" rel="noopener">Google Sheet dữ liệu</a>. Sửa xong, nhân viên tải lại trang là nhận.</p>'
       : '<p>Đây là bản dùng thử, dữ liệu mẫu chỉ nằm trên máy này. Khi nối Google Sheet, sếp sửa nhân viên, PIN, ca và toạ độ ngay trên Sheet.</p>') +
+    '<div class="card"><div class="lbl">Mã PIN</div><p style="margin:6px 0 10px">Mỗi người tự đổi PIN của mình bằng nút <b>Đổi PIN</b> trên đầu màn hình. Ai quên PIN thì quản lý đặt lại ở đây.</p>' +
+    '<div class="acts"><button class="btn sm" id="admPin">Đổi PIN quản lý</button></div>' +
+    '<div class="list" style="margin-top:12px">' + activeStaff().map(function (s) { return '<div class="li"><div class="main"><b>' + esc(s.name) + '</b><div class="small muted">' + esc(s.role) + '</div></div><button class="btn sec sm" data-rp="' + esc(s.id) + '" data-name="' + esc(s.name) + '">Đặt lại PIN</button></div>'; }).join('') + '</div></div>' +
     '<div class="card"><div class="lbl">Điểm chấm công</div><ul>' + shops + '</ul></div>' +
     '<div class="card"><div class="lbl">Ca làm</div><ul>' + shifts + '</ul></div>' +
     '<div class="card"><div class="lbl">Luật đăng ký ca</div><ul>' +
@@ -1287,9 +1335,9 @@ function start() {
   api('boot').then(function (b) {
     S.boot = b; S.offset = REAL ? b.now.ts - Date.now() : 0;
     var cred = store('cc_cred'), adm = store('cc_admin');
-    if (adm) { S.admin = adm; api('adminLogin', { admin: adm }).then(loadAdmin).catch(function () { store('cc_admin', null); S.admin = null; renderLogin(); }); return; }
+    if (adm) { S.admin = adm; api('adminLogin', { admin: adm }).then(function (r) { loadAdmin(); if (REAL && r && r.mustChange) pinDialog(true); }).catch(function () { store('cc_admin', null); S.admin = null; renderLogin(); }); return; }
     if (cred) {
-      api('login', { id: cred.id, pin: cred.pin, device: deviceId() }).then(function (me) { S.cred = cred; S.me = me; startStaff(); })
+      api('login', { id: cred.id, pin: cred.pin, device: deviceId() }).then(function (me) { S.cred = cred; S.me = me; startStaff(); if (REAL && me.mustChange) pinDialog(true); })
         .catch(function () { store('cc_cred', null); renderLogin(); });
       return;
     }
