@@ -493,8 +493,8 @@ var Demo = (function () {
       var mine = D.records.filter(function (r) { return r.staffId === s.id && r.date === n.date; });
       var last = mine[mine.length - 1], type = last && last.type === 'IN' ? 'OUT' : 'IN';
       if (p.type && p.type !== type) fail('Trạng thái chấm công đã thay đổi, hãy tải lại trang.', 'STALE');
-      if (type === 'IN' && weekState(s, monday(n.date), D.regs) !== 'reg') fail('Bạn chưa đăng ký ca tuần này. Vào tab Lịch ca đăng ký rồi chấm công.', 'NOREG');
       var sp = shop(s.shop), reasons = [], dist = null;
+      if (type === 'IN' && weekState(s, monday(n.date), D.regs) !== 'reg') reasons.push('Chưa đăng ký ca tuần này');
       if (p.lat != null) dist = Math.round(haversine(p.lat, p.lng, sp.lat, sp.lng));
       if (dist == null) { if (!p.force) return { needReason: true, why: 'nogps' }; reasons.push('Không lấy được vị trí'); }
       else if (dist > sp.radius) { if (!p.force) return { needReason: true, why: 'far', dist: dist, radius: sp.radius }; reasons.push('Ngoài phạm vi (' + dist + ' m)'); }
@@ -786,7 +786,7 @@ function renderHome() {
   var mon = monday(n.date), ws = weekState(S.me, mon, S.regs), nextMon = addDays(mon, 7);
   var line = sg.length ? sg.map(segTxt).join(' · ') : (ws !== 'reg' ? 'Bạn chưa đăng ký ca tuần này' : 'Hôm nay bạn không đăng ký ca');
   var photo = S.boot.settings.photo;
-  var banner = (ws !== 'reg' ? '<button class="banner bad" id="goNow"><span><b>Chưa đăng ký ca tuần này</b><br><span class="small">Đăng ký xong mới chấm công vào được</span></span><span class="go">Đăng ký →</span></button>' : '') + (weekState(S.me, nextMon, S.regs) === 'reg' ? '' :
+  var banner = (ws !== 'reg' ? '<button class="banner bad" id="goNow"><span><b>Chưa đăng ký ca tuần này</b><br><span class="small">Chấm công khi chưa đăng ký phải chờ quản lý duyệt</span></span><span class="go">Đăng ký →</span></button>' : '') + (weekState(S.me, nextMon, S.regs) === 'reg' ? '' :
     '<button class="banner" id="goSched"><span><b>Chưa đăng ký ca tuần sau</b><br><span class="small">Hạn 24:00 Chủ nhật ' + dm(addDays(nextMon, -1)) + '</span></span><span class="go">Đăng ký →</span></button>');
   var tl = recs.map(function (r) {
     return '<div class="li"><span class="tlic ' + (r.type === 'IN' ? 'in' : 'out') + '">' + (r.type === 'IN' ? ICON.pinIn : ICON.pinOut) + '</span><div class="main"><b>' + (r.type === 'IN' ? 'Vào ca' : 'Ra ca') + '</b>' +
@@ -818,15 +818,8 @@ function drawLoc() {
   if (d <= sp.radius) { el.className = 'loc ok'; el.textContent = '● Cách ' + sp.name + ' ' + distTxt(d) + ' · trong vùng chấm công'; }
   else { el.className = 'loc warn'; el.textContent = '● Cách ' + sp.name + ' ' + distTxt(d) + ' · ngoài vùng ' + sp.radius + ' m'; }
 }
-function needReg() {
-  modal('<h3>Bạn chưa đăng ký ca tuần này</h3><p class="muted" style="margin:0">Mọi người đều phải đăng ký ca trước khi chấm công. Đăng ký mất chưa tới một phút, xong quay lại bấm VÀO CA.</p>' +
-    '<div class="acts"><button class="btn" id="nrGo">Đăng ký ca ngay</button><button class="btn sec" id="nrNo">Để sau</button></div>');
-  $('#nrNo').onclick = function () { modal(''); };
-  $('#nrGo').onclick = function () { modal(''); S.tab = 'sched'; S.sw = 'this'; routeStaff(); };
-}
 function onPunch() {
   if (S.busy) return;
-  if (nextType() === 'IN' && weekState(S.me, monday(vnNow(S.offset).date), S.regs) !== 'reg') return needReg();
   if (S.boot.settings.photo) { $('#photoIn').click(); return; }
   doPunch(null, false, '');
 }
@@ -849,7 +842,7 @@ function doPunch(photo, force, note) {
     var rec = r.record; S.today.records.push(rec);
     toast((rec.type === 'IN' ? 'Đã vào ca lúc ' : 'Đã ra ca lúc ') + hm(rec.time) + (rec.late ? ' · muộn ' + mt(rec.late) : '') + (rec.review === 'pending' ? ' · chờ quản lý duyệt' : ''));
     renderHome();
-  }).catch(function (e) { S.busy = false; renderHome(); if (e.code === 'NOREG') needReg(); else toast(e.error || 'Không chấm được, thử lại.', true); });
+  }).catch(function (e) { S.busy = false; renderHome(); toast(e.error || 'Không chấm được, thử lại.', true); });
 }
 function askReason(r, photo) {
   var msg = r.why === 'far'
@@ -907,7 +900,7 @@ function renderSched() {
     '<div class="monthbar" style="padding-top:8px"><h2 style="font-size:20px">Lịch ca</h2><div class="seg"><button data-w="this" aria-pressed="' + (S.sw === 'this') + '">Tuần này</button><button data-w="next" aria-pressed="' + (S.sw === 'next') + '">Tuần sau</button></div></div>' +
     '<div class="row" style="justify-content:space-between;margin:12px 0 8px;flex-wrap:wrap"><span class="mono small muted">' + dm(mon) + ' – ' + dm(addDays(mon, 6)) + '</span>' + state + '</div>' +
     (S.sw === 'next' ? '<p class="small muted" style="margin:0 0 10px">Chọn ca cho từng ngày, ngày không chọn là nghỉ. Hạn đăng ký: <b>24:00 Chủ nhật ' + dm(addDays(mon, -1)) + '</b>. Trước hạn sửa lại bao nhiêu lần cũng được.</p>'
-      : editable ? '<p class="small muted" style="margin:0 0 10px">Bạn chưa đăng ký tuần này nên chưa chấm công được. Đăng ký bổ sung ngay bên dưới: lưu xong là chốt, và quản lý sẽ thấy đây là đăng ký trễ hạn.</p>'
+      : editable ? '<p class="small muted" style="margin:0 0 10px">Bạn chưa đăng ký tuần này nên mỗi lượt chấm vào đều phải chờ quản lý duyệt. Đăng ký bổ sung ngay bên dưới: lưu xong là chốt, và quản lý sẽ thấy đây là đăng ký trễ hạn.</p>'
         : '<p class="small muted" style="margin:0 0 10px">Ca tuần này đã chốt. Cần đổi ca thì gửi đơn hoặc nhắn quản lý.</p>') +
     '<div class="list">' + rows + '</div>' +
     (editable ? '<div class="acts" style="margin-top:14px"><button class="btn" id="saveReg">Lưu đăng ký ' + (S.sw === 'next' ? 'tuần sau' : 'tuần này') + '</button><button class="btn sec" id="copyMon">Áp dụng Thứ Hai cho T3–T7</button></div>' : '');
@@ -1220,7 +1213,7 @@ function renderASched() {
   $('#main').innerHTML =
     '<div class="monthbar" style="padding-top:8px"><h2 style="font-size:20px">Lịch ca</h2><div class="seg"><button data-w="this" aria-pressed="' + (S.aw === 'this') + '">Tuần này</button><button data-w="next" aria-pressed="' + (S.aw === 'next') + '">Tuần sau</button></div></div>' +
     '<p class="small muted" style="margin:10px 0 12px"><b style="color:var(--ink)">' + nReg + '/' + staff.length + '</b> người đã đăng ký tuần ' + dm(mon) + ' – ' + dm(dates[6]) + '. ' +
-    (S.aw === 'next' ? 'Hạn đăng ký 24:00 Chủ nhật ' + dm(addDays(mon, -1)) + '. ' : '') + 'Ai chưa đăng ký thì chưa chấm công vào được; đăng ký sau khi tuần đã bắt đầu sẽ bị ghi là trễ hạn.</p>' +
+    (S.aw === 'next' ? 'Hạn đăng ký 24:00 Chủ nhật ' + dm(addDays(mon, -1)) + '. ' : '') + 'Ai chưa đăng ký mà vẫn chấm công thì lượt đó vào tab Duyệt; đăng ký sau khi tuần đã bắt đầu sẽ bị ghi là trễ hạn.</p>' +
     '<div class="tablewrap"><table class="sched"><thead><tr><th>Nhân viên</th>' + dates.map(function (d) { return '<th>' + WDS[dow(d)] + ' ' + dm(d) + '</th>'; }).join('') + '</tr></thead><tbody>' + body + '</tbody></table></div>';
   $$('.seg [data-w]').forEach(function (b) { b.onclick = function () { S.aw = b.getAttribute('data-w'); renderASched(); }; });
 }
@@ -1288,7 +1281,7 @@ function renderAReview() {
   $('#main').innerHTML =
     '<div class="sechead" style="margin-top:8px"><h2>Đơn từ chờ duyệt</h2><span class="muted small">' + qs.length + ' đơn</span></div>' +
     '<div class="list">' + (qHtml || '<div class="empty">Không có đơn nào chờ duyệt.</div>') + '</div>' +
-    '<div class="sechead"><h2>Chấm công cần xem lại</h2><span class="muted small">Ngoài vùng hoặc không có vị trí</span></div>' +
+    '<div class="sechead"><h2>Chấm công cần xem lại</h2><span class="muted small">Ngoài vùng, không có vị trí, hoặc chưa đăng ký ca</span></div>' +
     '<div class="list">' + (rHtml || '<div class="empty">Không có lượt chấm nào cần xem.</div>') + '</div>' +
     '<div class="sechead"><h2>Đã xử lý gần đây</h2></div><div class="list">' + (dHtml || '<div class="empty">Chưa có.</div>') + '</div>';
   bindPhotos();
@@ -1326,7 +1319,7 @@ function renderASetup() {
     '<div class="card"><div class="lbl">Ca làm</div><ul>' + shifts + '</ul></div>' +
     '<div class="card"><div class="lbl">Luật đăng ký ca</div><ul>' +
     '<li>Nhân viên đăng ký ca tuần sau trước <b>24:00 Chủ nhật</b>. Qua giờ đó tuần mới bắt đầu và lịch bị khoá.</li>' +
-    '<li><b>Tất cả</b> nhân viên, kể cả lịch cố định, đều phải đăng ký. Chưa đăng ký tuần này thì chưa chấm công vào được.</li>' +
+    '<li><b>Tất cả</b> nhân viên, kể cả lịch cố định, đều phải đăng ký. Chưa đăng ký mà chấm công thì lượt vào đó nằm ở tab Duyệt, chờ quản lý chấp nhận mới tính công.</li>' +
     '<li>Ai quên thì được đăng ký bổ sung tuần hiện tại một lần, và bị ghi là <b>đăng ký trễ hạn</b> trong tab Lịch ca.</li>' +
     '<li>Đã đăng ký ca nào thì đến muộn ca đó bị tính muộn, không đến bị tính vắng.</li>' +
     '<li>Cần sửa lịch đã khoá: quản lý sửa trực tiếp ở trang tính <code>DangKyCa</code>.</li>' +
