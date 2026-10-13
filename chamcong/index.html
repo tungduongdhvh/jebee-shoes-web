@@ -758,6 +758,45 @@ function submitPin() {
     var d = $('#dots'); if (d) { d.classList.remove('shake'); void d.offsetWidth; d.classList.add('shake'); }
   });
 }
+/* Đổi mã PIN (nhân viên hoặc quản lý tuỳ đang đăng nhập vai nào). forced = đang dùng mã mặc định, bắt buộc đổi */
+function pinField(id, label) {
+  return '<div class="field"><label class="lbl" for="' + id + '">' + label + '</label><input type="password" id="' + id + '" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" class="pinin"></div>';
+}
+function pinDialog(forced) {
+  var isAdmin = !!S.admin, cur = isAdmin ? S.admin : S.cred.pin;
+  modal('<h3>' + (forced ? 'Đặt mã PIN riêng' : 'Đổi mã PIN' + (isAdmin ? ' quản lý' : '')) + '</h3>' +
+    (forced ? '<p class="muted" style="margin:0">Bạn đang dùng mã mặc định. Đặt mã PIN 4 số của riêng mình để người khác không ' + (isAdmin ? 'vào được màn quản lý.' : 'chấm công hộ được.') + '</p>' : '') +
+    (forced ? '' : pinField('pinOld', 'PIN hiện tại')) + pinField('pinNew', 'PIN mới (4 số)') + pinField('pinNew2', 'Nhập lại PIN mới') +
+    '<div class="err" id="pinMsg" style="text-align:left"></div>' +
+    '<div class="acts"><button class="btn" id="pinSave">Lưu mã PIN</button>' + (forced ? '' : '<button class="btn sec" id="pinCancel">Huỷ</button>') + '</div>');
+  if (!forced) $('#pinCancel').onclick = function () { modal(''); };
+  setTimeout(function () { var f = $(forced ? '#pinNew' : '#pinOld'); if (f) f.focus(); }, 50);
+  $('#pinSave').onclick = function () {
+    var old = forced ? cur : $('#pinOld').value, a = $('#pinNew').value, b = $('#pinNew2').value, msg = $('#pinMsg');
+    if (!forced && old !== cur) { msg.textContent = 'PIN hiện tại không đúng.'; return; }
+    if (!/^\d{4}$/.test(a)) { msg.textContent = 'PIN mới phải gồm đúng 4 chữ số.'; return; }
+    if (a !== b) { msg.textContent = 'Hai lần nhập PIN mới chưa giống nhau.'; return; }
+    if (a === cur) { msg.textContent = 'PIN mới phải khác PIN đang dùng.'; return; }
+    var btn = this; btn.disabled = true; msg.textContent = '';
+    var call = isAdmin ? api('changeAdminPin', { admin: cur, newPin: a }) : api('changePin', { id: S.cred.id, pin: cur, newPin: a });
+    call.then(function () {
+      if (isAdmin) { S.admin = a; store('cc_admin', a); } else { S.cred.pin = a; store('cc_cred', S.cred); }
+      modal(''); toast('Đã đổi mã PIN');
+    }).catch(function (e) { btn.disabled = false; msg.textContent = e.error || 'Không đổi được, thử lại.'; });
+  };
+}
+document.addEventListener('click', function (e) {
+  var t = e.target.closest ? e.target.closest('#chgPin,#admPin,[data-rp]') : null;
+  if (!t) return;
+  if (t.id === 'chgPin' || t.id === 'admPin') return pinDialog(false);
+  var id = t.getAttribute('data-rp'), name = t.getAttribute('data-name');
+  modal('<h3>Đặt lại PIN cho ' + esc(name) + '?</h3><p class="muted" style="margin:0">PIN của bạn này sẽ về <b class="mono">1234</b>. Lần đăng nhập tới, app bắt bạn ấy đặt PIN mới.</p><div class="acts"><button class="btn" id="rpOk">Đặt lại</button><button class="btn sec" id="rpNo">Huỷ</button></div>');
+  $('#rpNo').onclick = function () { modal(''); };
+  $('#rpOk').onclick = function () {
+    this.disabled = true;
+    api('resetPin', { admin: S.admin, staffId: id }).then(function () { modal(''); toast('Đã đặt lại PIN của ' + name + ' về 1234'); }).catch(function (er) { modal(''); toast(er.error, true); });
+  };
+});
 function logout() { RG.mode = 'today'; RG.from = RG.to = ''; RG.data = null; store('cc_cred', null); store('cc_admin', null); store('cc_me', null); store('cc_today', null); S.cred = S.me = S.admin = null; S.today = null; S.hist = null; S.syncing = false; renderLogin(); }
 
 /* =========================================================
