@@ -242,6 +242,8 @@ details.day .list{border:0;border-top:1px solid var(--line);border-radius:0}
 .top .ghost{white-space:nowrap;padding:6px 10px}
 .banner.bad{background:var(--bad-soft);color:var(--bad)}
 .banner + .banner{margin-top:8px}
+.locbox{display:flex;flex-direction:column;gap:8px;align-items:center}
+.loc .acts{gap:8px}
 </style>
 </head>
 <body>
@@ -594,14 +596,56 @@ function segs(st, date, regs) { return segsBase(st, date, regs, S.boot.shifts, S
 function segTxt(g) { return (g.id === 'LH' ? 'Linh hoạt' : g.name) + ' ' + g.start + '–' + g.end; }
 function spinner() { return '<div class="loading"><span class="spin"></span></div>'; }
 
-function getLoc() {
-  if (!REAL) return Promise.resolve(Demo.loc(S.me && S.me.shop));
+function geoOnce(opts) {
   return new Promise(function (res) {
-    if (!navigator.geolocation) return res(null);
-    navigator.geolocation.getCurrentPosition(function (p) { res({ lat: p.coords.latitude, lng: p.coords.longitude, acc: Math.round(p.coords.accuracy) }); },
-      function () { res(null); }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 });
+    navigator.geolocation.getCurrentPosition(
+      function (p) { res({ ok: { lat: p.coords.latitude, lng: p.coords.longitude, acc: Math.round(p.coords.accuracy) } }); },
+      function (e) { res({ err: { code: e.code, msg: e.message || '' } }); }, opts);
   });
 }
+// Mã lỗi: 1 = bị chặn quyền, 2 = máy không xác định được, 3 = quá thời gian, 0 = trình duyệt không hỗ trợ
+function getLoc() {
+  S.locErr = null;
+  if (!REAL) { var l = Demo.loc(S.me && S.me.shop); if (!l) S.locErr = { code: 1, msg: '' }; return Promise.resolve(l); }
+  if (!navigator.geolocation) { S.locErr = { code: 0, msg: '' }; return Promise.resolve(null); }
+  return geoOnce({ enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }).then(function (r) {
+    if (r.ok) return r.ok;
+    if (r.err.code === 1) { S.locErr = r.err; return null; }
+    // GPS chưa bắt được (hay gặp trong nhà): thử định vị theo Wi-Fi / sóng di động
+    return geoOnce({ enableHighAccuracy: false, timeout: 10000, maximumAge: 120000 }).then(function (r2) {
+      if (r2.ok) return r2.ok;
+      S.locErr = r2.err; return null;
+    });
+  });
+}
+function inAppBrowser() { return /Zalo|FBAN|FBAV|FB_IAB|Instagram|Line\/|TikTok|Messenger/i.test(navigator.userAgent || ''); }
+function locProblem() {
+  var e = S.locErr || { code: 1 };
+  var why = IS_GAS ? 'Bạn đang mở bằng link cũ nên máy không cho lấy vị trí.'
+    : inAppBrowser() ? 'Bạn đang mở trong Zalo hoặc Facebook nên máy chặn vị trí.'
+      : e.code === 1 ? 'Máy đang chặn quyền vị trí của trang này.'
+        : e.code === 0 ? 'Trình duyệt này không hỗ trợ định vị.'
+          : 'Máy chưa bắt được tín hiệu định vị. Ra gần cửa hoặc cửa sổ rồi thử lại.';
+  return '<span class="locbox"><span><b>Chưa lấy được vị trí.</b> ' + why + '</span>' +
+    '<span class="acts" style="justify-content:center"><button class="btn sm" id="locRetry">Thử lại</button><button class="btn sec sm" id="locHelp">Cách bật vị trí</button></span>' +
+    '<span class="small muted">Vẫn chấm công được: app sẽ hỏi lý do và chuyển cho quản lý duyệt. (mã ' + e.code + ')</span></span>';
+}
+function locHelp() {
+  var ua = navigator.userAgent || '', ios = /iPhone|iPad|iPod/i.test(ua), android = /Android/i.test(ua), steps;
+  if (IS_GAS) steps = '<p style="margin:0">App đã chuyển sang địa chỉ mới. Link cũ chạy trong khung của Google nên điện thoại không cho lấy vị trí.</p><ol><li>Mở Safari (iPhone) hoặc Chrome (Android).</li><li>Gõ địa chỉ <b class="mono">chamcong.jebeeshoes.vn</b></li><li>Thêm lại vào màn hình chính và xoá biểu tượng cũ.</li></ol>';
+  else if (inAppBrowser()) steps = '<p style="margin:0">Trình duyệt bên trong Zalo, Messenger, Facebook thường chặn vị trí mà không hỏi.</p><ol><li>Bấm dấu <b>⋯</b> ở góc trên màn hình.</li><li>Chọn <b>Mở bằng trình duyệt</b> (Safari hoặc Chrome).</li><li>Hoặc tự mở trình duyệt và gõ <b class="mono">chamcong.jebeeshoes.vn</b></li></ol>';
+  else if (ios) steps = '<ol><li>Mở <b>Cài đặt</b> › <b>Quyền riêng tư &amp; Bảo mật</b> › <b>Dịch vụ định vị</b>, bật công tắc trên cùng.</li><li>Kéo xuống chọn <b>Trang web Safari</b> › <b>Khi dùng ứng dụng</b>, bật thêm <b>Vị trí chính xác</b>.</li><li>Quay lại Safari, bấm biểu tượng đầu thanh địa chỉ (<b>aA</b>) › <b>Cài đặt trang web</b> › <b>Vị trí</b> › <b>Cho phép</b>.</li><li>Nếu mở app từ màn hình chính: vuốt tắt hẳn app rồi mở lại.</li></ol>';
+  else if (android) steps = '<ol><li>Vuốt từ trên xuống, bật <b>Vị trí (GPS)</b> của máy.</li><li>Trong Chrome, bấm biểu tượng <b>ổ khoá</b> cạnh địa chỉ › <b>Quyền</b> › <b>Vị trí</b> › <b>Cho phép</b>.</li><li>Nếu không thấy: Cài đặt máy › Ứng dụng › Chrome › Quyền › Vị trí › <b>Chỉ cho phép khi dùng ứng dụng</b>.</li></ol>';
+  else steps = '<ol><li>Bấm biểu tượng ổ khoá cạnh thanh địa chỉ.</li><li>Tìm mục <b>Vị trí</b> và chọn <b>Cho phép</b>.</li><li>Tải lại trang.</li></ol>';
+  modal('<h3>Bật vị trí cho app chấm công</h3><div class="prose">' + steps + '</div><div class="acts"><button class="btn" id="lhRetry">Đã bật xong, thử lại</button><button class="btn sec" id="lhNo">Đóng</button></div>');
+  $('#lhNo').onclick = function () { modal(''); };
+  $('#lhRetry').onclick = function () { modal(''); refreshLoc(true); };
+}
+document.addEventListener('click', function (e) {
+  var t = e.target.closest ? e.target.closest('#locRetry,#locHelp') : null;
+  if (!t) return;
+  if (t.id === 'locRetry') refreshLoc(true); else locHelp();
+});
 function compress(file) {
   return new Promise(function (res) {
     var img = new Image(), url = URL.createObjectURL(file);
@@ -665,6 +709,7 @@ function renderLogin() {
   $('#root').innerHTML =
     '<div class="wrap" style="max-width:720px">' +
     '<div class="brand"><img class="logo" src="' + LOGO + '" alt="" width="60" height="60"><div><h1>Chấm Công Jebee</h1><div class="muted">' + esc(S.boot.company) + ' · sổ chấm công nhân sự</div></div></div>' +
+    (IS_GAS ? '<a class="banner bad" style="margin:0 0 16px;text-decoration:none" href="https://chamcong.jebeeshoes.vn" target="_top"><span><b>App đã chuyển sang địa chỉ mới</b><br><span class="small">Link này không lấy được vị trí. Dùng chamcong.jebeeshoes.vn</span></span><span class="go">Mở →</span></a>' : '') +
     '<div id="pick" class="stack"><div class="lbl">Bạn là ai?</div><div class="people">' + people + '</div>' +
     '<div><button class="linkbtn" id="toAdmin">Đăng nhập quản lý →</button></div></div>' +
     '<div id="pinStep" hidden></div></div>';
@@ -806,17 +851,26 @@ function renderHome() {
   $('#punchBtn').onclick = onPunch;
   if ($('#goSched')) $('#goSched').onclick = function () { S.tab = 'sched'; S.sw = 'next'; routeStaff(); };
   if ($('#goNow')) $('#goNow').onclick = function () { S.tab = 'sched'; S.sw = 'this'; routeStaff(); };
-  if (S.locAt && Date.now() - S.locAt < 60000) drawLoc();
+  if (S.locAt) { drawLoc(); if (Date.now() - S.locAt > 120000) refreshLoc(false); }
 }
-function refreshLoc() { getLoc().then(function (l) { S.loc = l; S.locAt = Date.now(); drawLoc(); }); }
+function refreshLoc(show) {
+  if (S.locBusy) return;
+  S.locBusy = true;
+  var el = $('#locLine');
+  if (show && el) { el.className = 'loc wait'; el.innerHTML = '<span class="spin" style="width:14px;height:14px"></span> Đang xác định vị trí…'; }
+  getLoc().then(function (l) { S.locBusy = false; S.loc = l; S.locAt = Date.now(); drawLoc(); });
+}
 function drawLoc() {
   var el = $('#locLine'); if (!el) return;
   var sp = shopOf(S.me);
-  if (!S.loc) { el.className = 'loc bad'; el.textContent = 'Chưa lấy được vị trí. Trên iPhone: Cài đặt › Quyền riêng tư › Dịch vụ định vị › Safari › Khi dùng ứng dụng.'; return; }
+  if (!S.loc) { el.className = 'loc bad'; el.innerHTML = locProblem(); return; }
   if (!sp) { el.className = 'loc wait'; el.textContent = 'Chưa gán cửa hàng cho bạn.'; return; }
   var d = haversine(S.loc.lat, S.loc.lng, sp.lat, sp.lng);
   if (d <= sp.radius) { el.className = 'loc ok'; el.textContent = '● Cách ' + sp.name + ' ' + distTxt(d) + ' · trong vùng chấm công'; }
-  else { el.className = 'loc warn'; el.textContent = '● Cách ' + sp.name + ' ' + distTxt(d) + ' · ngoài vùng ' + sp.radius + ' m'; }
+  else {
+    el.className = 'loc warn';
+    el.innerHTML = '<span class="locbox"><span>● Cách ' + esc(sp.name) + ' ' + distTxt(d) + ' · ngoài vùng ' + sp.radius + ' m' + (S.loc.acc > 100 ? ' · sai số ±' + distTxt(S.loc.acc) : '') + '</span><span class="acts" style="justify-content:center"><button class="btn sec sm" id="locRetry">Lấy lại vị trí</button></span></span>';
+  }
 }
 function onPunch() {
   if (S.busy) return;
