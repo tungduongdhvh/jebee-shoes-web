@@ -738,58 +738,27 @@ function pinKey(k) {
 document.addEventListener('keydown', function (e) {
   if ($('#pinStep') && !$('#pinStep').hidden) { if (/^\d$/.test(e.key)) pinKey(e.key); else if (e.key === 'Backspace') pinKey('⌫'); }
 });
+function enterStaff(cred, r) {
+  S.cred = cred; S.me = r.me; store('cc_cred', cred); store('cc_me', r.me);
+  applyToday(r.today);
+  S.tab = 'home'; staffShell(''); renderHome(); refreshLoc();
+  if (r.me.mustChange) pinDialog(true);
+}
 function submitPin() {
-  var pin = pinBuf;
-  var p = pinFor === '__admin' ? api('adminLogin', { admin: pin }) : api('login', { id: pinFor, pin: pin, device: deviceId() });
-  p.then(function (me) {
-    if (pinFor === '__admin') { S.admin = pin; store('cc_admin', pin); S.atab = 'today'; loadAdmin(); }
-    else { S.cred = { id: pinFor, pin: pin }; S.me = me; store('cc_cred', S.cred); startStaff(); }
-    if (REAL && me && me.mustChange) pinDialog(true);
+  var pin = pinBuf, who = pinFor, p;
+  if (who === '__admin') p = api('adminLogin', { admin: pin });
+  else if (REAL) p = api('enter', { id: who, pin: pin, device: deviceId() });
+  else p = api('login', { id: who, pin: pin, device: deviceId() });
+  p.then(function (r) {
+    if (who === '__admin') { S.admin = pin; store('cc_admin', pin); S.atab = 'today'; loadAdmin(); if (REAL && r && r.mustChange) pinDialog(true); }
+    else if (REAL) enterStaff({ id: who, pin: pin }, r);
+    else { S.cred = { id: who, pin: pin }; S.me = r; store('cc_cred', S.cred); startStaff(); }
   }).catch(function (e) {
-    pinBuf = ''; drawDots(); $('#pinErr').textContent = e.error || 'Không đăng nhập được.';
-    var d = $('#dots'); d.classList.remove('shake'); void d.offsetWidth; d.classList.add('shake');
+    pinBuf = ''; drawDots(); if ($('#pinErr')) $('#pinErr').textContent = e.error || 'Không đăng nhập được.';
+    var d = $('#dots'); if (d) { d.classList.remove('shake'); void d.offsetWidth; d.classList.add('shake'); }
   });
 }
-/* Đổi mã PIN (nhân viên hoặc quản lý tuỳ đang đăng nhập vai nào). forced = đang dùng mã mặc định, bắt buộc đổi */
-function pinField(id, label) {
-  return '<div class="field"><label class="lbl" for="' + id + '">' + label + '</label><input type="password" id="' + id + '" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" class="pinin"></div>';
-}
-function pinDialog(forced) {
-  var isAdmin = !!S.admin, cur = isAdmin ? S.admin : S.cred.pin;
-  modal('<h3>' + (forced ? 'Đặt mã PIN riêng' : 'Đổi mã PIN' + (isAdmin ? ' quản lý' : '')) + '</h3>' +
-    (forced ? '<p class="muted" style="margin:0">Bạn đang dùng mã mặc định. Đặt mã PIN 4 số của riêng mình để người khác không ' + (isAdmin ? 'vào được màn quản lý.' : 'chấm công hộ được.') + '</p>' : '') +
-    (forced ? '' : pinField('pinOld', 'PIN hiện tại')) + pinField('pinNew', 'PIN mới (4 số)') + pinField('pinNew2', 'Nhập lại PIN mới') +
-    '<div class="err" id="pinMsg" style="text-align:left"></div>' +
-    '<div class="acts"><button class="btn" id="pinSave">Lưu mã PIN</button>' + (forced ? '' : '<button class="btn sec" id="pinCancel">Huỷ</button>') + '</div>');
-  if (!forced) $('#pinCancel').onclick = function () { modal(''); };
-  setTimeout(function () { var f = $(forced ? '#pinNew' : '#pinOld'); if (f) f.focus(); }, 50);
-  $('#pinSave').onclick = function () {
-    var old = forced ? cur : $('#pinOld').value, a = $('#pinNew').value, b = $('#pinNew2').value, msg = $('#pinMsg');
-    if (!forced && old !== cur) { msg.textContent = 'PIN hiện tại không đúng.'; return; }
-    if (!/^\d{4}$/.test(a)) { msg.textContent = 'PIN mới phải gồm đúng 4 chữ số.'; return; }
-    if (a !== b) { msg.textContent = 'Hai lần nhập PIN mới chưa giống nhau.'; return; }
-    if (a === cur) { msg.textContent = 'PIN mới phải khác PIN đang dùng.'; return; }
-    var btn = this; btn.disabled = true; msg.textContent = '';
-    var call = isAdmin ? api('changeAdminPin', { admin: cur, newPin: a }) : api('changePin', { id: S.cred.id, pin: cur, newPin: a });
-    call.then(function () {
-      if (isAdmin) { S.admin = a; store('cc_admin', a); } else { S.cred.pin = a; store('cc_cred', S.cred); }
-      modal(''); toast('Đã đổi mã PIN');
-    }).catch(function (e) { btn.disabled = false; msg.textContent = e.error || 'Không đổi được, thử lại.'; });
-  };
-}
-document.addEventListener('click', function (e) {
-  var t = e.target.closest ? e.target.closest('#chgPin,#admPin,[data-rp]') : null;
-  if (!t) return;
-  if (t.id === 'chgPin' || t.id === 'admPin') return pinDialog(false);
-  var id = t.getAttribute('data-rp'), name = t.getAttribute('data-name');
-  modal('<h3>Đặt lại PIN cho ' + esc(name) + '?</h3><p class="muted" style="margin:0">PIN của bạn này sẽ về <b class="mono">1234</b>. Lần đăng nhập tới, app bắt bạn ấy đặt PIN mới.</p><div class="acts"><button class="btn" id="rpOk">Đặt lại</button><button class="btn sec" id="rpNo">Huỷ</button></div>');
-  $('#rpNo').onclick = function () { modal(''); };
-  $('#rpOk').onclick = function () {
-    this.disabled = true;
-    api('resetPin', { admin: S.admin, staffId: id }).then(function () { modal(''); toast('Đã đặt lại PIN của ' + name + ' về 1234'); }).catch(function (er) { modal(''); toast(er.error, true); });
-  };
-});
-function logout() { RG.mode = 'today'; RG.from = RG.to = ''; RG.data = null; store('cc_cred', null); store('cc_admin', null); S.cred = S.me = S.admin = null; S.today = null; renderLogin(); }
+function logout() { RG.mode = 'today'; RG.from = RG.to = ''; RG.data = null; store('cc_cred', null); store('cc_admin', null); store('cc_me', null); store('cc_today', null); S.cred = S.me = S.admin = null; S.today = null; S.hist = null; S.syncing = false; renderLogin(); }
 
 /* =========================================================
    Màn nhân viên
@@ -804,19 +773,32 @@ function staffShell(inner) {
   $('#logout').onclick = logout;
   $$('.tabs [data-t]').forEach(function (b) { b.onclick = function () { S.tab = b.getAttribute('data-t'); routeStaff(); }; });
 }
+// Nhớ dữ liệu hôm nay trên máy để lần mở sau hiện ngay, không chờ máy chủ
+function saveToday() {
+  if (REAL && S.today && S.me) store('cc_today', { d: vnNow(S.offset).date, id: S.me.id, records: S.today.records, regs: S.regs });
+}
+function applyToday(d) {
+  S.today = d; S.regs = d.regs; S.offset = REAL ? d.now.ts - Date.now() : 0; S.syncing = false;
+  saveToday();
+}
 function startStaff() { S.tab = 'home'; routeStaff(); }
 function routeStaff() {
-  if (S.tab === 'home') loadToday(renderHome, true);
-  else if (S.tab === 'sched') { S.form = null; loadToday(renderSched); }
-  else if (S.tab === 'hist') loadHist();
-  else loadReq();
+  if (S.tab === 'hist') return loadHist();
+  if (S.tab === 'req') return loadReq();
+  if (!S.today) return loadToday(S.tab === 'home' ? renderHome : function () { S.form = null; renderSched(); }, S.tab === 'home');
+  staffShell('');
+  if (S.tab === 'sched') { S.form = null; renderSched(); return; }
+  renderHome();
+  if (!S.locAt) refreshLoc();
+  if (!S.syncing) api('today', S.cred).then(function (d) {
+    if (S.busy || !S.me) return;
+    applyToday(d);
+    if (S.tab === 'home' && !$('#scrim')) renderHome();
+  }).catch(onErr);
 }
 function loadToday(then, withLoc) {
   staffShell(spinner());
-  api('today', S.cred).then(function (d) {
-    S.today = d; S.regs = d.regs; S.offset = REAL ? d.now.ts - Date.now() : 0;
-    then(); if (withLoc) refreshLoc();
-  }).catch(onErr);
+  api('today', S.cred).then(function (d) { applyToday(d); then(); if (withLoc) refreshLoc(); }).catch(onErr);
 }
 function nextType() { var r = S.today.records, l = r[r.length - 1]; return l && l.type === 'IN' ? 'OUT' : 'IN'; }
 
@@ -842,7 +824,7 @@ function renderHome() {
     '<div class="clock" id="clock">' + n.time.slice(0, 5) + '<span class="sec">:' + n.time.slice(6) + '</span></div>' +
     '<div class="shiftline">' + esc(line) + '</div></div>' +
     '<div class="punchwrap st-' + nt + '"><div class="ring" style="--p:' + prog.toFixed(3) + '"><button class="punch" id="punchBtn">' + (nt === 'IN' ? ICON.pinIn : ICON.pinOut) +
-    '<span class="pl">' + (nt === 'IN' ? 'VÀO CA' : 'RA CA') + '</span><span class="ps">' + (photo ? 'Chạm để chụp ảnh và chấm' : 'Chạm để chấm công') + '</span></button></div></div>' +
+    '<span class="pl">' + (nt === 'IN' ? 'VÀO CA' : 'RA CA') + '</span><span class="ps">' + (S.syncing ? 'Đang đồng bộ…' : photo ? 'Chạm để chụp ảnh và chấm' : 'Chạm để chấm công') + '</span></button></div></div>' +
     '<div class="loc wait" id="locLine"><span class="spin" style="width:14px;height:14px"></span> Đang xác định vị trí…</div>' +
     banner +
     '<div class="slots"><div class="slot"><div class="lbl">Vào đầu tiên</div><div class="t' + (st.first ? '' : ' none') + '">' + (st.first ? hm(st.first.time) : '--:--') + '</div><div class="small muted">' + (st.lateN ? 'Muộn ' + mt(st.lateM) : st.first ? 'Đúng giờ' : 'Chưa chấm') + '</div></div>' +
@@ -874,6 +856,7 @@ function drawLoc() {
 }
 function onPunch() {
   if (S.busy) return;
+  if (S.syncing) return toast('Đang đồng bộ với máy chủ, chờ một hai giây rồi bấm lại.');
   if (S.boot.settings.photo) { $('#photoIn').click(); return; }
   doPunch(null, false, '');
 }
@@ -893,7 +876,7 @@ function doPunch(photo, force, note) {
   }).then(function (r) {
     S.busy = false;
     if (r.needReason) { askReason(r, photo); renderHome(); return; }
-    var rec = r.record; S.today.records.push(rec);
+    var rec = r.record; S.today.records.push(rec); saveToday();
     toast((rec.type === 'IN' ? 'Đã vào ca lúc ' : 'Đã ra ca lúc ') + hm(rec.time) + (rec.late ? ' · muộn ' + mt(rec.late) : '') + (rec.review === 'pending' ? ' · chờ quản lý duyệt' : ''));
     renderHome();
   }).catch(function (e) { S.busy = false; renderHome(); toast(e.error || 'Không chấm được, thử lại.', true); });
@@ -984,15 +967,16 @@ function renderSched() {
     if (!days.some(function (d) { return d.segs.length; })) return toast('Chọn ít nhất một ca trong tuần.', true);
     var b = this; b.disabled = true;
     api('register', { id: S.cred.id, pin: S.cred.pin, week: S.form.mon, days: days }).then(function (r) {
-      S.regs = r.regs; S.today.regs = r.regs; S.form = null; toast('Đã lưu lịch ca'); renderSched();
+      S.regs = r.regs; S.today.regs = r.regs; saveToday(); S.form = null; toast('Đã lưu lịch ca'); renderSched();
     }).catch(function (e) { b.disabled = false; toast(e.error, true); });
   };
 }
 
 /* ---- Công tháng ---- */
 function loadHist() {
-  staffShell(spinner());
-  api('history', { id: S.cred.id, pin: S.cred.pin, month: S.month }).then(function (d) { S.hist = d; renderHist(); }).catch(onErr);
+  var have = S.hist && S.histKey === S.month;
+  staffShell(have ? '' : spinner()); if (have) renderHist();
+  api('history', { id: S.cred.id, pin: S.cred.pin, month: S.month }).then(function (d) { S.hist = d; S.histKey = S.month; if (S.tab === 'hist') renderHist(); }).catch(onErr);
 }
 function dayBadges(x, lv, hasPending) {
   var b = '';
@@ -1034,8 +1018,14 @@ function renderHist() {
 /* ---- Đơn từ ---- */
 var KINDS = ['Nghỉ phép', 'Nghỉ không lương', 'Đổi ca', 'Đi muộn', 'Về sớm', 'Quên chấm công', 'Làm thêm giờ'];
 function loadReq() {
-  staffShell(spinner());
-  api('history', { id: S.cred.id, pin: S.cred.pin, month: S.month }).then(function (d) { S.hist = d; renderReq(); }).catch(onErr);
+  var have = S.hist && S.histKey === S.month;
+  staffShell(have ? '' : spinner()); if (have) renderReq();
+  api('history', { id: S.cred.id, pin: S.cred.pin, month: S.month }).then(function (d) {
+    S.hist = d; S.histKey = S.month;
+    // không vẽ lại khi đang gõ dở đơn
+    var typing = $('#rqWhy') && $('#rqWhy').value;
+    if (S.tab === 'req' && !typing) renderReq();
+  }).catch(onErr);
 }
 function statusPill(s) { return '<span class="pill ' + (s === 'Đã duyệt' ? 'p-good' : s === 'Từ chối' ? 'p-bad' : 'p-warn') + '">' + esc(s) + '</span>'; }
 function rangeTxt(q) { return vnDate(q.from) + (q.to && q.to !== q.from ? ' – ' + vnDate(q.to) : ''); }
@@ -1394,22 +1384,56 @@ function onErr(e) {
   if (e && e.code === 'AUTH') { toast('Phiên đăng nhập hết hạn, nhập lại PIN.', true); logout(); return; }
   toast((e && e.error) || 'Có lỗi, thử lại.', true);
 }
+function startDemo() {
+  $('#demoBar').hidden = false;
+  $('#simLoc').onchange = function (e) { Demo.setSim(e.target.value); S.loc = null; S.locAt = 0; if (S.me && S.tab === 'home') refreshLoc(); };
+  api('boot').then(function (b) { S.boot = b; S.offset = 0; renderLogin(); });
+}
 function start() {
-  if (!REAL) {
-    $('#demoBar').hidden = false;
-    $('#simLoc').onchange = function (e) { Demo.setSim(e.target.value); S.loc = null; S.locAt = 0; if (S.me && S.tab === 'home') refreshLoc(); };
+  if (!REAL) return startDemo();
+  var cb = store('cc_boot'), cred = store('cc_cred'), adm = store('cc_admin'), cme = store('cc_me'), painted = false;
+  if (cb && cb.staff && cb.shifts) {
+    S.boot = cb;
+    if (adm) { S.admin = adm; loadAdmin(); painted = true; }
+    else if (cred && cme && cme.id === cred.id) {
+      var ct = store('cc_today'), mine = ct && ct.id === cme.id;
+      S.cred = cred; S.me = cme; S.syncing = true;
+      S.regs = mine ? (ct.regs || []) : [];
+      S.today = { now: vnNow(), records: mine && ct.d === vnNow().date ? (ct.records || []) : [], regs: S.regs };
+      S.tab = 'home'; staffShell(''); renderHome(); refreshLoc();
+      painted = true;
+    }
+    else if (!cred) { renderLogin(); painted = true; }
   }
-  api('boot').then(function (b) {
-    S.boot = b; S.offset = REAL ? b.now.ts - Date.now() : 0;
-    var cred = store('cc_cred'), adm = store('cc_admin');
-    if (adm) { S.admin = adm; api('adminLogin', { admin: adm }).then(function (r) { loadAdmin(); if (REAL && r && r.mustChange) pinDialog(true); }).catch(function () { store('cc_admin', null); S.admin = null; renderLogin(); }); return; }
-    if (cred) {
-      api('login', { id: cred.id, pin: cred.pin, device: deviceId() }).then(function (me) { S.cred = cred; S.me = me; startStaff(); if (REAL && me.mustChange) pinDialog(true); })
-        .catch(function () { store('cc_cred', null); renderLogin(); });
+  var q = adm ? { admin: adm } : cred ? { id: cred.id, pin: cred.pin, device: deviceId() } : {};
+  api('start', q).then(function (r) {
+    S.boot = r.boot; store('cc_boot', r.boot); S.offset = r.boot.now.ts - Date.now();
+    if (r.authFail) {
+      store('cc_cred', null); store('cc_admin', null); store('cc_me', null); store('cc_today', null);
+      S.cred = S.me = S.admin = null; S.today = null; S.syncing = false;
+      renderLogin(); toast('Phiên đăng nhập hết hạn, nhập lại PIN.', true);
       return;
     }
-    renderLogin();
-  }).catch(function (e) { $('#root').innerHTML = '<div class="wrap"><div class="card" style="margin-top:24px"><b>Không mở được sổ chấm công.</b><p class="muted">' + esc(e.error || '') + '</p></div></div>'; });
+    if (adm) {
+      if (!painted) { S.admin = adm; loadAdmin(); }
+      if (r.adminOk && r.adminOk.mustChange) pinDialog(true);
+      return;
+    }
+    if (cred) {
+      S.cred = cred; S.me = r.me; store('cc_me', r.me);
+      if (!S.busy) applyToday(r.today); else S.syncing = false;
+      if (!painted) { S.tab = 'home'; staffShell(''); renderHome(); refreshLoc(); }
+      else if (S.tab === 'home' && !S.busy && !$('#scrim')) renderHome();
+      if (r.me.mustChange) pinDialog(true);
+      return;
+    }
+    // đang ở màn đăng nhập: chỉ vẽ lại khi chưa bấm chọn tên (tránh mất PIN đang nhập)
+    if (!painted || ($('#pinStep') && $('#pinStep').hidden)) renderLogin();
+  }).catch(function (e) {
+    S.syncing = false;
+    if (painted) { toast('Chưa kết nối được máy chủ. Kiểm tra mạng rồi mở lại app.', true); if (S.me && S.tab === 'home') renderHome(); }
+    else $('#root').innerHTML = '<div class="wrap"><div class="card" style="margin-top:24px"><b>Không mở được Chấm Công Jebee.</b><p class="muted">' + esc((e && e.error) || 'Kiểm tra mạng rồi tải lại trang.') + '</p></div></div>';
+  });
 }
 start();
 </script>
