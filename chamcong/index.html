@@ -277,7 +277,8 @@ function store(k, v) { try { if (v === undefined) return JSON.parse(localStorage
 function pad2(n) { return (n < 10 ? '0' : '') + n; }
 function toMin(t) { var a = String(t || '0:0').split(':').map(Number); return a[0] * 60 + (a[1] || 0) + (a[2] || 0) / 60; }
 function m2t(m) { m = Math.max(0, Math.round(m)); return pad2(Math.floor(m / 60) % 24) + ':' + pad2(m % 60); }
-function hm(t) { return t ? String(t).slice(0, 5) : '—'; }
+// Giờ 24:xx–27:xx là lượt chấm sau nửa đêm của ca tối hôm trước → hiện 00:xx (+1)
+function hm(t) { if (!t) return '—'; var s = String(t), hh = +s.slice(0, 2); return hh >= 24 ? pad2(hh - 24) + s.slice(2, 5) + ' (+1)' : s.slice(0, 5); }
 function mt(m) { return m < 60 ? m + 'p' : dur(m); }
 function dur(m) { m = Math.round(m); var h = Math.floor(m / 60); return h + 'g' + (m % 60 ? ' ' + pad2(m % 60) + 'p' : ''); }
 function vnNow(offset) {
@@ -399,14 +400,17 @@ function leaveMap(staffId, requests, month) {
    Máy chủ giả lập (chỉ dùng khi chưa nối Google Sheet)
    ========================================================= */
 var Demo = (function () {
-  var KEY = 'cc_demo_v3', mem = null, GF = 5, shots = {};
+  var KEY = 'cc_demo_v4', mem = null, GF = 5, shots = {};
   var SHOPS = [
     { id: 'CH1', name: 'Cửa hàng Jebee (mẫu)', lat: 21.0285, lng: 105.8542, radius: 150 },
     { id: 'VP', name: 'Văn phòng online (mẫu)', lat: 21.0301, lng: 105.8503, radius: 150 }
   ];
   var SHIFTS = [
     { id: 'S', name: 'Sáng', start: '08:00', end: '12:00', grace: 5 },
-    { id: 'C', name: 'Chiều', start: '14:00', end: '18:00', grace: 5 }
+    { id: 'C', name: 'Chiều', start: '14:00', end: '18:00', grace: 5 },
+    { id: 'LS', name: 'Live sáng', start: '06:00', end: '09:00', grace: 5, group: 'LIVE' },
+    { id: 'LT', name: 'Live trưa', start: '11:00', end: '14:00', grace: 5, group: 'LIVE' },
+    { id: 'LD', name: 'Live tối', start: '21:00', end: '24:00', grace: 5, group: 'LIVE' }
   ];
   var STAFF = [
     ['NV01', 'Nguyễn Thu Hà', 'Quản lý cửa hàng', 'CH1', ''],
@@ -426,11 +430,11 @@ var Demo = (function () {
   function seed() {
     var s = 11; function rnd() { s = (s * 16807) % 2147483647; return s / 2147483647; }
     var n = vnNow(), nowM = toMin(n.time), recs = [], regs = [], id = 1, mon = monday(n.date);
-    var staff = STAFF.map(function (a) { return { id: a[0], name: a[1], role: a[2], shop: a[3], shift: a[4], status: 'Đang làm', pin: '1234' }; });
+    var staff = STAFF.map(function (a) { return { id: a[0], name: a[1], role: a[2], shop: a[3], shift: a[4], status: 'Đang làm', pin: '1234', group: a[0] === 'NV05' ? 'LIVE' : '' }; });
     function reg(st, date, shift, a, b) { regs.push({ id: 'g' + (id++), date: date, staffId: st, shift: shift, start: a || '', end: b || '' }); }
     var FULL = [['S', '08:00', '12:00'], ['C', '14:00', '18:00']];
     var PLAN = {
-      NV05: function () { return [['LH', '15:00', '21:00']]; },
+      NV05: function () { return [['LT', '11:00', '14:00']]; },
       NV06: function (i) { return i === 5 ? [['S', '08:00', '12:00']] : [['LH', '09:00', '16:00']]; },
       NV09: function () { return [['S', '08:00', '12:00']]; },
       NV10: function () { return [['C', '14:00', '18:00']]; }
@@ -483,9 +487,9 @@ var Demo = (function () {
       { id: 'q2', created: addDays(n.date, -1) + ' 20:45', staffId: 'NV05', name: 'Đỗ Ngọc Mai', kind: 'Quên chấm công', from: addDays(n.date, -3), to: addDays(n.date, -3), reason: 'Quên chấm ra lúc 21:05 sau live', status: 'Chờ duyệt' },
       { id: 'q3', created: n.date + ' 07:30', staffId: 'NV03', name: 'Lê Thị Hồng', kind: 'Nghỉ phép', from: addDays(n.date, 3), to: addDays(n.date, 4), reason: 'Đi khám sức khoẻ định kỳ', status: 'Chờ duyệt' }
     ];
-    return { v: 3, staff: staff, records: recs, requests: reqs, regs: regs };
+    return { v: 4, staff: staff, records: recs, requests: reqs, regs: regs };
   }
-  function db() { if (!mem) { mem = store(KEY); if (!mem || mem.v !== 3) { mem = seed(); save(); } } return mem; }
+  function db() { if (!mem) { mem = store(KEY); if (!mem || mem.v !== 4) { mem = seed(); save(); } } return mem; }
   function save() { store(KEY, mem); }
   function fail(msg, code) { throw { error: msg, code: code || '' }; }
   function auth(p) {
@@ -494,7 +498,7 @@ var Demo = (function () {
     return s;
   }
   function admin(p) { if (String(p.admin) !== (db().adminPin || '8888')) fail('Mã PIN quản lý không đúng.', 'AUTH'); }
-  function pub(s) { return { id: s.id, name: s.name, role: s.role, shop: s.shop, shift: s.shift, status: s.status }; }
+  function pub(s) { return { id: s.id, name: s.name, role: s.role, shop: s.shop, shift: s.shift, status: s.status, group: s.group || '' }; }
   function myRegs(id, from, to) { return db().regs.filter(function (r) { return (!id || r.staffId === id) && r.date >= from && r.date <= to; }); }
   function myBusy(id) { return db().requests.filter(function (q) { return q.staffId === id && q.kind === 'Báo bận ca'; }); }
   var H = {
@@ -851,7 +855,7 @@ function staffShell(inner) {
 }
 // Nhớ dữ liệu hôm nay trên máy để lần mở sau hiện ngay, không chờ máy chủ
 function saveToday() {
-  if (REAL && S.today && S.me) store('cc_today', { d: vnNow(S.offset).date, id: S.me.id, records: S.today.records, regs: S.regs, busy: S.busyReqs || [] });
+  if (REAL && S.today && S.me && !(S.today.work && S.today.work.carry)) store('cc_today', { d: vnNow(S.offset).date, id: S.me.id, records: S.today.records, regs: S.regs, busy: S.busyReqs || [] });
 }
 function applyToday(d) {
   S.today = d; S.regs = d.regs; S.busyReqs = d.busy || []; S.offset = REAL ? d.now.ts - Date.now() : 0; S.syncing = false;
@@ -880,10 +884,11 @@ function nextType() { var r = S.today.records, l = r[r.length - 1]; return l && 
 
 function renderHome() {
   if (S.tab !== 'home' || !S.today || !S.me) return;
-  var n = vnNow(S.offset), cur = toMin(n.time), nt = nextType();
-  var sg = segs(S.me, n.date, S.regs), recs = S.today.records;
-  var st = dayStats(recs.filter(function (r) { return r.review !== 'rejected'; }), sg, n.date, n.date, cur);
-  var g = segAt(sg, n.time), prog = 0;
+  var n = vnNow(S.offset), carry = !!(S.today.work && S.today.work.carry), wd = carry ? S.today.work.date : n.date;
+  var cur = toMin(n.time) + (carry ? 1440 : 0), nt = nextType();
+  var sg = segs(S.me, wd, S.regs), recs = S.today.records;
+  var st = dayStats(recs.filter(function (r) { return r.review !== 'rejected'; }), sg, wd, wd, cur);
+  var g = carry ? null : segAt(sg, n.time), prog = 0;
   if (g) prog = Math.max(0, Math.min(1, (cur - toMin(g.start)) / (toMin(g.end) - toMin(g.start) || 1)));
   else if (sg.length) prog = 1;
   var mon = monday(n.date), ws = weekState(S.me, mon, S.regs), nextMon = addDays(mon, 7);
@@ -954,6 +959,8 @@ function doPunch(photo, force, note) {
     if (r.needReason) { askReason(r, photo); renderHome(); return; }
     var rec = r.record; S.today.records.push(rec); saveToday();
     toast((rec.type === 'IN' ? 'Đã vào ca lúc ' : 'Đã ra ca lúc ') + hm(rec.time) + (rec.late ? ' · muộn ' + mt(rec.late) : '') + (rec.review === 'pending' ? ' · chờ quản lý duyệt' : ''));
+    // vừa chấm ra cho ca tối hôm qua: tải lại để chuyển sang ngày mới
+    if (S.today.work && S.today.work.carry) return loadToday(renderHome, false);
     renderHome();
   }).catch(function (e) { S.busy = false; renderHome(); toast(e.error || 'Không chấm được, thử lại.', true); });
 }
@@ -1020,7 +1027,7 @@ function renderSched() {
   var rows = S.form.days.map(function (d, i) {
     var body;
     if (editable) {
-      var chips = S.boot.shifts.map(function (f) { return '<button type="button" class="chip" aria-pressed="' + !!d.on[f.id] + '" data-i="' + i + '" data-s="' + esc(f.id) + '">' + esc(f.name) + ' <span class="mono">' + f.start.slice(0, 2) + '–' + f.end.slice(0, 2) + '</span></button>'; }).join('') +
+      var chips = S.boot.shifts.filter(function (f) { return (f.group || '') === (S.me.group || ''); }).map(function (f) { return '<button type="button" class="chip" aria-pressed="' + !!d.on[f.id] + '" data-i="' + i + '" data-s="' + esc(f.id) + '">' + esc(f.name) + ' <span class="mono">' + f.start.slice(0, 2) + '–' + f.end.slice(0, 2) + '</span></button>'; }).join('') +
         '<button type="button" class="chip" aria-pressed="' + d.LH + '" data-i="' + i + '" data-s="LH">Linh hoạt</button>';
       body = '<div class="chips">' + chips + '</div>' +
         (d.LH ? '<div class="row flex-t"><input type="time" id="lhA' + i + '" data-i="' + i + '" data-k="a" value="' + d.a + '" aria-label="Giờ vào"><span class="muted">đến</span><input type="time" id="lhB' + i + '" data-i="' + i + '" data-k="b" value="' + d.b + '" aria-label="Giờ ra"></div>' : '');
@@ -1464,7 +1471,7 @@ function renderAReview() {
 
 function renderASetup() {
   var shops = S.boot.shops.map(function (s) { return '<li><b>' + esc(s.name) + '</b> · <span class="mono small">' + s.lat + ', ' + s.lng + '</span> · bán kính ' + s.radius + ' m</li>'; }).join('');
-  var shifts = S.boot.shifts.map(function (s) { return '<li><b>' + esc(s.name) + '</b> · <span class="mono">' + esc(s.start) + '–' + esc(s.end) + '</span> · cho phép muộn ' + s.grace + ' phút</li>'; }).join('') +
+  var shifts = S.boot.shifts.map(function (s) { return '<li><b>' + esc(s.name) + '</b> · <span class="mono">' + esc(s.start) + '–' + esc(s.end) + '</span> · cho phép muộn ' + s.grace + ' phút' + (s.group ? ' · chỉ nhóm ' + esc(s.group) : '') + '</li>'; }).join('') +
     '<li><b>Linh hoạt</b> · nhân viên tự điền giờ khi đăng ký · cho phép muộn ' + (S.boot.settings.graceFlex || 0) + ' phút</li>';
   $('#main').innerHTML =
     '<div class="prose stack" style="padding-top:8px">' +
