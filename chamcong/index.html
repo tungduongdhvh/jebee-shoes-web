@@ -735,36 +735,36 @@ function liveSum(o, month, today) {
   var offUsed = 0, daysLeft = 0;
   if (cutoff) eachDay(first, cutoff, function (d) { if (!o.workDates[d]) offUsed++; });
   if (today <= last) eachDay(today < first ? first : today, last, function (d) { if (!(d === today && o.workDates[d])) daysLeft++; });
-  var need = Math.max(0, target - o.shifts), rate = o.st.rate || 0;
-  return { target: target, offAllowed: offAllowed, offUsed: offUsed, daysLeft: daysLeft, need: need, rate: rate, pay: Math.round(o.liveMins / 60 * rate), atRisk: need > daysLeft };
+  var need = Math.max(0, target - o.shifts);
+  return { target: target, offAllowed: offAllowed, offUsed: offUsed, daysLeft: daysLeft, need: need, atRisk: need > daysLeft };
 }
 function liveTiles(sm, today) {
   var L = liveSum(sm, S.month, today);
   return '<div class="tiles" style="margin-top:12px">' +
-    '<div class="tile"><div class="lbl">Giờ live tính lương</div><div class="v">' + dur(sm.liveMins) + '</div></div>' +
     '<div class="tile"><div class="lbl">Ca live</div><div class="v' + (L.atRisk ? ' bad' : '') + '">' + sm.shifts + ' <small>/ ' + L.target + ' ca</small></div></div>' +
     '<div class="tile"><div class="lbl">Ngày nghỉ đã dùng</div><div class="v' + (L.offUsed > L.offAllowed ? ' bad' : '') + '">' + L.offUsed + ' <small>/ ' + L.offAllowed + ' ngày</small></div></div>' +
-    '<div class="tile"><div class="lbl">Lương tạm tính</div><div class="v">' + (L.rate ? money(L.pay) : '<small>Chưa có đơn giá</small>') + '</div>' + (L.rate ? '<div class="small muted">' + money(L.rate) + ' / giờ</div>' : '') + '</div></div>' +
+    '<div class="tile"><div class="lbl">Đi muộn</div><div class="v">' + sm.lateN + ' <small>lần · ' + sm.lateM + ' phút</small></div></div>' +
+    '<div class="tile"><div class="lbl">Về sớm / quên ra</div><div class="v">' + sm.earlyN + ' <small>/</small> ' + sm.missOut + '</div></div></div>' +
     '<p class="small" style="margin:10px 0 0;color:' + (L.atRisk ? 'var(--bad)' : 'var(--muted)') + '">' +
     (L.need ? 'Còn ' + L.need + ' ca nữa để đủ ' + L.target + ' ca; tháng này còn ' + L.daysLeft + ' ngày.' + (L.atRisk ? ' Không còn đủ ngày để kịp chỉ tiêu.' : '') : 'Đã đủ ' + L.target + ' ca trong tháng.') +
-    ' Giờ live chỉ tính phần nằm trong ca đã đăng ký.</p>';
+    ' Lương live tính theo giờ phát live trên TikTok, không theo giờ chấm công.</p>';
 }
-var LCOLS = ['Nhân viên live', 'Vị trí', 'Ca đã live', 'Chỉ tiêu', 'Giờ live', 'Ngày nghỉ', 'Đơn giá/giờ', 'Lương tạm tính'];
+var LCOLS = ['Nhân viên live', 'Vị trí', 'Ca đã live', 'Chỉ tiêu', 'Ngày nghỉ', 'Muộn (lần)', 'Muộn (phút)', 'Về sớm (lần)', 'Về sớm (phút)', 'Quên chấm ra', 'Chờ duyệt'];
 function liveRows(lv) { var today = S.ad.now.date; return lv.map(function (o) { return { o: o, L: liveSum(o, S.amonth, today) }; }); }
 function liveTable(lv) {
   if (!lv.length) return '';
-  var rows = liveRows(lv), sumPay = 0, sumMin = 0, set = S.boot.settings || {};
-  var body = rows.map(function (x) {
-    sumPay += x.L.pay; sumMin += x.o.liveMins;
-    return '<tr><td><b>' + esc(x.o.st.name) + '</b></td><td style="text-align:left" class="muted">' + esc(x.o.st.role) + '</td>' +
-      '<td class="' + (x.L.atRisk ? 'hl-bad' : '') + '"><span class="num">' + x.o.shifts + '</span></td><td>' + x.L.target + '</td>' +
-      '<td><span class="num">' + dur(x.o.liveMins) + '</span></td><td class="' + (x.L.offUsed > x.L.offAllowed ? 'hl-bad' : '') + '">' + x.L.offUsed + '/' + x.L.offAllowed + '</td>' +
-      '<td>' + (x.L.rate ? money(x.L.rate) : '<span class="muted">chưa đặt</span>') + '</td><td><b>' + (x.L.rate ? money(x.L.pay) : '—') + '</b></td></tr>';
+  var set = S.boot.settings || {};
+  function c(v, cls) { return '<td class="' + (v ? cls || '' : '') + '"><span class="num">' + v + '</span></td>'; }
+  var body = liveRows(lv).map(function (x) {
+    var o = x.o, L = x.L;
+    return '<tr><td><b>' + esc(o.st.name) + '</b></td><td style="text-align:left" class="muted">' + esc(o.st.role) + '</td>' +
+      '<td class="' + (L.atRisk ? 'hl-bad' : '') + '"><span class="num">' + o.shifts + '</span></td><td>' + L.target + '</td>' +
+      '<td class="' + (L.offUsed > L.offAllowed ? 'hl-bad' : '') + '">' + L.offUsed + '/' + L.offAllowed + '</td>' +
+      c(o.lateN, 'hl-warn') + c(o.lateM, 'hl-warn') + c(o.earlyN, 'hl-warn') + c(o.earlyM, 'hl-warn') + c(o.missOut, 'hl-bad') + c(o.pending, 'hl-bad') + '</tr>';
   }).join('');
-  return '<div class="sechead"><h2>Nhân viên live</h2><span class="muted small">Lương = giờ live thực tế trong ca × đơn giá</span></div>' +
-    '<div class="tablewrap"><table><thead><tr>' + LCOLS.map(function (c, i) { return '<th' + (i === 1 ? ' style="text-align:left"' : '') + '>' + c + '</th>'; }).join('') + '</tr></thead><tbody>' + body + '</tbody>' +
-    '<tfoot><tr><td>Tổng</td><td></td><td></td><td></td><td>' + dur(sumMin) + '</td><td></td><td></td><td>' + money(sumPay) + '</td></tr></tfoot></table></div>' +
-    '<p class="small muted" style="margin:8px 0 0">Chỉ tiêu ' + (set.liveTarget || 26) + ' ca/tháng, được nghỉ ' + (set.liveOff || 4) + ' ngày bất kỳ. Thiếu chỉ tiêu (không còn đủ ngày để kịp) hoặc nghỉ quá số ngày được phép thì tô đỏ. Đơn giá đặt ở tab Cài đặt.</p>';
+  return '<div class="sechead"><h2>Nhân viên live</h2><span class="muted small">Theo dõi đủ ca, ngày nghỉ, đi muộn và về sớm</span></div>' +
+    '<div class="tablewrap"><table><thead><tr>' + LCOLS.map(function (t, i) { return '<th' + (i === 1 ? ' style="text-align:left"' : '') + '>' + t + '</th>'; }).join('') + '</tr></thead><tbody>' + body + '</tbody></table></div>' +
+    '<p class="small muted" style="margin:8px 0 0">Chỉ tiêu ' + (set.liveTarget || 26) + ' ca/tháng, được nghỉ ' + (set.liveOff || 4) + ' ngày bất kỳ. Không còn đủ ngày để kịp chỉ tiêu, hoặc nghỉ quá số ngày được phép thì tô đỏ. Lương live tính theo giờ phát live trên TikTok.</p>';
 }
 function recBadges(r) {
   var b = '';
@@ -1470,7 +1470,7 @@ function tableData() {
     var pad = function (r) { while (r.length < COLS.length) r.push(''); return r; };
     out.push(pad([]));
     out.push(pad(LCOLS.slice()));
-    liveRows(lv).forEach(function (x) { out.push(pad([x.o.st.name, x.o.st.role, x.o.shifts, x.L.target, (x.o.liveMins / 60).toFixed(2).replace('.', ','), x.L.offUsed + '/' + x.L.offAllowed, x.L.rate || '', x.L.rate ? x.L.pay : ''])); });
+    liveRows(lv).forEach(function (x) { var o = x.o; out.push(pad([o.st.name, o.st.role, o.shifts, x.L.target, x.L.offUsed + '/' + x.L.offAllowed, o.lateN, o.lateM, o.earlyN, o.earlyM, o.missOut, o.pending])); });
   }
   return out;
 }
@@ -1533,8 +1533,6 @@ function renderASetup() {
     '<h2 style="font-size:20px">Cài đặt</h2>' +
     (REAL && S.ad.sheetUrl ? '<p>Nhân viên, PIN, ca làm và toạ độ cửa hàng sửa trực tiếp trong <a href="' + esc(S.ad.sheetUrl) + '" target="_blank" rel="noopener">Google Sheet dữ liệu</a>. Sửa xong, nhân viên tải lại trang là nhận.</p>'
       : '<p>Đây là bản dùng thử, dữ liệu mẫu chỉ nằm trên máy này. Khi nối Google Sheet, sếp sửa nhân viên, PIN, ca và toạ độ ngay trên Sheet.</p>') +
-    '<div class="card"><div class="lbl">Lương nhân viên live</div><p style="margin:6px 0 10px">Lương = giờ live thực tế (phần nằm trong ca đã đăng ký) × đơn giá. Ai có đơn giá riêng thì ghi ở cột <code>LuongGio</code> trang <code>NhanVien</code>.</p>' +
-    '<div class="row" style="flex-wrap:wrap"><label class="lbl" for="lrVal" style="margin:0">Đơn giá chung (đồng/giờ)</label><input type="text" inputmode="numeric" id="lrVal" style="width:140px" value="' + (S.ad.liveRate || '') + '" placeholder="VD: 30000"><button class="btn sm" id="lrSave">Lưu</button></div></div>' +
     '<div class="card"><div class="lbl">Mã PIN</div><p style="margin:6px 0 10px">Mỗi người tự đổi PIN của mình bằng nút <b>Đổi PIN</b> trên đầu màn hình. Ai quên PIN thì quản lý đặt lại ở đây.</p>' +
     '<div class="acts"><button class="btn sm" id="admPin">Đổi PIN quản lý</button></div>' +
     '<div class="list" style="margin-top:12px">' + activeStaff().map(function (s) { return '<div class="li"><div class="main"><b>' + esc(s.name) + '</b><div class="small muted">' + esc(s.role) + '</div></div><button class="btn sec sm" data-rp="' + esc(s.id) + '" data-name="' + esc(s.name) + '">Đặt lại PIN</button></div>'; }).join('') + '</div></div>' +
@@ -1555,12 +1553,6 @@ function renderASetup() {
     '<div class="card"><div class="lbl">Cài lên iPhone như app</div><ol><li>Mở link bằng Safari.</li><li>Bấm nút Chia sẻ (ô vuông mũi tên lên).</li><li>Chọn <b>Thêm vào MH chính</b> và đặt tên “Chấm Công Jebee”.</li><li>Lần đầu chấm, bấm <b>Cho phép</b> khi máy hỏi vị trí và camera.</li></ol></div>' +
     (REAL ? '' : '<div class="acts"><button class="btn sec" id="resetDemo">Tạo lại dữ liệu mẫu</button></div>') +
     '</div>';
-  if ($('#lrSave')) $('#lrSave').onclick = function () {
-    var v = +String($('#lrVal').value).replace(/[^0-9]/g, '') || 0, b = this;
-    b.disabled = true;
-    api('setLiveRate', { admin: S.admin, value: v }).then(function () { toast(v ? 'Đã lưu đơn giá ' + money(v) + ' / giờ' : 'Đã xoá đơn giá'); loadAdmin(); })
-      .catch(function (e) { b.disabled = false; toast(e.error, true); });
-  };
   if (!REAL) $('#resetDemo').onclick = function () { api('reset').then(function () { toast('Đã tạo lại dữ liệu mẫu'); loadAdmin(); }); };
 }
 
