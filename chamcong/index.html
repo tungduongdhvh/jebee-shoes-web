@@ -246,6 +246,10 @@ details.day .list{border:0;border-top:1px solid var(--line);border-radius:0}
 .loc .acts{gap:8px}
 .segrow{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:3px 0}
 .tile .v.bad{color:var(--bad)}
+.banner.info{background:var(--out-soft);color:var(--out)}
+.sheet{max-height:calc(100vh - 32px);overflow:auto}
+table.sched tfoot td{background:var(--sunk);font-size:12.5px}
+table.sched tfoot td.hl-bad{color:var(--bad);font-weight:700}
 </style>
 </head>
 <body>
@@ -359,6 +363,8 @@ function busyTiming(date, start, when) {
   if (d === date && t < start) return { cls: 'p-warn', txt: 'Báo trong ngày' };
   return { cls: 'p-bad', txt: 'Giải trình sau' };
 }
+function apprOf(list, id, week) { return (list || []).filter(function (a) { return a.staffId === id && a.week === week; })[0]; }
+function shortName(n) { var w = String(n).trim().split(/\s+/); return w.length > 2 ? w.slice(-2).join(' ') : n; }
 function weekState(st, mon, regs) {
   var sun = addDays(mon, 6);
   if (regs.some(function (r) { return r.staffId === st.id && r.date >= mon && r.date <= sun; })) return 'reg';
@@ -402,7 +408,7 @@ function leaveMap(staffId, requests, month) {
    Máy chủ giả lập (chỉ dùng khi chưa nối Google Sheet)
    ========================================================= */
 var Demo = (function () {
-  var KEY = 'cc_demo_v4', mem = null, GF = 5, shots = {};
+  var KEY = 'cc_demo_v5', mem = null, GF = 5, shots = {};
   var SHOPS = [
     { id: 'CH1', name: 'Cửa hàng Jebee (mẫu)', lat: 21.0285, lng: 105.8542, radius: 150 },
     { id: 'VP', name: 'Văn phòng online (mẫu)', lat: 21.0301, lng: 105.8503, radius: 150 }
@@ -489,9 +495,14 @@ var Demo = (function () {
       { id: 'q2', created: addDays(n.date, -1) + ' 20:45', staffId: 'NV05', name: 'Đỗ Ngọc Mai', kind: 'Quên chấm công', from: addDays(n.date, -3), to: addDays(n.date, -3), reason: 'Quên chấm ra lúc 21:05 sau live', status: 'Chờ duyệt' },
       { id: 'q3', created: n.date + ' 07:30', staffId: 'NV03', name: 'Lê Thị Hồng', kind: 'Nghỉ phép', from: addDays(n.date, 3), to: addDays(n.date, 4), reason: 'Đi khám sức khoẻ định kỳ', status: 'Chờ duyệt' }
     ];
-    return { v: 4, staff: staff, records: recs, requests: reqs, regs: regs };
+    var appr = [];
+    staff.forEach(function (st, si) {
+      for (var w = -1; w <= 0; w++) appr.push({ staffId: st.id, week: addDays(mon, w * 7), status: 'Đã duyệt', at: '', note: '' });
+      if ([0, 2, 4].indexOf(si) >= 0) appr.push({ staffId: st.id, week: addDays(mon, 7), status: 'Chờ duyệt', at: '', note: '' });
+    });
+    return { v: 5, staff: staff, records: recs, requests: reqs, regs: regs, appr: appr };
   }
-  function db() { if (!mem) { mem = store(KEY); if (!mem || mem.v !== 4) { mem = seed(); save(); } } return mem; }
+  function db() { if (!mem) { mem = store(KEY); if (!mem || mem.v !== 5) { mem = seed(); save(); } } return mem; }
   function save() { store(KEY, mem); }
   function fail(msg, code) { throw { error: msg, code: code || '' }; }
   function auth(p) {
@@ -502,6 +513,14 @@ var Demo = (function () {
   function admin(p) { if (String(p.admin) !== (db().adminPin || '8888')) fail('Mã PIN quản lý không đúng.', 'AUTH'); }
   function pub(s) { return { id: s.id, name: s.name, role: s.role, shop: s.shop, shift: s.shift, status: s.status, group: s.group || '' }; }
   function myRegs(id, from, to) { return db().regs.filter(function (r) { return (!id || r.staffId === id) && r.date >= from && r.date <= to; }); }
+  function apprD(id, week) { return (db().appr || []).filter(function (a) { return a.staffId === id && a.week === week; })[0]; }
+  function setApprD(id, week, status, note) {
+    var D = db(), a = apprD(id, week), n = vnNow();
+    D.appr = D.appr || [];
+    if (!a) { a = { staffId: id, week: week }; D.appr.push(a); }
+    a.status = status; a.note = note || ''; a.at = n.date + ' ' + n.time.slice(0, 5);
+  }
+  function myAppr(id) { return (db().appr || []).filter(function (a) { return a.staffId === id; }); }
   function myBusy(id) { return db().requests.filter(function (q) { return q.staffId === id && q.kind === 'Báo bận ca'; }); }
   var H = {
     busy: function (p) {
@@ -513,14 +532,14 @@ var Demo = (function () {
       if (D.requests.some(function (q) { return q.staffId === s.id && q.kind === 'Báo bận ca' && q.from === p.date && q.ca === key && q.status !== 'Từ chối'; })) fail('Bạn đã báo bận ca này rồi.');
       D.requests.push({ id: 'q' + Date.now(), created: n.date + ' ' + n.time.slice(0, 5), staffId: s.id, name: s.name, kind: 'Báo bận ca', from: p.date, to: p.date, reason: reason, status: 'Chờ duyệt', ca: key });
       save();
-      return { busy: myBusy(s.id) };
+      return { busy: myBusy(s.id), appr: myAppr(s.id) };
     },
     boot: function () { return { company: 'Jebee Shoes', staff: db().staff.map(pub), shops: SHOPS, shifts: SHIFTS, settings: { gps: true, photo: true, graceFlex: GF, liveTarget: 26, liveOff: 4 }, now: vnNow() }; },
     login: function (p) { var o = pub(auth(p)); o.rate = o.group === 'LIVE' ? (db().liveRate || 30000) : 0; return o; },
     setLiveRate: function (p) { admin(p); db().liveRate = +p.value || 0; save(); return db().liveRate; },
     today: function (p) {
       var s = auth(p), n = vnNow(), mon = monday(n.date);
-      return { now: n, records: db().records.filter(function (r) { return r.staffId === s.id && r.date === n.date; }), regs: myRegs(s.id, addDays(mon, -7), addDays(mon, 13)), busy: myBusy(s.id) };
+      return { now: n, records: db().records.filter(function (r) { return r.staffId === s.id && r.date === n.date; }), regs: myRegs(s.id, addDays(mon, -7), addDays(mon, 13)), busy: myBusy(s.id), appr: myAppr(s.id) };
     },
     punch: function (p) {
       var s = auth(p), n = vnNow(), D = db();
@@ -544,6 +563,8 @@ var Demo = (function () {
       var sun = addDays(week, 6);
       var old = D.regs.filter(function (r) { return r.staffId === s.id && r.date >= week && r.date <= sun; });
       if (week === thisMon && old.length) fail('Ca tuần này đã chốt lúc 24:00 Chủ nhật. Cần đổi thì nhắn quản lý.');
+      var apx = apprD(s.id, week);
+      if (apx && apx.status === 'Quản lý xếp') fail('Lịch tuần này quản lý đã sắp xếp lại. Cần đổi thì nhắn quản lý.');
       var out = [];
       (p.days || []).forEach(function (d) {
         if (!(d.date >= week && d.date <= sun)) return;
@@ -556,8 +577,9 @@ var Demo = (function () {
       if (!out.length) fail('Chưa chọn ca nào.');
       D.regs = D.regs.filter(function (r) { return old.indexOf(r) < 0; });
       out.forEach(function (o, i) { o.id = 'g' + Date.now() + i; o.staffId = s.id; o.at = n.date + ' ' + n.time.slice(0, 5); D.regs.push(o); });
+      setApprD(s.id, week, 'Chờ duyệt', '');
       save();
-      return { regs: myRegs(s.id, addDays(thisMon, -7), addDays(thisMon, 13)) };
+      return { regs: myRegs(s.id, addDays(thisMon, -7), addDays(thisMon, 13)), appr: myAppr(s.id) };
     },
     history: function (p) {
       var s = auth(p), m = String(p.month || '');
@@ -574,12 +596,34 @@ var Demo = (function () {
       save(); return true;
     },
     adminLogin: function (p) { admin(p); return true; },
+    adminSetWeek: function (p) {
+      admin(p);
+      var D = db(), st = D.staff.filter(function (x) { return x.id === p.staffId; })[0], week = p.week, sun = addDays(week, 6);
+      var old = D.regs.filter(function (r) { return r.staffId === st.id && r.date >= week && r.date <= sun; });
+      var at = old.map(function (r) { return r.at; }).filter(Boolean).sort()[0] || '', out = [];
+      (p.days || []).forEach(function (d) {
+        if (!d.segs.length) out.push({ date: d.date, shift: 'NGHỈ', start: '', end: '' });
+        d.segs.forEach(function (g) {
+          if (g.shift === 'LH') out.push({ date: d.date, shift: 'LH', start: g.start, end: g.end });
+          else { var f = SHIFTS.filter(function (x) { return x.id === g.shift; })[0]; out.push({ date: d.date, shift: f.id, start: f.start, end: f.end }); }
+        });
+      });
+      D.regs = D.regs.filter(function (r) { return old.indexOf(r) < 0; });
+      out.forEach(function (o, i) { o.id = 'g' + Date.now() + i; o.staffId = st.id; o.at = at; D.regs.push(o); });
+      setApprD(st.id, week, 'Quản lý xếp', p.note || '');
+      save(); return true;
+    },
+    adminApprove: function (p) {
+      admin(p);
+      (p.items || []).forEach(function (it) { var a = apprD(it.staffId, it.week); if (!a || a.status === 'Chờ duyệt') setApprD(it.staffId, it.week, 'Đã duyệt', ''); });
+      save(); return true;
+    },
     changePin: function (p) { var s = auth(p), np = String(p.newPin || ''); if (!/^\d{4}$/.test(np)) fail('Mã PIN mới phải gồm đúng 4 chữ số.'); s.pin = np; save(); return true; },
     changeAdminPin: function (p) { admin(p); var np = String(p.newPin || ''); if (!/^\d{4}$/.test(np)) fail('Mã PIN mới phải gồm đúng 4 chữ số.'); db().adminPin = np; save(); return true; },
     resetPin: function (p) { admin(p); db().staff.forEach(function (s) { if (s.id === p.staffId) s.pin = '1234'; }); save(); return true; },
     adminData: function (p) {
       admin(p); var m = String(p.month || ''), n = vnNow();
-      return { staff: db().staff.map(function (s) { var o = pub(s); o.rate = s.group === 'LIVE' ? (db().liveRate || 30000) : 0; return o; }), liveRate: db().liveRate || 30000, records: db().records.filter(function (r) { return r.date.indexOf(m) === 0 || r.date === n.date; }), requests: db().requests.slice().reverse(), regs: db().regs.slice(), now: n, sheetUrl: '' };
+      return { staff: db().staff.map(function (s) { var o = pub(s); o.rate = s.group === 'LIVE' ? (db().liveRate || 30000) : 0; return o; }), liveRate: db().liveRate || 30000, approvals: db().appr || [], records: db().records.filter(function (r) { return r.date.indexOf(m) === 0 || r.date === n.date; }), requests: db().requests.slice().reverse(), regs: db().regs.slice(), now: n, sheetUrl: '' };
     },
     decide: function (p) {
       admin(p); var D = db();
@@ -900,10 +944,10 @@ function staffShell(inner) {
 }
 // Nhớ dữ liệu hôm nay trên máy để lần mở sau hiện ngay, không chờ máy chủ
 function saveToday() {
-  if (REAL && S.today && S.me && !(S.today.work && S.today.work.carry)) store('cc_today', { d: vnNow(S.offset).date, id: S.me.id, records: S.today.records, regs: S.regs, busy: S.busyReqs || [] });
+  if (REAL && S.today && S.me && !(S.today.work && S.today.work.carry)) store('cc_today', { d: vnNow(S.offset).date, id: S.me.id, records: S.today.records, regs: S.regs, busy: S.busyReqs || [], appr: S.appr || [] });
 }
 function applyToday(d) {
-  S.today = d; S.regs = d.regs; S.busyReqs = d.busy || []; S.offset = REAL ? d.now.ts - Date.now() : 0; S.syncing = false;
+  S.today = d; S.regs = d.regs; S.busyReqs = d.busy || []; S.appr = d.appr || []; S.offset = REAL ? d.now.ts - Date.now() : 0; S.syncing = false;
   saveToday();
 }
 function startStaff() { S.tab = 'home'; routeStaff(); }
@@ -941,6 +985,8 @@ function renderHome() {
   var photo = S.boot.settings.photo;
   var banner = (ws !== 'reg' ? '<button class="banner bad" id="goNow"><span><b>Chưa đăng ký ca tuần này</b><br><span class="small">Chấm công khi chưa đăng ký phải chờ quản lý duyệt</span></span><span class="go">Đăng ký →</span></button>' : '') + (weekState(S.me, nextMon, S.regs) === 'reg' ? '' :
     '<button class="banner" id="goSched"><span><b>Chưa đăng ký ca tuần sau</b><br><span class="small">Hạn 24:00 Chủ nhật ' + dm(addDays(nextMon, -1)) + '</span></span><span class="go">Đăng ký →</span></button>');
+  var arr = (S.appr || []).filter(function (a) { return a.status === 'Quản lý xếp' && a.week >= mon && !(store('cc_seen') || {})[a.staffId + a.week + a.at]; })[0];
+  if (arr) banner = '<button class="banner info" id="goArr" data-w="' + (arr.week === mon ? 'this' : 'next') + '" data-k="' + esc(arr.staffId + arr.week + arr.at) + '"><span><b>Quản lý đã sắp xếp lại lịch tuần ' + dm(arr.week) + '</b><br><span class="small">' + esc(arr.note || 'Bấm để xem ca mới của bạn') + '</span></span><span class="go">Xem →</span></button>' + banner;
   var tl = recs.map(function (r) {
     return '<div class="li"><span class="tlic ' + (r.type === 'IN' ? 'in' : 'out') + '">' + (r.type === 'IN' ? ICON.pinIn : ICON.pinOut) + '</span><div class="main"><b>' + (r.type === 'IN' ? 'Vào ca' : 'Ra ca') + '</b>' +
       (r.reason ? '<div class="small muted">' + esc(r.reason) + '</div>' : '') + '</div><div class="badges" style="margin:0">' + recBadges(r) + '</div><span class="times">' + hm(r.time) + '</span></div>';
@@ -959,6 +1005,7 @@ function renderHome() {
   $('#punchBtn').onclick = onPunch;
   if ($('#goSched')) $('#goSched').onclick = function () { S.tab = 'sched'; S.sw = 'next'; routeStaff(); };
   if ($('#goNow')) $('#goNow').onclick = function () { S.tab = 'sched'; S.sw = 'this'; routeStaff(); };
+  if ($('#goArr')) $('#goArr').onclick = function () { var seen = store('cc_seen') || {}; seen[this.getAttribute('data-k')] = 1; store('cc_seen', seen); S.tab = 'sched'; S.sw = this.getAttribute('data-w'); routeStaff(); };
   if (S.locAt) { drawLoc(); if (Date.now() - S.locAt > 120000) refreshLoc(false); }
 }
 function refreshLoc(show) {
@@ -1065,10 +1112,13 @@ function buildForm(mon) {
 function renderSched() {
   var n = vnNow(S.offset), thisMon = monday(n.date), nextMon = addDays(thisMon, 7);
   var mon = S.sw === 'next' ? nextMon : S.sw === 'prev' ? addDays(thisMon, -7) : thisMon, ws = weekState(S.me, mon, S.regs);
-  var editable = S.sw === 'next' || (S.sw === 'this' && ws !== 'reg');
+  var ap = apprOf(S.appr, S.me.id, mon), arranged = !!(ap && ap.status === 'Quản lý xếp');
+  var editable = !arranged && (S.sw === 'next' || (S.sw === 'this' && ws !== 'reg'));
   var bz = S.busyReqs || [];
   if (!S.form || S.form.mon !== mon) S.form = buildForm(mon);
-  var state = ws === 'reg' ? (lateReg(S.me, mon, S.regs) ? '<span class="pill p-warn">Đã đăng ký · trễ hạn</span>' : '<span class="pill p-good">Đã đăng ký</span>') : '<span class="pill p-bad">Chưa đăng ký</span>';
+  var state = ws !== 'reg' ? '<span class="pill p-bad">Chưa đăng ký</span>'
+    : (arranged ? '<span class="pill p-info">Quản lý đã sắp xếp</span>' : ap && ap.status === 'Đã duyệt' ? '<span class="pill p-good">Đã duyệt</span>' : ap ? '<span class="pill p-warn">Chờ quản lý duyệt</span>' : '<span class="pill p-good">Đã đăng ký</span>') +
+      (lateReg(S.me, mon, S.regs) ? ' <span class="pill p-warn">Trễ hạn</span>' : '');
   var rows = S.form.days.map(function (d, i) {
     var body;
     if (editable) {
@@ -1095,7 +1145,8 @@ function renderSched() {
   $('#main').innerHTML =
     '<div class="monthbar" style="padding-top:8px"><h2 style="font-size:20px">Lịch ca</h2><div class="seg"><button data-w="prev" aria-pressed="' + (S.sw === 'prev') + '">Tuần trước</button><button data-w="this" aria-pressed="' + (S.sw === 'this') + '">Tuần này</button><button data-w="next" aria-pressed="' + (S.sw === 'next') + '">Tuần sau</button></div></div>' +
     '<div class="row" style="justify-content:space-between;margin:12px 0 8px;flex-wrap:wrap"><span class="mono small muted">' + dm(mon) + ' – ' + dm(addDays(mon, 6)) + '</span>' + state + '</div>' +
-    (S.sw === 'next' ? '<p class="small muted" style="margin:0 0 10px">Chọn ca cho từng ngày, ngày không chọn là nghỉ. Hạn đăng ký: <b>24:00 Chủ nhật ' + dm(addDays(mon, -1)) + '</b>. Trước hạn sửa lại bao nhiêu lần cũng được.</p>'
+    (arranged ? '<p class="small" style="margin:0 0 10px;color:var(--out)">Quản lý đã sắp xếp lại lịch tuần này' + (ap.note ? ': <b>' + esc(ap.note) + '</b>' : '') + '. Bạn không tự sửa được nữa; cần đổi thì nhắn quản lý, bận đột xuất thì bấm Báo bận.</p>'
+      : S.sw === 'next' ? '<p class="small muted" style="margin:0 0 10px">Chọn ca cho từng ngày, ngày không chọn là nghỉ. Hạn đăng ký: <b>24:00 Chủ nhật ' + dm(addDays(mon, -1)) + '</b>. Trước hạn sửa lại bao nhiêu lần cũng được.</p>'
       : editable ? '<p class="small muted" style="margin:0 0 10px">Bạn chưa đăng ký tuần này nên mỗi lượt chấm vào đều phải chờ quản lý duyệt. Đăng ký bổ sung ngay bên dưới: lưu xong là chốt, và quản lý sẽ thấy đây là đăng ký trễ hạn.</p>'
         : S.sw === 'prev' ? '<p class="small muted" style="margin:0 0 10px">Tuần đã qua. Ca nào bạn vắng vì việc đột xuất thì bấm <b>Báo bận</b> ở ca đó để giải trình với quản lý.</p>'
           : '<p class="small muted" style="margin:0 0 10px">Ca tuần này đã chốt. Bận ca nào thì bấm <b>Báo bận</b> ở ca đó, <b>nên báo từ hôm trước</b>. Có việc khẩn cấp thì vẫn gửi được sau để giải trình.</p>') +
@@ -1128,7 +1179,7 @@ function renderSched() {
     if (!days.some(function (d) { return d.segs.length; })) return toast('Chọn ít nhất một ca trong tuần.', true);
     var b = this; b.disabled = true;
     api('register', { id: S.cred.id, pin: S.cred.pin, week: S.form.mon, days: days }).then(function (r) {
-      S.regs = r.regs; S.today.regs = r.regs; saveToday(); S.form = null; toast('Đã lưu lịch ca'); renderSched();
+      S.regs = r.regs; S.today.regs = r.regs; if (r.appr) S.appr = r.appr; saveToday(); S.form = null; toast('Đã lưu lịch ca, chờ quản lý duyệt'); renderSched();
     }).catch(function (e) { b.disabled = false; toast(e.error, true); });
   };
 }
@@ -1408,27 +1459,100 @@ function renderAAttend() {
   });
 }
 
+function adminWeek() { var thisMon = monday(S.ad.now.date); return S.aw === 'next' ? addDays(thisMon, 7) : S.aw === 'prev' ? addDays(thisMon, -7) : thisMon; }
 function renderASched() {
-  var today = S.ad.now.date, thisMon = monday(today), mon = S.aw === 'next' ? addDays(thisMon, 7) : thisMon;
+  var today = S.ad.now.date, mon = adminWeek();
   var dates = [0, 1, 2, 3, 4, 5, 6].map(function (i) { return addDays(mon, i); });
-  var nReg = 0, staff = activeStaff();
+  var staff = activeStaff().slice().sort(function (x, y) { return (x.group || '') < (y.group || '') ? -1 : (x.group || '') > (y.group || '') ? 1 : 0; });
+  var nReg = 0, wait = [];
   var body = staff.map(function (st) {
-    var ws = weekState(st, mon, S.ad.regs); if (ws === 'reg') nReg++;
-    var pill = ws === 'reg' ? (lateReg(st, mon, S.ad.regs) ? '<span class="pill p-warn">Đăng ký trễ hạn</span>' : '<span class="pill p-good">Đã đăng ký</span>') : '<span class="pill p-bad">Chưa đăng ký</span>';
-    return '<tr><td><b>' + esc(st.name) + '</b><br>' + pill + '</td>' + dates.map(function (d) {
-      var sg = segs(st, d, S.ad.regs);
-      var t = sg.length ? sg.map(function (g) { return g.id === 'LH' ? '<span class="mono">' + g.start + '–' + g.end + '</span>' : esc(g.name); }).join('<br>') : (ws === 'none' ? '—' : '<span class="muted">Nghỉ</span>');
-      return '<td class="cell' + (d === today ? ' today' : '') + '">' + t + '</td>';
+    var ws = weekState(st, mon, S.ad.regs), ap = apprOf(S.ad.approvals, st.id, mon), pill;
+    if (ws !== 'reg') pill = '<span class="pill p-bad">Chưa đăng ký</span>';
+    else if (ap && ap.status === 'Quản lý xếp') pill = '<span class="pill p-info">Quản lý đã xếp</span>';
+    else if (ap && ap.status === 'Đã duyệt') pill = '<span class="pill p-good">Đã duyệt</span>';
+    else { pill = '<span class="pill p-warn">Chờ duyệt</span>'; wait.push({ staffId: st.id, week: mon }); }
+    if (ws === 'reg') { nReg++; if (lateReg(st, mon, S.ad.regs)) pill += ' <span class="pill p-warn">Trễ hạn</span>'; }
+    var isWait = ws === 'reg' && !(ap && ap.status !== 'Chờ duyệt');
+    return '<tr><td><b>' + esc(st.name) + '</b>' + (st.group ? ' <span class="small muted">' + esc(st.group) + '</span>' : '') + '<div class="badges">' + pill + '</div>' +
+      '<div class="acts" style="margin-top:6px">' + (isWait ? '<button class="btn sm" data-ap="' + esc(st.id) + '">Duyệt</button>' : '') + '<button class="btn sec sm" data-ed="' + esc(st.id) + '">Sắp xếp</button></div></td>' +
+      dates.map(function (d) {
+        var sg = segs(st, d, S.ad.regs);
+        var t = sg.length ? sg.map(function (g) { return g.id === 'LH' ? '<span class="mono">' + g.start + '–' + g.end + '</span>' : esc(g.name); }).join('<br>') : (ws === 'none' ? '—' : '<span class="muted">Nghỉ</span>');
+        return '<td class="cell' + (d === today ? ' today' : '') + '">' + t + '</td>';
+      }).join('') + '</tr>';
+  }).join('');
+  // Đếm người theo từng ca mỗi ngày. Ca live phải đúng 1 người: trống hoặc trùng thì tô đỏ.
+  var cov = S.boot.shifts.map(function (f) {
+    return '<tr><td class="small">' + esc(f.name) + ' <span class="mono muted">' + f.start + '–' + f.end + '</span></td>' + dates.map(function (d) {
+      var who = staff.filter(function (st) { return segs(st, d, S.ad.regs).some(function (g) { return g.id === f.id; }); }).map(function (st) { return shortName(st.name); });
+      var live = f.group === 'LIVE', bad = live && who.length !== 1;
+      return '<td class="' + (bad ? 'hl-bad' : '') + (d === today ? ' today' : '') + '">' + (live ? (who.length ? esc(who.join(', ')) : 'Trống') : (who.length || '<span class="muted">0</span>')) + '</td>';
     }).join('') + '</tr>';
   }).join('');
   $('#main').innerHTML =
-    '<div class="monthbar" style="padding-top:8px"><h2 style="font-size:20px">Lịch ca</h2><div class="seg"><button data-w="this" aria-pressed="' + (S.aw === 'this') + '">Tuần này</button><button data-w="next" aria-pressed="' + (S.aw === 'next') + '">Tuần sau</button></div></div>' +
-    '<p class="small muted" style="margin:10px 0 12px"><b style="color:var(--ink)">' + nReg + '/' + staff.length + '</b> người đã đăng ký tuần ' + dm(mon) + ' – ' + dm(dates[6]) + '. ' +
-    (S.aw === 'next' ? 'Hạn đăng ký 24:00 Chủ nhật ' + dm(addDays(mon, -1)) + '. ' : '') + 'Ai chưa đăng ký mà vẫn chấm công thì lượt đó vào tab Duyệt; đăng ký sau khi tuần đã bắt đầu sẽ bị ghi là trễ hạn.</p>' +
-    '<div class="tablewrap"><table class="sched"><thead><tr><th>Nhân viên</th>' + dates.map(function (d) { return '<th>' + WDS[dow(d)] + ' ' + dm(d) + '</th>'; }).join('') + '</tr></thead><tbody>' + body + '</tbody></table></div>';
+    '<div class="monthbar" style="padding-top:8px"><h2 style="font-size:20px">Lịch ca</h2><div class="seg"><button data-w="prev" aria-pressed="' + (S.aw === 'prev') + '">Tuần trước</button><button data-w="this" aria-pressed="' + (S.aw === 'this') + '">Tuần này</button><button data-w="next" aria-pressed="' + (S.aw === 'next') + '">Tuần sau</button></div></div>' +
+    '<div class="row" style="justify-content:space-between;flex-wrap:wrap;margin:10px 0 12px"><p class="small muted" style="margin:0"><b style="color:var(--ink)">' + nReg + '/' + staff.length + '</b> người đã đăng ký tuần ' + dm(mon) + ' – ' + dm(dates[6]) + ', <b style="color:var(--ink)">' + wait.length + '</b> người chờ duyệt.' +
+    (S.aw === 'next' ? ' Hạn đăng ký 24:00 Chủ nhật ' + dm(addDays(mon, -1)) + '.' : '') + '</p>' + (wait.length ? '<button class="btn sm" id="apAll">Duyệt tất cả (' + wait.length + ')</button>' : '') + '</div>' +
+    '<div class="tablewrap"><table class="sched"><thead><tr><th>Nhân viên</th>' + dates.map(function (d) { return '<th>' + WDS[dow(d)] + ' ' + dm(d) + '</th>'; }).join('') + '</tr></thead><tbody>' + body + '</tbody>' +
+    '<tfoot><tr><td colspan="8" class="lbl" style="text-align:left">Số người theo ca</td></tr>' + cov + '</tfoot></table></div>' +
+    '<p class="small muted" style="margin:8px 0 0">Bấm <b>Sắp xếp</b> để đổi ca của một người; sau khi quản lý xếp, người đó không tự sửa tuần này được nữa. Ca live cần đúng 1 người: ô đỏ là ca bị trống hoặc trùng người.</p>';
   $$('.seg [data-w]').forEach(function (b) { b.onclick = function () { S.aw = b.getAttribute('data-w'); renderASched(); }; });
+  function approve(items, btn) {
+    btn.disabled = true;
+    api('adminApprove', { admin: S.admin, items: items }).then(function () { toast('Đã duyệt lịch ' + items.length + ' người'); loadAdmin(); })
+      .catch(function (e) { btn.disabled = false; toast(e.error, true); });
+  }
+  $$('[data-ap]').forEach(function (b) { b.onclick = function () { approve([{ staffId: b.getAttribute('data-ap'), week: mon }], b); }; });
+  if ($('#apAll')) $('#apAll').onclick = function () { approve(wait, this); };
+  $$('[data-ed]').forEach(function (b) { b.onclick = function () { adminEdit(b.getAttribute('data-ed')); }; });
 }
-
+// Bảng sửa lịch một người (quản lý)
+function formFor(st, mon, regs) {
+  var days = [];
+  for (var i = 0; i < 7; i++) {
+    var date = addDays(mon, i), d = { date: date, on: {}, LH: false, a: '09:00', b: '17:00' };
+    segs(st, date, regs).forEach(function (g) { if (g.id === 'LH') { d.LH = true; d.a = g.start; d.b = g.end; } else d.on[g.id] = true; });
+    days.push(d);
+  }
+  return { mon: mon, days: days };
+}
+function adminEdit(id) {
+  var st = S.ad.staff.filter(function (x) { return x.id === id; })[0], mon = adminWeek(), f = formFor(st, mon, S.ad.regs);
+  var shifts = S.boot.shifts.filter(function (x) { return (x.group || '') === (st.group || ''); });
+  var ap = apprOf(S.ad.approvals, st.id, mon);
+  var rows = f.days.map(function (d, i) {
+    return '<div class="li"><div class="dayd"><b>' + d.date.slice(8) + '</b><span>' + WDS[dow(d.date)] + '</span></div><div class="main"><div class="chips">' +
+      shifts.map(function (x) { return '<button type="button" class="chip" aria-pressed="' + !!d.on[x.id] + '" data-ei="' + i + '" data-es="' + esc(x.id) + '">' + esc(x.name) + ' <span class="mono">' + x.start.slice(0, 2) + '–' + x.end.slice(0, 2) + '</span></button>'; }).join('') +
+      '<button type="button" class="chip" aria-pressed="' + d.LH + '" data-ei="' + i + '" data-es="LH">Linh hoạt</button></div>' +
+      '<div class="row flex-t" id="edT' + i + '"' + (d.LH ? '' : ' hidden') + '><input type="time" id="edA' + i + '" value="' + d.a + '" aria-label="Giờ vào"><span class="muted">đến</span><input type="time" id="edB' + i + '" value="' + d.b + '" aria-label="Giờ ra"></div></div></div>';
+  }).join('');
+  modal('<h3>Sắp xếp ca · ' + esc(st.name) + '</h3><p class="small muted" style="margin:0">Tuần ' + dm(mon) + ' – ' + dm(addDays(mon, 6)) + '. Ngày không chọn ca là nghỉ. Lưu xong nhân viên thấy lịch mới ngay và không tự sửa tuần này được nữa.</p>' +
+    '<div class="list">' + rows + '</div>' +
+    '<div class="field"><label class="lbl" for="edNote">Lời nhắn cho nhân viên (không bắt buộc)</label><input type="text" id="edNote" maxlength="200" value="' + esc(ap && ap.status === 'Quản lý xếp' ? ap.note || '' : '') + '" placeholder="VD: đổi sang live tối thứ 6 vì Trâm nghỉ"></div>' +
+    '<div class="acts"><button class="btn" id="edSave">Lưu lịch</button><button class="btn sec" id="edNo">Huỷ</button></div>');
+  $('#edNo').onclick = function () { modal(''); };
+  $$('[data-ei]').forEach(function (b) {
+    b.onclick = function () {
+      var d = f.days[+b.getAttribute('data-ei')], k = b.getAttribute('data-es');
+      if (k === 'LH') { d.LH = !d.LH; $('#edT' + b.getAttribute('data-ei')).hidden = !d.LH; b.setAttribute('aria-pressed', d.LH); }
+      else { d.on[k] = !d.on[k]; b.setAttribute('aria-pressed', !!d.on[k]); }
+    };
+  });
+  $('#edSave').onclick = function () {
+    var days = [], bad = '';
+    f.days.forEach(function (d, i) {
+      var sg = Object.keys(d.on).filter(function (k) { return d.on[k]; }).map(function (k) { return { shift: k }; });
+      if (d.LH) { var a = $('#edA' + i).value, b = $('#edB' + i).value; if (!a || !b || a >= b) bad = dm(d.date); sg.push({ shift: 'LH', start: a, end: b }); }
+      days.push({ date: d.date, segs: sg });
+    });
+    if (bad) return toast('Giờ linh hoạt ngày ' + bad + ' chưa đúng: giờ ra phải sau giờ vào.', true);
+    if (!days.some(function (d) { return d.segs.length; })) return toast('Chọn ít nhất một ca trong tuần.', true);
+    var btn = this; btn.disabled = true;
+    api('adminSetWeek', { admin: S.admin, staffId: st.id, week: mon, days: days, note: $('#edNote').value.trim() }).then(function () {
+      modal(''); toast('Đã sắp xếp lại lịch của ' + st.name); loadAdmin();
+    }).catch(function (e) { btn.disabled = false; toast(e.error, true); });
+  };
+}
 var COLS = ['Nhân viên', 'Vị trí', 'Ngày làm', 'Số ca', 'Nghỉ phép', 'Giờ làm', 'Muộn (lần)', 'Muộn (phút)', 'Về sớm (lần)', 'Về sớm (phút)', 'Quên chấm ra', 'Chờ duyệt'];
 function monthRows() {
   var n = vnNow(S.offset), today = S.ad.now.date;
@@ -1577,6 +1701,7 @@ function start() {
       S.cred = cred; S.me = cme; S.syncing = true;
       S.regs = mine ? (ct.regs || []) : [];
       S.busyReqs = mine ? (ct.busy || []) : [];
+      S.appr = mine ? (ct.appr || []) : [];
       S.today = { now: vnNow(), records: mine && ct.d === vnNow().date ? (ct.records || []) : [], regs: S.regs };
       S.tab = 'home'; staffShell(''); renderHome(); refreshLoc();
       painted = true;
