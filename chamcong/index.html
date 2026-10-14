@@ -245,6 +245,7 @@ details.day .list{border:0;border-top:1px solid var(--line);border-radius:0}
 .locbox{display:flex;flex-direction:column;gap:8px;align-items:center}
 .loc .acts{gap:8px}
 .segrow{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:3px 0}
+.tile .v.bad{color:var(--bad)}
 </style>
 </head>
 <body>
@@ -365,7 +366,7 @@ function weekState(st, mon, regs) {
 }
 // Thống kê 1 ngày từ các lượt chấm (đã xếp theo giờ, bỏ lượt bị từ chối).
 function dayStats(recs, segs, date, today, nowMin) {
-  var o = { mins: 0, lateN: 0, lateM: 0, earlyN: 0, earlyM: 0, missOut: 0, shifts: 0, open: false, iv: [], first: null, last: null, n: recs.length };
+  var o = { mins: 0, inShift: 0, lateN: 0, lateM: 0, earlyN: 0, earlyM: 0, missOut: 0, shifts: 0, open: false, iv: [], first: null, last: null, n: recs.length };
   var open = null;
   recs.forEach(function (r) {
     var m = toMin(r.time);
@@ -381,6 +382,7 @@ function dayStats(recs, segs, date, today, nowMin) {
     o.iv.forEach(function (v) { var x = Math.max(a, v[0]), y = Math.min(b, v[1]); if (y - x >= 1) { ov += y - x; mx = Math.max(mx, y); } });
     var came = ov > 0 || recs.some(function (r) { var m = toMin(r.time); return r.type === 'IN' && m < b && m >= a - 90; });
     if (came) o.shifts++;
+    o.inShift += ov;
     if (ov > 0 && mx < b && !o.missOut && (past || (nowMin > b && !o.open))) {
       var e = Math.floor(b - mx); if (e >= 1) { o.earlyN++; o.earlyM += e; }
     }
@@ -513,8 +515,9 @@ var Demo = (function () {
       save();
       return { busy: myBusy(s.id) };
     },
-    boot: function () { return { company: 'Jebee Shoes', staff: db().staff.map(pub), shops: SHOPS, shifts: SHIFTS, settings: { gps: true, photo: true, graceFlex: GF }, now: vnNow() }; },
-    login: function (p) { return pub(auth(p)); },
+    boot: function () { return { company: 'Jebee Shoes', staff: db().staff.map(pub), shops: SHOPS, shifts: SHIFTS, settings: { gps: true, photo: true, graceFlex: GF, liveTarget: 26, liveOff: 4 }, now: vnNow() }; },
+    login: function (p) { var o = pub(auth(p)); o.rate = o.group === 'LIVE' ? (db().liveRate || 30000) : 0; return o; },
+    setLiveRate: function (p) { admin(p); db().liveRate = +p.value || 0; save(); return db().liveRate; },
     today: function (p) {
       var s = auth(p), n = vnNow(), mon = monday(n.date);
       return { now: n, records: db().records.filter(function (r) { return r.staffId === s.id && r.date === n.date; }), regs: myRegs(s.id, addDays(mon, -7), addDays(mon, 13)), busy: myBusy(s.id) };
@@ -576,7 +579,7 @@ var Demo = (function () {
     resetPin: function (p) { admin(p); db().staff.forEach(function (s) { if (s.id === p.staffId) s.pin = '1234'; }); save(); return true; },
     adminData: function (p) {
       admin(p); var m = String(p.month || ''), n = vnNow();
-      return { staff: db().staff.map(pub), records: db().records.filter(function (r) { return r.date.indexOf(m) === 0 || r.date === n.date; }), requests: db().requests.slice().reverse(), regs: db().regs.slice(), now: n, sheetUrl: '' };
+      return { staff: db().staff.map(function (s) { var o = pub(s); o.rate = s.group === 'LIVE' ? (db().liveRate || 30000) : 0; return o; }), liveRate: db().liveRate || 30000, records: db().records.filter(function (r) { return r.date.indexOf(m) === 0 || r.date === n.date; }), requests: db().requests.slice().reverse(), regs: db().regs.slice(), now: n, sheetUrl: '' };
     },
     decide: function (p) {
       admin(p); var D = db();
@@ -710,16 +713,58 @@ function summarize(st, records, requests, regs, month, today, nowMin) {
     if (r.review === 'rejected') return;
     (by[r.date] = by[r.date] || []).push(r);
   });
-  var o = { st: st, byDay: {}, days: 0, shifts: 0, mins: 0, lateN: 0, lateM: 0, earlyN: 0, earlyM: 0, missOut: 0, pending: pending, leave: leaveMap(st.id, requests, month) };
+  var o = { st: st, byDay: {}, days: 0, shifts: 0, mins: 0, liveMins: 0, workDates: {}, lateN: 0, lateM: 0, earlyN: 0, earlyM: 0, missOut: 0, pending: pending, leave: leaveMap(st.id, requests, month) };
   Object.keys(by).forEach(function (d) {
     var recs = by[d].sort(function (a, b) { return a.time < b.time ? -1 : 1; });
-    var x = dayStats(recs, segs(st, d, regs), d, today, nowMin);
+    var sgd = segs(st, d, regs), x = dayStats(recs, sgd, d, today, nowMin);
     x.recs = recs; o.byDay[d] = x;
     if (x.first) o.days++;
     ['shifts', 'mins', 'lateN', 'lateM', 'earlyN', 'earlyM', 'missOut'].forEach(function (k) { o[k] += x[k]; });
+    o.liveMins += sgd.length ? x.inShift : x.mins; // giờ live: chỉ phần nằm trong ca đã đăng ký
+    if (x.first) o.workDates[d] = 1;
   });
   o.leaveN = Object.keys(o.leave).length;
   return o;
+}
+/* Nhân viên live: chỉ tiêu ca/tháng, ngày nghỉ được phép, lương = giờ live × đơn giá */
+function money(v) { return Math.round(v || 0).toLocaleString('vi-VN') + 'đ'; }
+function liveSum(o, month, today) {
+  var set = (S.boot && S.boot.settings) || {}, target = set.liveTarget || 26, offAllowed = set.liveOff || 4;
+  var first = month + '-01', last = addDays(addDays(first, 32).slice(0, 7) + '-01', -1);
+  var cutoff = today <= first ? null : (today > last ? last : addDays(today, -1)); // các ngày đã qua hẳn
+  var offUsed = 0, daysLeft = 0;
+  if (cutoff) eachDay(first, cutoff, function (d) { if (!o.workDates[d]) offUsed++; });
+  if (today <= last) eachDay(today < first ? first : today, last, function (d) { if (!(d === today && o.workDates[d])) daysLeft++; });
+  var need = Math.max(0, target - o.shifts), rate = o.st.rate || 0;
+  return { target: target, offAllowed: offAllowed, offUsed: offUsed, daysLeft: daysLeft, need: need, rate: rate, pay: Math.round(o.liveMins / 60 * rate), atRisk: need > daysLeft };
+}
+function liveTiles(sm, today) {
+  var L = liveSum(sm, S.month, today);
+  return '<div class="tiles" style="margin-top:12px">' +
+    '<div class="tile"><div class="lbl">Giờ live tính lương</div><div class="v">' + dur(sm.liveMins) + '</div></div>' +
+    '<div class="tile"><div class="lbl">Ca live</div><div class="v' + (L.atRisk ? ' bad' : '') + '">' + sm.shifts + ' <small>/ ' + L.target + ' ca</small></div></div>' +
+    '<div class="tile"><div class="lbl">Ngày nghỉ đã dùng</div><div class="v' + (L.offUsed > L.offAllowed ? ' bad' : '') + '">' + L.offUsed + ' <small>/ ' + L.offAllowed + ' ngày</small></div></div>' +
+    '<div class="tile"><div class="lbl">Lương tạm tính</div><div class="v">' + (L.rate ? money(L.pay) : '<small>Chưa có đơn giá</small>') + '</div>' + (L.rate ? '<div class="small muted">' + money(L.rate) + ' / giờ</div>' : '') + '</div></div>' +
+    '<p class="small" style="margin:10px 0 0;color:' + (L.atRisk ? 'var(--bad)' : 'var(--muted)') + '">' +
+    (L.need ? 'Còn ' + L.need + ' ca nữa để đủ ' + L.target + ' ca; tháng này còn ' + L.daysLeft + ' ngày.' + (L.atRisk ? ' Không còn đủ ngày để kịp chỉ tiêu.' : '') : 'Đã đủ ' + L.target + ' ca trong tháng.') +
+    ' Giờ live chỉ tính phần nằm trong ca đã đăng ký.</p>';
+}
+var LCOLS = ['Nhân viên live', 'Vị trí', 'Ca đã live', 'Chỉ tiêu', 'Giờ live', 'Ngày nghỉ', 'Đơn giá/giờ', 'Lương tạm tính'];
+function liveRows(lv) { var today = S.ad.now.date; return lv.map(function (o) { return { o: o, L: liveSum(o, S.amonth, today) }; }); }
+function liveTable(lv) {
+  if (!lv.length) return '';
+  var rows = liveRows(lv), sumPay = 0, sumMin = 0, set = S.boot.settings || {};
+  var body = rows.map(function (x) {
+    sumPay += x.L.pay; sumMin += x.o.liveMins;
+    return '<tr><td><b>' + esc(x.o.st.name) + '</b></td><td style="text-align:left" class="muted">' + esc(x.o.st.role) + '</td>' +
+      '<td class="' + (x.L.atRisk ? 'hl-bad' : '') + '"><span class="num">' + x.o.shifts + '</span></td><td>' + x.L.target + '</td>' +
+      '<td><span class="num">' + dur(x.o.liveMins) + '</span></td><td class="' + (x.L.offUsed > x.L.offAllowed ? 'hl-bad' : '') + '">' + x.L.offUsed + '/' + x.L.offAllowed + '</td>' +
+      '<td>' + (x.L.rate ? money(x.L.rate) : '<span class="muted">chưa đặt</span>') + '</td><td><b>' + (x.L.rate ? money(x.L.pay) : '—') + '</b></td></tr>';
+  }).join('');
+  return '<div class="sechead"><h2>Nhân viên live</h2><span class="muted small">Lương = giờ live thực tế trong ca × đơn giá</span></div>' +
+    '<div class="tablewrap"><table><thead><tr>' + LCOLS.map(function (c, i) { return '<th' + (i === 1 ? ' style="text-align:left"' : '') + '>' + c + '</th>'; }).join('') + '</tr></thead><tbody>' + body + '</tbody>' +
+    '<tfoot><tr><td>Tổng</td><td></td><td></td><td></td><td>' + dur(sumMin) + '</td><td></td><td></td><td>' + money(sumPay) + '</td></tr></tfoot></table></div>' +
+    '<p class="small muted" style="margin:8px 0 0">Chỉ tiêu ' + (set.liveTarget || 26) + ' ca/tháng, được nghỉ ' + (set.liveOff || 4) + ' ngày bất kỳ. Thiếu chỉ tiêu (không còn đủ ngày để kịp) hoặc nghỉ quá số ngày được phép thì tô đỏ. Đơn giá đặt ở tab Cài đặt.</p>';
 }
 function recBadges(r) {
   var b = '';
@@ -1121,11 +1166,12 @@ function renderHist() {
   }).join('');
   $('#main').innerHTML =
     '<div class="monthbar" style="padding-top:8px"><h2 style="font-size:20px">Công tháng</h2><input type="month" id="mSel" value="' + S.month + '" aria-label="Chọn tháng"></div>' +
+    (S.me.group === 'LIVE' ? liveTiles(sm, today) :
     '<div class="tiles" style="margin-top:12px">' +
     '<div class="tile"><div class="lbl">Số ca đã làm</div><div class="v">' + sm.shifts + ' <small>ca · ' + sm.days + ' ngày' + (sm.leaveN ? ' · ' + sm.leaveN + ' phép' : '') + '</small></div></div>' +
     '<div class="tile"><div class="lbl">Giờ làm</div><div class="v">' + dur(sm.mins) + '</div></div>' +
     '<div class="tile"><div class="lbl">Đi muộn</div><div class="v">' + sm.lateN + ' <small>lần · ' + sm.lateM + ' phút</small></div></div>' +
-    '<div class="tile"><div class="lbl">Về sớm / quên ra</div><div class="v">' + sm.earlyN + ' <small>/</small> ' + sm.missOut + '</div></div></div>' +
+    '<div class="tile"><div class="lbl">Về sớm / quên ra</div><div class="v">' + sm.earlyN + ' <small>/</small> ' + sm.missOut + '</div></div></div>') +
     '<div class="sechead"><h2>Từng ngày</h2><span class="muted small">Giờ làm = tổng các lượt vào → ra</span></div>' +
     '<div class="list">' + (rows || '<div class="empty">Chưa có dữ liệu tháng này.</div>') + '</div>';
   $('#mSel').onchange = function (e) { if (e.target.value) { S.month = e.target.value; loadHist(); } };
@@ -1390,7 +1436,7 @@ function monthRows() {
     .filter(function (o) { return o.st.status !== 'Nghỉ việc' || o.days; });
 }
 function renderAMonth() {
-  var rs = monthRows(), K = ['days', 'shifts', 'leaveN', 'mins', 'lateN', 'lateM', 'earlyN', 'earlyM', 'missOut', 'pending'], T = {};
+  var allRows = monthRows(), rs = allRows.filter(function (o) { return o.st.group !== 'LIVE'; }), lv = allRows.filter(function (o) { return o.st.group === 'LIVE'; }), K = ['days', 'shifts', 'leaveN', 'mins', 'lateN', 'lateM', 'earlyN', 'earlyM', 'missOut', 'pending'], T = {};
   K.forEach(function (k) { T[k] = 0; rs.forEach(function (o) { T[k] += o[k]; }); });
   function c(v, cls) { return '<td class="' + (v ? cls || '' : '') + '"><span class="num">' + v + '</span></td>'; }
   var body = rs.map(function (o) {
@@ -1403,7 +1449,7 @@ function renderAMonth() {
     '<button class="btn sec sm" id="copyT">Sao chép bảng</button>' + (REAL ? '<button class="btn sm" id="expT">Xuất sang Google Sheet</button>' : '') + '</div></div>' +
     '<p class="small muted" style="margin:8px 0 12px">Số ca = số buổi (sáng, chiều, linh hoạt) có mặt. Giờ làm = tổng các lượt vào → ra, không tính thời gian ra ngoài. Lượt bị từ chối không tính.</p>' +
     '<div class="tablewrap"><table><thead><tr>' + COLS.map(function (h, i) { return '<th' + (i === 1 ? ' style="text-align:left"' : '') + '>' + h + '</th>'; }).join('') + '</tr></thead><tbody>' + body + '</tbody>' +
-    '<tfoot><tr><td>Tổng</td><td></td><td>' + T.days + '</td><td>' + T.shifts + '</td><td>' + T.leaveN + '</td><td>' + dur(T.mins) + '</td><td>' + T.lateN + '</td><td>' + T.lateM + '</td><td>' + T.earlyN + '</td><td>' + T.earlyM + '</td><td>' + T.missOut + '</td><td>' + T.pending + '</td></tr></tfoot></table></div>';
+    '<tfoot><tr><td>Tổng</td><td></td><td>' + T.days + '</td><td>' + T.shifts + '</td><td>' + T.leaveN + '</td><td>' + dur(T.mins) + '</td><td>' + T.lateN + '</td><td>' + T.lateM + '</td><td>' + T.earlyN + '</td><td>' + T.earlyM + '</td><td>' + T.missOut + '</td><td>' + T.pending + '</td></tr></tfoot></table></div>' + liveTable(lv);
   $('#amSel').onchange = function (e) { if (e.target.value) { S.amonth = e.target.value; loadAdmin(); } };
   $('#copyT').onclick = function () {
     var tsv = [COLS].concat(tableData()).map(function (r) { return r.join('\t'); }).join('\n');
@@ -1417,7 +1463,16 @@ function renderAMonth() {
   };
 }
 function tableData() {
-  return monthRows().map(function (o) { return [o.st.name, o.st.role, o.days, o.shifts, o.leaveN, (o.mins / 60).toFixed(1).replace('.', ','), o.lateN, o.lateM, o.earlyN, o.earlyM, o.missOut, o.pending]; });
+  var all = monthRows();
+  var out = all.filter(function (o) { return o.st.group !== 'LIVE'; }).map(function (o) { return [o.st.name, o.st.role, o.days, o.shifts, o.leaveN, (o.mins / 60).toFixed(1).replace('.', ','), o.lateN, o.lateM, o.earlyN, o.earlyM, o.missOut, o.pending]; });
+  var lv = all.filter(function (o) { return o.st.group === 'LIVE'; });
+  if (lv.length) {
+    var pad = function (r) { while (r.length < COLS.length) r.push(''); return r; };
+    out.push(pad([]));
+    out.push(pad(LCOLS.slice()));
+    liveRows(lv).forEach(function (x) { out.push(pad([x.o.st.name, x.o.st.role, x.o.shifts, x.L.target, (x.o.liveMins / 60).toFixed(2).replace('.', ','), x.L.offUsed + '/' + x.L.offAllowed, x.L.rate || '', x.L.rate ? x.L.pay : ''])); });
+  }
+  return out;
 }
 function showTsv(tsv) {
   modal('<h3>Sao chép bảng công</h3><p class="muted small" style="margin:0">Bôi đen toàn bộ rồi sao chép, sau đó dán vào Excel.</p><textarea id="tsvBox" rows="8" class="mono" style="font-size:12px">' + esc(tsv) + '</textarea><button class="btn sec" id="tsvClose">Đóng</button>');
@@ -1478,6 +1533,8 @@ function renderASetup() {
     '<h2 style="font-size:20px">Cài đặt</h2>' +
     (REAL && S.ad.sheetUrl ? '<p>Nhân viên, PIN, ca làm và toạ độ cửa hàng sửa trực tiếp trong <a href="' + esc(S.ad.sheetUrl) + '" target="_blank" rel="noopener">Google Sheet dữ liệu</a>. Sửa xong, nhân viên tải lại trang là nhận.</p>'
       : '<p>Đây là bản dùng thử, dữ liệu mẫu chỉ nằm trên máy này. Khi nối Google Sheet, sếp sửa nhân viên, PIN, ca và toạ độ ngay trên Sheet.</p>') +
+    '<div class="card"><div class="lbl">Lương nhân viên live</div><p style="margin:6px 0 10px">Lương = giờ live thực tế (phần nằm trong ca đã đăng ký) × đơn giá. Ai có đơn giá riêng thì ghi ở cột <code>LuongGio</code> trang <code>NhanVien</code>.</p>' +
+    '<div class="row" style="flex-wrap:wrap"><label class="lbl" for="lrVal" style="margin:0">Đơn giá chung (đồng/giờ)</label><input type="text" inputmode="numeric" id="lrVal" style="width:140px" value="' + (S.ad.liveRate || '') + '" placeholder="VD: 30000"><button class="btn sm" id="lrSave">Lưu</button></div></div>' +
     '<div class="card"><div class="lbl">Mã PIN</div><p style="margin:6px 0 10px">Mỗi người tự đổi PIN của mình bằng nút <b>Đổi PIN</b> trên đầu màn hình. Ai quên PIN thì quản lý đặt lại ở đây.</p>' +
     '<div class="acts"><button class="btn sm" id="admPin">Đổi PIN quản lý</button></div>' +
     '<div class="list" style="margin-top:12px">' + activeStaff().map(function (s) { return '<div class="li"><div class="main"><b>' + esc(s.name) + '</b><div class="small muted">' + esc(s.role) + '</div></div><button class="btn sec sm" data-rp="' + esc(s.id) + '" data-name="' + esc(s.name) + '">Đặt lại PIN</button></div>'; }).join('') + '</div></div>' +
@@ -1498,6 +1555,12 @@ function renderASetup() {
     '<div class="card"><div class="lbl">Cài lên iPhone như app</div><ol><li>Mở link bằng Safari.</li><li>Bấm nút Chia sẻ (ô vuông mũi tên lên).</li><li>Chọn <b>Thêm vào MH chính</b> và đặt tên “Chấm Công Jebee”.</li><li>Lần đầu chấm, bấm <b>Cho phép</b> khi máy hỏi vị trí và camera.</li></ol></div>' +
     (REAL ? '' : '<div class="acts"><button class="btn sec" id="resetDemo">Tạo lại dữ liệu mẫu</button></div>') +
     '</div>';
+  if ($('#lrSave')) $('#lrSave').onclick = function () {
+    var v = +String($('#lrVal').value).replace(/[^0-9]/g, '') || 0, b = this;
+    b.disabled = true;
+    api('setLiveRate', { admin: S.admin, value: v }).then(function () { toast(v ? 'Đã lưu đơn giá ' + money(v) + ' / giờ' : 'Đã xoá đơn giá'); loadAdmin(); })
+      .catch(function (e) { b.disabled = false; toast(e.error, true); });
+  };
   if (!REAL) $('#resetDemo').onclick = function () { api('reset').then(function () { toast('Đã tạo lại dữ liệu mẫu'); loadAdmin(); }); };
 }
 
