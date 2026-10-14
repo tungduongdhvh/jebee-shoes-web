@@ -250,6 +250,12 @@ details.day .list{border:0;border-top:1px solid var(--line);border-radius:0}
 .sheet{max-height:calc(100vh - 32px);overflow:auto}
 table.sched tfoot td{background:var(--sunk);font-size:12.5px}
 table.sched tfoot td.hl-bad{color:var(--bad);font-weight:700}
+/* Bảng dài: cuộn trong khung, dòng tiêu đề (ngày tháng) và cột tên luôn đứng yên */
+.tablewrap.sticky{max-height:calc(100vh - 190px);max-height:calc(100dvh - 190px);overflow:auto;overscroll-behavior:contain}
+.tablewrap.sticky thead th{position:sticky;top:0;z-index:2;box-shadow:0 1px 0 var(--line)}
+.tablewrap.sticky thead th:first-child{left:0;z-index:3}
+.tablewrap.sticky tbody td:first-child,.tablewrap.sticky tfoot td:first-child{z-index:1}
+@media (max-width:640px){.tablewrap.sticky{max-height:calc(100dvh - 170px)}}
 </style>
 </head>
 <body>
@@ -807,7 +813,7 @@ function liveTable(lv) {
       c(o.lateN, 'hl-warn') + c(o.lateM, 'hl-warn') + c(o.earlyN, 'hl-warn') + c(o.earlyM, 'hl-warn') + c(o.missOut, 'hl-bad') + c(o.pending, 'hl-bad') + '</tr>';
   }).join('');
   return '<div class="sechead"><h2>Nhân viên live</h2><span class="muted small">Theo dõi đủ ca, ngày nghỉ, đi muộn và về sớm</span></div>' +
-    '<div class="tablewrap"><table><thead><tr>' + LCOLS.map(function (t, i) { return '<th' + (i === 1 ? ' style="text-align:left"' : '') + '>' + t + '</th>'; }).join('') + '</tr></thead><tbody>' + body + '</tbody></table></div>' +
+    '<div class="tablewrap sticky"><table><thead><tr>' + LCOLS.map(function (t, i) { return '<th' + (i === 1 ? ' style="text-align:left"' : '') + '>' + t + '</th>'; }).join('') + '</tr></thead><tbody>' + body + '</tbody></table></div>' +
     '<p class="small muted" style="margin:8px 0 0">Chỉ tiêu ' + (set.liveTarget || 26) + ' ca/tháng, được nghỉ ' + (set.liveOff || 4) + ' ngày bất kỳ. Không còn đủ ngày để kịp chỉ tiêu, hoặc nghỉ quá số ngày được phép thì tô đỏ. Lương live tính theo giờ phát live trên TikTok.</p>';
 }
 function recBadges(r) {
@@ -1493,7 +1499,7 @@ function renderASched() {
     '<div class="monthbar" style="padding-top:8px"><h2 style="font-size:20px">Lịch ca</h2><div class="seg"><button data-w="prev" aria-pressed="' + (S.aw === 'prev') + '">Tuần trước</button><button data-w="this" aria-pressed="' + (S.aw === 'this') + '">Tuần này</button><button data-w="next" aria-pressed="' + (S.aw === 'next') + '">Tuần sau</button></div></div>' +
     '<div class="row" style="justify-content:space-between;flex-wrap:wrap;margin:10px 0 12px"><p class="small muted" style="margin:0"><b style="color:var(--ink)">' + nReg + '/' + staff.length + '</b> người đã đăng ký tuần ' + dm(mon) + ' – ' + dm(dates[6]) + ', <b style="color:var(--ink)">' + wait.length + '</b> người chờ duyệt.' +
     (S.aw === 'next' ? ' Hạn đăng ký 24:00 Chủ nhật ' + dm(addDays(mon, -1)) + '.' : '') + '</p>' + (wait.length ? '<button class="btn sm" id="apAll">Duyệt tất cả (' + wait.length + ')</button>' : '') + '</div>' +
-    '<div class="tablewrap"><table class="sched"><thead><tr><th>Nhân viên</th>' + dates.map(function (d) { return '<th>' + WDS[dow(d)] + ' ' + dm(d) + '</th>'; }).join('') + '</tr></thead><tbody>' + body + '</tbody>' +
+    '<div class="tablewrap sticky"><table class="sched"><thead><tr><th>Nhân viên</th>' + dates.map(function (d) { return '<th>' + WDS[dow(d)] + ' ' + dm(d) + '</th>'; }).join('') + '</tr></thead><tbody>' + body + '</tbody>' +
     '<tfoot><tr><td colspan="8" class="lbl" style="text-align:left">Số người theo ca</td></tr>' + cov + '</tfoot></table></div>' +
     '<p class="small muted" style="margin:8px 0 0">Bấm <b>Sắp xếp</b> để đổi ca của một người; sau khi quản lý xếp, người đó không tự sửa tuần này được nữa. Ca live cần đúng 1 người: ô đỏ là ca bị trống hoặc trùng người.</p>';
   $$('.seg [data-w]').forEach(function (b) { b.onclick = function () { S.aw = b.getAttribute('data-w'); renderASched(); }; });
@@ -1572,7 +1578,7 @@ function renderAMonth() {
     '<input type="month" id="amSel" value="' + S.amonth + '" aria-label="Chọn tháng">' +
     '<button class="btn sec sm" id="copyT">Sao chép bảng</button>' + (REAL ? '<button class="btn sm" id="expT">Xuất sang Google Sheet</button>' : '') + '</div></div>' +
     '<p class="small muted" style="margin:8px 0 12px">Số ca = số buổi (sáng, chiều, linh hoạt) có mặt. Giờ làm = tổng các lượt vào → ra, không tính thời gian ra ngoài. Lượt bị từ chối không tính.</p>' +
-    '<div class="tablewrap"><table><thead><tr>' + COLS.map(function (h, i) { return '<th' + (i === 1 ? ' style="text-align:left"' : '') + '>' + h + '</th>'; }).join('') + '</tr></thead><tbody>' + body + '</tbody>' +
+    '<div class="tablewrap sticky"><table><thead><tr>' + COLS.map(function (h, i) { return '<th' + (i === 1 ? ' style="text-align:left"' : '') + '>' + h + '</th>'; }).join('') + '</tr></thead><tbody>' + body + '</tbody>' +
     '<tfoot><tr><td>Tổng</td><td></td><td>' + T.days + '</td><td>' + T.shifts + '</td><td>' + T.leaveN + '</td><td>' + dur(T.mins) + '</td><td>' + T.lateN + '</td><td>' + T.lateM + '</td><td>' + T.earlyN + '</td><td>' + T.earlyM + '</td><td>' + T.missOut + '</td><td>' + T.pending + '</td></tr></tfoot></table></div>' + liveTable(lv);
   $('#amSel').onchange = function (e) { if (e.target.value) { S.amonth = e.target.value; loadAdmin(); } };
   $('#copyT').onclick = function () {
