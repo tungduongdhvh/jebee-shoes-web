@@ -256,6 +256,12 @@ table.sched tfoot td.hl-bad{color:var(--bad);font-weight:700}
 .tablewrap.sticky thead th:first-child{left:0;z-index:3}
 .tablewrap.sticky tbody td:first-child,.tablewrap.sticky tfoot td:first-child{z-index:1}
 @media (max-width:640px){.tablewrap.sticky{max-height:calc(100dvh - 170px)}}
+.ppimgs{display:flex;flex-wrap:wrap;gap:8px}
+.ppimgs:empty{display:none}
+.ppimgs img{width:84px;height:84px;object-fit:cover;border-radius:10px;border:1px solid var(--line);cursor:zoom-in}
+.ppth{position:relative;display:inline-block}
+.ppth img{width:72px;height:72px;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
+.ppth button{position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;border:0;background:var(--bad);color:#fff;font-weight:700;line-height:1}
 </style>
 </head>
 <body>
@@ -317,6 +323,7 @@ var ICON = {
   home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/><path d="M9 2h6"/></svg>',
   cal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>',
   week: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 9h18M8 2v4M16 2v4M7.5 13.5h3M13.5 13.5h3M7.5 17h3"/></svg>',
+  fine: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h3"/></svg>',
   doc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>',
   table: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/></svg>',
   check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg>',
@@ -414,7 +421,7 @@ function leaveMap(staffId, requests, month) {
    Máy chủ giả lập (chỉ dùng khi chưa nối Google Sheet)
    ========================================================= */
 var Demo = (function () {
-  var KEY = 'cc_demo_v5', mem = null, GF = 5, shots = {};
+  var KEY = 'cc_demo_v6', mem = null, GF = 5, shots = {};
   var SHOPS = [
     { id: 'CH1', name: 'Cửa hàng Jebee (mẫu)', lat: 21.0285, lng: 105.8542, radius: 150 },
     { id: 'VP', name: 'Văn phòng online (mẫu)', lat: 21.0301, lng: 105.8503, radius: 150 }
@@ -506,9 +513,16 @@ var Demo = (function () {
       for (var w = -1; w <= 0; w++) appr.push({ staffId: st.id, week: addDays(mon, w * 7), status: 'Đã duyệt', at: '', note: '' });
       if ([0, 2, 4].indexOf(si) >= 0) appr.push({ staffId: st.id, week: addDays(mon, 7), status: 'Chờ duyệt', at: '', note: '' });
     });
-    return { v: 5, staff: staff, records: recs, requests: reqs, regs: regs, appr: appr };
+    var st3 = function (ms) { var x = vnNow(-ms); return x.date + ' ' + x.time.slice(0, 5); };
+    var pp = [
+      { id: 'pp1', created: st3(26 * 3600e3), by: 'NV01', byName: 'Nguyễn Thu Hà', staffId: 'NV04', name: 'Phạm Quốc Bảo', amount: 100000, reason: 'Đóng gói sai size đơn hàng, khách phải đổi trả', imgs: [], status: 'Đã duyệt', approvedAt: st3(3 * 3600e3), final: 100000, note: '', complaint: '', knImgs: [], complainedAt: '' },
+      { id: 'pp2', created: st3(2 * 3600e3), by: 'NV07', byName: 'Hoàng Lan Chi', staffId: 'NV08', name: 'Bùi Đức Long', amount: 50000, reason: 'Giao hàng trễ 2 tiếng, không báo khách', imgs: [], status: 'Chờ duyệt', approvedAt: '', final: 0, note: '', complaint: '', knImgs: [], complainedAt: '' },
+      { id: 'pp3', created: st3(30 * 3600e3), by: 'NV09', byName: 'Ngô Phương Linh', staffId: 'NV06', name: 'Vũ Thanh Tùng', amount: 200000, reason: 'Tắt nhầm chiến dịch quảng cáo đang chạy tốt', imgs: [], status: 'Khiếu nại', approvedAt: st3(20 * 3600e3), final: 200000, note: '', complaint: 'Tài khoản quảng cáo bị khoá tự động, không phải em tắt', knImgs: [], complainedAt: st3(5 * 3600e3) },
+      { id: 'pp4', created: st3(6 * 86400e3), by: 'NV01', byName: 'Nguyễn Thu Hà', staffId: 'NV05', name: 'Đỗ Ngọc Mai', amount: 30000, reason: 'Vào live trễ 15 phút', imgs: [], status: 'Đã duyệt', approvedAt: st3(5 * 86400e3), final: 30000, note: '', complaint: '', knImgs: [], complainedAt: '' }
+    ];
+    return { v: 6, staff: staff, records: recs, requests: reqs, regs: regs, appr: appr, pp: pp };
   }
-  function db() { if (!mem) { mem = store(KEY); if (!mem || mem.v !== 5) { mem = seed(); save(); } } return mem; }
+  function db() { if (!mem) { mem = store(KEY); if (!mem || mem.v !== 6) { mem = seed(); save(); } } return mem; }
   function save() { store(KEY, mem); }
   function fail(msg, code) { throw { error: msg, code: code || '' }; }
   function auth(p) {
@@ -527,6 +541,10 @@ var Demo = (function () {
     a.status = status; a.note = note || ''; a.at = n.date + ' ' + n.time.slice(0, 5);
   }
   function myAppr(id) { return (db().appr || []).filter(function (a) { return a.staffId === id; }); }
+  function ppPub(t) { var o = {}; for (var k in t) if (k !== 'imgs' && k !== 'knImgs') o[k] = t[k]; o.nImg = (t.imgs || []).length; o.nImgKn = (t.knImgs || []).length; return o; }
+  function myPP(id) { return (db().pp || []).filter(function (t) { return (t.staffId === id && t.status !== 'Chờ duyệt' && t.status !== 'Từ chối') || t.by === id; }).map(ppPub).reverse(); }
+  function ppFind(id) { return (db().pp || []).filter(function (t) { return t.id === id; })[0]; }
+  function stampD() { var n = vnNow(); return n.date + ' ' + n.time.slice(0, 5); }
   function myBusy(id) { return db().requests.filter(function (q) { return q.staffId === id && q.kind === 'Báo bận ca'; }); }
   var H = {
     busy: function (p) {
@@ -538,14 +556,14 @@ var Demo = (function () {
       if (D.requests.some(function (q) { return q.staffId === s.id && q.kind === 'Báo bận ca' && q.from === p.date && q.ca === key && q.status !== 'Từ chối'; })) fail('Bạn đã báo bận ca này rồi.');
       D.requests.push({ id: 'q' + Date.now(), created: n.date + ' ' + n.time.slice(0, 5), staffId: s.id, name: s.name, kind: 'Báo bận ca', from: p.date, to: p.date, reason: reason, status: 'Chờ duyệt', ca: key });
       save();
-      return { busy: myBusy(s.id), appr: myAppr(s.id) };
+      return { busy: myBusy(s.id), appr: myAppr(s.id), pp: myPP(s.id) };
     },
-    boot: function () { return { company: 'Jebee Shoes', staff: db().staff.map(pub), shops: SHOPS, shifts: SHIFTS, settings: { gps: true, photo: true, graceFlex: GF, liveTarget: 26, liveOff: 4 }, now: vnNow() }; },
+    boot: function () { return { company: 'Jebee Shoes', staff: db().staff.map(pub), shops: SHOPS, shifts: SHIFTS, settings: { gps: true, photo: true, graceFlex: GF, liveTarget: 26, liveOff: 4, ppWindow: 48 }, now: vnNow() }; },
     login: function (p) { var o = pub(auth(p)); o.rate = o.group === 'LIVE' ? (db().liveRate || 30000) : 0; return o; },
     setLiveRate: function (p) { admin(p); db().liveRate = +p.value || 0; save(); return db().liveRate; },
     today: function (p) {
       var s = auth(p), n = vnNow(), mon = monday(n.date);
-      return { now: n, records: db().records.filter(function (r) { return r.staffId === s.id && r.date === n.date; }), regs: myRegs(s.id, addDays(mon, -7), addDays(mon, 13)), busy: myBusy(s.id), appr: myAppr(s.id) };
+      return { now: n, records: db().records.filter(function (r) { return r.staffId === s.id && r.date === n.date; }), regs: myRegs(s.id, addDays(mon, -7), addDays(mon, 13)), busy: myBusy(s.id), appr: myAppr(s.id), pp: myPP(s.id) };
     },
     punch: function (p) {
       var s = auth(p), n = vnNow(), D = db();
@@ -602,6 +620,33 @@ var Demo = (function () {
       save(); return true;
     },
     adminLogin: function (p) { admin(p); return true; },
+    ppCreate: function (p) {
+      var s = auth(p), D = db(), t = D.staff.filter(function (x) { return x.id === p.target; })[0];
+      if (!t) fail('Chọn người vi phạm.'); if (t.id === s.id) fail('Không lập phiếu phạt cho chính mình.');
+      if (!(+p.amount > 0)) fail('Nhập số tiền phạt hợp lệ.'); if (!String(p.reason || '').trim()) fail('Ghi rõ lỗi vi phạm.');
+      D.pp = D.pp || [];
+      D.pp.push({ id: 'pp' + Date.now(), created: stampD(), by: s.id, byName: s.name, staffId: t.id, name: t.name, amount: +p.amount, reason: p.reason, imgs: (p.images || []).slice(0, 3), status: 'Chờ duyệt', approvedAt: '', final: 0, note: '', complaint: '', knImgs: [], complainedAt: '' });
+      save(); return { pp: myPP(s.id) };
+    },
+    ppComplain: function (p) {
+      var s = auth(p), t = ppFind(p.ticket);
+      if (!t || t.staffId !== s.id) fail('Không tìm thấy phiếu phạt.');
+      if (t.status === 'Khiếu nại') fail('Bạn đã khiếu nại phiếu này rồi.');
+      if (t.status !== 'Đã duyệt' || ppState(t) !== 'Đã duyệt') fail('Đã quá hạn khiếu nại, tiền phạt đã chốt.');
+      if (!String(p.content || '').trim()) fail('Ghi nội dung khiếu nại.');
+      t.status = 'Khiếu nại'; t.complaint = p.content; t.knImgs = (p.images || []).slice(0, 3); t.complainedAt = stampD();
+      save(); return { pp: myPP(s.id) };
+    },
+    ppDecide: function (p) {
+      admin(p); var t = ppFind(p.ticket), a = p.action;
+      if (!t) fail('Không tìm thấy phiếu phạt.');
+      if (a === 'approve') { t.status = 'Đã duyệt'; t.approvedAt = stampD(); t.final = +p.amount || t.amount; t.note = p.note || ''; }
+      else if (a === 'reject') { t.status = 'Từ chối'; t.note = p.note || ''; }
+      else if (a === 'keep') { t.status = 'Đã chốt'; t.final = +p.amount || t.final || t.amount; t.note = p.note || ''; }
+      else if (a === 'cancel') { t.status = 'Huỷ'; t.note = p.note || ''; }
+      save(); return true;
+    },
+    ppImages: function (p) { var t = ppFind(p.ticket); if (!t) fail('Không tìm thấy phiếu phạt.'); return { loi: t.imgs || [], kn: t.knImgs || [] }; },
     adminSetWeek: function (p) {
       admin(p);
       var D = db(), st = D.staff.filter(function (x) { return x.id === p.staffId; })[0], week = p.week, sun = addDays(week, 6);
@@ -629,7 +674,7 @@ var Demo = (function () {
     resetPin: function (p) { admin(p); db().staff.forEach(function (s) { if (s.id === p.staffId) s.pin = '1234'; }); save(); return true; },
     adminData: function (p) {
       admin(p); var m = String(p.month || ''), n = vnNow();
-      return { staff: db().staff.map(function (s) { var o = pub(s); o.rate = s.group === 'LIVE' ? (db().liveRate || 30000) : 0; return o; }), liveRate: db().liveRate || 30000, approvals: db().appr || [], records: db().records.filter(function (r) { return r.date.indexOf(m) === 0 || r.date === n.date; }), requests: db().requests.slice().reverse(), regs: db().regs.slice(), now: n, sheetUrl: '' };
+      return { staff: db().staff.map(function (s) { var o = pub(s); o.rate = s.group === 'LIVE' ? (db().liveRate || 30000) : 0; return o; }), liveRate: db().liveRate || 30000, approvals: db().appr || [], pp: (db().pp || []).map(ppPub).reverse(), records: db().records.filter(function (r) { return r.date.indexOf(m) === 0 || r.date === n.date; }), requests: db().requests.slice().reverse(), regs: db().regs.slice(), now: n, sheetUrl: '' };
     },
     decide: function (p) {
       admin(p); var D = db();
@@ -740,11 +785,11 @@ document.addEventListener('click', function (e) {
   if (!t) return;
   if (t.id === 'locRetry') refreshLoc(true); else locHelp();
 });
-function compress(file) {
+function compress(file, max) {
   return new Promise(function (res) {
     var img = new Image(), url = URL.createObjectURL(file);
     img.onload = function () {
-      var k = Math.min(1, 480 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+      var k = Math.min(1, (max || 480) / Math.max(img.width, img.height)), c = document.createElement('canvas');
       c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
       c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
       URL.revokeObjectURL(url); res(c.toDataURL('image/jpeg', 0.7));
@@ -815,6 +860,188 @@ function liveTable(lv) {
   return '<div class="sechead"><h2>Nhân viên live</h2><span class="muted small">Theo dõi đủ ca, ngày nghỉ, đi muộn và về sớm</span></div>' +
     '<div class="tablewrap sticky"><table><thead><tr>' + LCOLS.map(function (t, i) { return '<th' + (i === 1 ? ' style="text-align:left"' : '') + '>' + t + '</th>'; }).join('') + '</tr></thead><tbody>' + body + '</tbody></table></div>' +
     '<p class="small muted" style="margin:8px 0 0">Chỉ tiêu ' + (set.liveTarget || 26) + ' ca/tháng, được nghỉ ' + (set.liveOff || 4) + ' ngày bất kỳ. Không còn đủ ngày để kịp chỉ tiêu, hoặc nghỉ quá số ngày được phép thì tô đỏ. Lương live tính theo giờ phát live trên TikTok.</p>';
+}
+/* ---------- Phiếu phạt ---------- */
+function nowMs() { return Date.now() + (S.offset || 0); }
+function ppDeadline(t) { if (!t.approvedAt) return 0; return Date.parse(String(t.approvedAt).replace(' ', 'T') + ':00+07:00') + (((S.boot && S.boot.settings) || {}).ppWindow || 48) * 3600000; }
+function ppState(t) { return t.status === 'Đã duyệt' && nowMs() > ppDeadline(t) ? 'Đã chốt' : t.status; }
+function t2(t) { return t.final || t.amount; }
+function leftTxt(ms) { var h = Math.max(0, Math.floor(ms / 3600000)), m = Math.max(0, Math.floor(ms % 3600000 / 60000)); return h >= 24 ? Math.floor(h / 24) + ' ngày ' + (h % 24) + ' giờ' : h + ' giờ ' + m + ' phút'; }
+function ppPill(st) {
+  var c = { 'Chờ duyệt': 'p-warn', 'Đã duyệt': 'p-warn', 'Khiếu nại': 'p-info', 'Đã chốt': 'p-bad', 'Từ chối': 'p-mute', 'Huỷ': 'p-good' }[st] || 'p-mute';
+  var txt = { 'Chờ duyệt': 'Chờ quản lý duyệt', 'Đã duyệt': 'Chờ chốt', 'Khiếu nại': 'Đang khiếu nại', 'Từ chối': 'Quản lý không duyệt', 'Huỷ': 'Đã huỷ phạt' }[st] || st;
+  return '<span class="pill ' + c + '">' + txt + '</span>';
+}
+function amtFormat(el) {
+  if (typeof el === 'string') el = $(el);
+  if (!el) return;
+  el.addEventListener('input', function () { var v = el.value.replace(/[^0-9]/g, ''); el.value = v ? (+v).toLocaleString('vi-VN') : ''; });
+}
+function amtVal(el) { return +String(el ? el.value : '').replace(/[^0-9]/g, '') || 0; }
+// Tổng tiền phạt theo người trong một tháng (theo ngày lập phiếu)
+function ppSums(month) {
+  var by = {};
+  ((S.ad && S.ad.pp) || []).forEach(function (t) {
+    if (String(t.created).slice(0, 7) !== month) return;
+    var st = ppState(t);
+    if (['Đã duyệt', 'Khiếu nại', 'Đã chốt'].indexOf(st) < 0) return;
+    var x = by[t.staffId] = by[t.staffId] || { name: t.name, n: 0, chot: 0, cho: 0, kn: 0 };
+    x.n++;
+    if (st === 'Đã chốt') x.chot += t2(t); else if (st === 'Khiếu nại') x.kn += t2(t); else x.cho += t2(t);
+  });
+  return Object.keys(by).map(function (k) { return by[k]; }).sort(function (a, b) { return (b.chot + b.cho + b.kn) - (a.chot + a.cho + a.kn); });
+}
+function ppMonthLine(id, month, list) {
+  var chot = 0, cho = 0;
+  (list || []).forEach(function (t) {
+    if (t.staffId !== id || String(t.created).slice(0, 7) !== month) return;
+    var st = ppState(t);
+    if (st === 'Đã chốt') chot += t2(t); else if (st === 'Đã duyệt' || st === 'Khiếu nại') cho += t2(t);
+  });
+  if (!chot && !cho) return '';
+  return '<p class="small" style="margin:10px 0 0">Tiền phạt tháng này: <b style="color:var(--bad)">' + money(chot) + '</b> đã chốt' + (cho ? ' · ' + money(cho) + ' đang chờ chốt hoặc khiếu nại' : '') + '. Xem ở tab Phiếu phạt.</p>';
+}
+function imgField(fid, pid) {
+  return '<div class="field"><span class="lbl">Ảnh bằng chứng (tối đa 3, không bắt buộc)</span><label class="btn sec sm" style="align-self:flex-start;cursor:pointer" for="' + fid + '">Chọn ảnh</label><input type="file" id="' + fid + '" accept="image/*" multiple hidden><div class="ppimgs" id="' + pid + '"></div></div>';
+}
+function bindImgs(fid, pid, arr) {
+  function draw() {
+    $('#' + pid).innerHTML = arr.map(function (d, i) { return '<span class="ppth"><img src="' + d + '" alt="Ảnh ' + (i + 1) + '"><button type="button" data-rm="' + i + '" aria-label="Bỏ ảnh">×</button></span>'; }).join('');
+    $$('#' + pid + ' [data-rm]').forEach(function (b) { b.onclick = function () { arr.splice(+b.getAttribute('data-rm'), 1); draw(); }; });
+  }
+  var inp = $('#' + fid);
+  inp.onchange = function () {
+    var files = [].slice.call(inp.files).slice(0, Math.max(0, 3 - arr.length)); inp.value = '';
+    Promise.all(files.map(function (f) { return compress(f, 900); })).then(function (list) { list.forEach(function (d) { if (d) arr.push(d); }); draw(); });
+  };
+}
+function ppCard(t, asTarget) {
+  var st = ppState(t), left = ppDeadline(t) - nowMs();
+  return '<div class="reqcard">' +
+    '<div class="row" style="justify-content:space-between;flex-wrap:wrap"><b>' + (asTarget ? 'Bị phạt ' : 'Phạt ' + esc(t.name) + ' · ') + '<span class="mono">' + money(t2(t)) + '</span></b>' + ppPill(st) + '</div>' +
+    '<div>' + esc(t.reason) + '</div>' +
+    '<div class="small muted">' + (asTarget ? 'Người lập: ' + esc(t.byName) + ' · ' : '') + 'Lập lúc ' + esc(t.created) + (t.final && t.final !== t.amount ? ' · đề xuất ' + money(t.amount) + ', quản lý chốt ' + money(t.final) : '') + '</div>' +
+    (t.note ? '<div class="small">Quản lý ghi: ' + esc(t.note) + '</div>' : '') +
+    (t.complaint ? '<div class="small" style="color:var(--out)">Khiếu nại: ' + esc(t.complaint) + '</div>' : '') +
+    (asTarget && st === 'Đã duyệt' ? '<div class="small" style="color:var(--bad)">Còn ' + leftTxt(left) + ' để khiếu nại. Không khiếu nại thì tiền phạt tự chốt.</div>' : '') +
+    '<div class="acts">' + ((t.nImg || t.nImgKn) ? '<button class="btn sec sm" data-ppimg="' + esc(t.id) + '">Xem bằng chứng (' + (t.nImg + t.nImgKn) + ' ảnh)</button>' : '') +
+    (asTarget && st === 'Đã duyệt' ? '<button class="btn bad sm" data-ppkn="' + esc(t.id) + '">Khiếu nại</button>' : '') + '</div>' +
+    '<div class="ppimgs" id="ppi' + esc(t.id) + '"></div></div>';
+}
+function renderPP() {
+  if (!S.me) return;
+  var me = S.me.id, list = S.pp || [], month = vnNow(S.offset).date.slice(0, 7);
+  var mine = list.filter(function (t) { return t.staffId === me; }), made = list.filter(function (t) { return t.by === me; });
+  var chot = 0, cho = 0;
+  mine.forEach(function (t) { if (String(t.created).slice(0, 7) !== month) return; var st = ppState(t); if (st === 'Đã chốt') chot += t2(t); else if (st === 'Đã duyệt' || st === 'Khiếu nại') cho += t2(t); });
+  $('#main').innerHTML =
+    '<div class="monthbar" style="padding-top:8px"><h2 style="font-size:20px">Phiếu phạt</h2><button class="btn sm" id="ppNew">Lập phiếu phạt</button></div>' +
+    '<div class="tiles" style="margin-top:12px"><div class="tile"><div class="lbl">Bị phạt tháng này · đã chốt</div><div class="v' + (chot ? ' bad' : '') + '">' + money(chot) + '</div></div>' +
+    '<div class="tile"><div class="lbl">Đang chờ chốt / khiếu nại</div><div class="v">' + money(cho) + '</div></div></div>' +
+    '<div class="sechead"><h2>Phiếu phạt của bạn</h2></div><div class="list">' + (mine.map(function (t) { return ppCard(t, true); }).join('') || '<div class="empty">Bạn không có phiếu phạt nào.</div>') + '</div>' +
+    '<div class="sechead"><h2>Phiếu bạn đã lập</h2><span class="muted small">Quản lý duyệt xong người bị phạt mới thấy</span></div><div class="list">' + (made.map(function (t) { return ppCard(t, false); }).join('') || '<div class="empty">Bạn chưa lập phiếu nào.</div>') + '</div>';
+  $('#ppNew').onclick = ppForm;
+  $$('[data-ppkn]').forEach(function (b) { b.onclick = function () { ppComplainForm(b.getAttribute('data-ppkn')); }; });
+}
+function ppForm() {
+  var others = S.boot.staff.filter(function (s) { return s.id !== S.me.id; }), imgs = [], win = ((S.boot.settings || {}).ppWindow || 48);
+  modal('<h3>Lập phiếu phạt</h3><p class="muted small" style="margin:0">Phiếu gửi cho quản lý duyệt. Duyệt xong người bị phạt mới thấy, và có ' + win + ' giờ để khiếu nại.</p>' +
+    '<div class="field"><label class="lbl" for="ppWho">Người vi phạm</label><select id="ppWho"><option value="">Chọn người</option>' + others.map(function (s) { return '<option value="' + esc(s.id) + '">' + esc(s.name) + ' · ' + esc(s.role) + '</option>'; }).join('') + '</select></div>' +
+    '<div class="field"><label class="lbl" for="ppAmt">Số tiền phạt (đồng)</label><input type="text" inputmode="numeric" id="ppAmt" placeholder="VD: 50.000"></div>' +
+    '<div class="field"><label class="lbl" for="ppWhy">Lỗi vi phạm</label><textarea id="ppWhy" rows="3" placeholder="Ghi rõ lỗi gì, lúc nào, ảnh hưởng ra sao"></textarea></div>' +
+    imgField('ppFile', 'ppPrev') +
+    '<div class="err" id="ppMsg" style="text-align:left"></div><div class="acts"><button class="btn" id="ppOk">Gửi phiếu cho quản lý</button><button class="btn sec" id="ppNo">Huỷ</button></div>');
+  amtFormat('#ppAmt'); bindImgs('ppFile', 'ppPrev', imgs);
+  $('#ppNo').onclick = function () { modal(''); };
+  $('#ppOk').onclick = function () {
+    var who = $('#ppWho').value, amt = amtVal($('#ppAmt')), why = $('#ppWhy').value.trim(), msg = $('#ppMsg');
+    if (!who) return (msg.textContent = 'Chọn người vi phạm.');
+    if (!amt) return (msg.textContent = 'Nhập số tiền phạt.');
+    if (!why) return (msg.textContent = 'Ghi rõ lỗi vi phạm.');
+    var btn = this; btn.disabled = true; msg.textContent = '';
+    api('ppCreate', { id: S.cred.id, pin: S.cred.pin, target: who, amount: amt, reason: why, images: imgs }).then(function (r) {
+      S.pp = r.pp; saveToday(); modal(''); toast('Đã gửi phiếu phạt cho quản lý duyệt'); if (S.tab === 'pp') renderPP();
+    }).catch(function (e) { btn.disabled = false; msg.textContent = e.error || 'Không gửi được, thử lại.'; });
+  };
+}
+function ppComplainForm(id) {
+  var t = (S.pp || []).filter(function (x) { return x.id === id; })[0], imgs = [];
+  if (!t) return;
+  modal('<h3>Khiếu nại phiếu phạt</h3><p class="muted small" style="margin:0">Phiếu ' + money(t2(t)) + ' do ' + esc(t.byName) + ' lập: ' + esc(t.reason) + '</p>' +
+    '<div class="field"><label class="lbl" for="knWhy">Nội dung khiếu nại</label><textarea id="knWhy" rows="4" placeholder="Giải thích vì sao bạn không đồng ý với phiếu phạt này"></textarea></div>' +
+    imgField('knFile', 'knPrev') +
+    '<div class="err" id="knMsg" style="text-align:left"></div><div class="acts"><button class="btn" id="knOk">Gửi khiếu nại</button><button class="btn sec" id="knNo">Huỷ</button></div>');
+  bindImgs('knFile', 'knPrev', imgs);
+  $('#knNo').onclick = function () { modal(''); };
+  $('#knOk').onclick = function () {
+    var why = $('#knWhy').value.trim();
+    if (!why) return ($('#knMsg').textContent = 'Ghi nội dung khiếu nại.');
+    var btn = this; btn.disabled = true;
+    api('ppComplain', { id: S.cred.id, pin: S.cred.pin, ticket: id, content: why, images: imgs }).then(function (r) {
+      S.pp = r.pp; saveToday(); modal(''); toast('Đã gửi khiếu nại, chờ quản lý xem'); if (S.tab === 'pp') renderPP();
+    }).catch(function (e) { btn.disabled = false; $('#knMsg').textContent = e.error || 'Không gửi được, thử lại.'; });
+  };
+}
+// Xem ảnh bằng chứng ngay trong thẻ phiếu (người lập, người bị phạt, quản lý)
+function showPPImages(id) {
+  var box = $('#ppi' + id); if (!box) return;
+  box.innerHTML = '<span class="small muted"><span class="spin" style="width:12px;height:12px"></span> Đang tải ảnh…</span>';
+  var q = S.admin ? { admin: S.admin, ticket: id } : { id: S.cred.id, pin: S.cred.pin, ticket: id };
+  api('ppImages', q).then(function (r) {
+    function strip(arr, label) { return arr.length ? '<div class="small muted" style="width:100%">' + label + '</div>' + arr.map(function (d) { return '<img src="' + d + '" alt="' + label + '" data-big="1">'; }).join('') : ''; }
+    box.innerHTML = strip(r.loi, 'Bằng chứng của người lập') + strip(r.kn, 'Bằng chứng khiếu nại') || '<span class="small muted">Không tải được ảnh.</span>';
+  }).catch(function (e) { box.innerHTML = '<span class="small" style="color:var(--bad)">' + esc(e.error || 'Không tải được ảnh.') + '</span>'; });
+}
+document.addEventListener('click', function (e) {
+  var t = e.target.closest ? e.target.closest('[data-ppimg],img[data-big]') : null;
+  if (!t) return;
+  if (t.hasAttribute('data-ppimg')) return showPPImages(t.getAttribute('data-ppimg'));
+  modal('<img class="phbig" src="' + t.getAttribute('src') + '" alt="Ảnh bằng chứng"><button class="btn sec" id="bigClose">Đóng</button>');
+  $('#bigClose').onclick = function () { modal(''); };
+});
+function ppAdminCard(t, mode) {
+  return '<div class="reqcard"><div class="row" style="justify-content:space-between;flex-wrap:wrap"><b>' + esc(t.byName) + ' → ' + esc(t.name) + '</b><span class="mono">' + money(t.amount) + '</span></div>' +
+    '<div>' + esc(t.reason) + '</div><div class="small muted">Lập lúc ' + esc(t.created) + (mode === 'kn' ? ' · quản lý đã duyệt ' + money(t2(t)) : '') + '</div>' +
+    (mode === 'kn' ? '<div class="small" style="color:var(--out)"><b>Khiếu nại</b> (' + esc(t.complainedAt) + '): ' + esc(t.complaint) + '</div>' : '') +
+    ((t.nImg || t.nImgKn) ? '<div class="acts"><button class="btn sec sm" data-ppimg="' + esc(t.id) + '">Xem bằng chứng (' + (t.nImg + t.nImgKn) + ' ảnh)</button></div><div class="ppimgs" id="ppi' + esc(t.id) + '"></div>' : '') +
+    '<div class="row" style="flex-wrap:wrap"><label class="lbl" for="ppa' + esc(t.id) + '" style="margin:0">Số tiền chốt</label><input type="text" inputmode="numeric" class="ppamt" id="ppa' + esc(t.id) + '" value="' + t2(t).toLocaleString('vi-VN') + '" style="width:130px"><input type="text" id="ppn' + esc(t.id) + '" placeholder="Ghi chú cho nhân viên (không bắt buộc)" style="flex:1;min-width:160px"></div>' +
+    '<div class="acts">' + (mode === 'new'
+      ? '<button class="btn sm" data-ppd="approve" data-id="' + esc(t.id) + '">Duyệt phạt</button><button class="btn bad sm" data-ppd="reject" data-id="' + esc(t.id) + '">Không duyệt</button>'
+      : '<button class="btn sm" data-ppd="keep" data-id="' + esc(t.id) + '">Giữ phạt</button><button class="btn bad sm" data-ppd="cancel" data-id="' + esc(t.id) + '">Huỷ phạt</button>') + '</div></div>';
+}
+function ppAdminSections() {
+  var all = S.ad.pp || [], nw = all.filter(function (t) { return t.status === 'Chờ duyệt'; }), kn = all.filter(function (t) { return t.status === 'Khiếu nại'; });
+  return '<div class="sechead" style="margin-top:8px"><h2>Phiếu phạt chờ duyệt</h2><span class="muted small">' + nw.length + ' phiếu</span></div><div class="list">' +
+    (nw.map(function (t) { return ppAdminCard(t, 'new'); }).join('') || '<div class="empty">Không có phiếu phạt nào chờ duyệt.</div>') + '</div>' +
+    (kn.length ? '<div class="sechead"><h2>Khiếu nại phiếu phạt</h2><span class="muted small">' + kn.length + ' khiếu nại</span></div><div class="list">' + kn.map(function (t) { return ppAdminCard(t, 'kn'); }).join('') + '</div>' : '');
+}
+function bindPPAdmin() {
+  $$('.ppamt').forEach(function (el) { amtFormat(el); });
+  $$('[data-ppd]').forEach(function (b) {
+    b.onclick = function () {
+      var id = b.getAttribute('data-id'), act = b.getAttribute('data-ppd'), amt = amtVal($('#ppa' + id));
+      if ((act === 'approve' || act === 'keep') && !amt) return toast('Nhập số tiền chốt.', true);
+      b.disabled = true;
+      api('ppDecide', { admin: S.admin, ticket: id, action: act, amount: amt, note: ($('#ppn' + id) || {}).value || '' }).then(function () {
+        toast({ approve: 'Đã duyệt phiếu phạt', reject: 'Đã không duyệt phiếu phạt', keep: 'Đã giữ phạt', cancel: 'Đã huỷ phạt' }[act]); loadAdmin();
+      }).catch(function (e) { b.disabled = false; toast(e.error, true); });
+    };
+  });
+}
+function ppTable() {
+  var m = S.amonth, sums = ppSums(m);
+  var list = (S.ad.pp || []).filter(function (t) { return String(t.created).slice(0, 7) === m && t.status !== 'Chờ duyệt'; });
+  var head = '<div class="sechead"><h2>Tiền phạt tháng</h2><span class="muted small">Theo ngày lập phiếu</span></div>';
+  if (!list.length) return head + '<div class="list"><div class="empty">Tháng này chưa có phiếu phạt nào được xử lý.</div></div>';
+  var T = { chot: 0, cho: 0, kn: 0 };
+  sums.forEach(function (x) { T.chot += x.chot; T.cho += x.cho; T.kn += x.kn; });
+  return head +
+    '<div class="tablewrap"><table style="min-width:520px"><thead><tr><th>Nhân viên</th><th>Số phiếu</th><th>Đã chốt</th><th>Chờ chốt</th><th>Đang khiếu nại</th></tr></thead><tbody>' +
+    sums.map(function (x) { return '<tr><td><b>' + esc(x.name) + '</b></td><td>' + x.n + '</td><td class="' + (x.chot ? 'hl-bad' : '') + '">' + money(x.chot) + '</td><td>' + money(x.cho) + '</td><td>' + money(x.kn) + '</td></tr>'; }).join('') +
+    '</tbody><tfoot><tr><td>Tổng</td><td></td><td>' + money(T.chot) + '</td><td>' + money(T.cho) + '</td><td>' + money(T.kn) + '</td></tr></tfoot></table></div>' +
+    '<div class="list" style="margin-top:10px">' + list.map(function (t) {
+      return '<div class="li"><div class="main"><b>' + esc(t.byName) + ' → ' + esc(t.name) + '</b> <span class="mono">' + money(t2(t)) + '</span><div class="small">' + esc(t.reason) + '</div><div class="small muted">' + esc(t.created) + (t.note ? ' · ' + esc(t.note) : '') + '</div></div>' + ppPill(ppState(t)) + '</div>';
+    }).join('') + '</div>';
 }
 function recBadges(r) {
   var b = '';
@@ -940,7 +1167,7 @@ function logout() { RG.mode = 'today'; RG.from = RG.to = ''; RG.data = null; sto
    ========================================================= */
 function staffShell(inner) {
   var sp = shopOf(S.me);
-  var tabs = [['home', 'Hôm nay', ICON.home], ['sched', 'Lịch ca', ICON.week], ['hist', 'Công tháng', ICON.cal], ['req', 'Đơn từ', ICON.doc]];
+  var tabs = [['home', 'Hôm nay', ICON.home], ['sched', 'Lịch ca', ICON.week], ['hist', 'Công tháng', ICON.cal], ['req', 'Đơn từ', ICON.doc], ['pp', 'Phiếu phạt', ICON.fine]];
   $('#root').innerHTML =
     '<header class="top"><div class="in"><span class="av">' + esc(initials(S.me.name)) + '</span><div class="who"><b>' + esc(S.me.name) + '</b><span class="muted small">' + esc(S.me.role) + (sp ? ' · ' + esc(sp.name) : '') + '</span></div><button class="ghost" id="chgPin">Đổi PIN</button><button class="ghost" id="logout">Thoát</button></div></header>' +
     '<main class="wrap" id="main">' + inner + '</main>' +
@@ -950,16 +1177,22 @@ function staffShell(inner) {
 }
 // Nhớ dữ liệu hôm nay trên máy để lần mở sau hiện ngay, không chờ máy chủ
 function saveToday() {
-  if (REAL && S.today && S.me && !(S.today.work && S.today.work.carry)) store('cc_today', { d: vnNow(S.offset).date, id: S.me.id, records: S.today.records, regs: S.regs, busy: S.busyReqs || [], appr: S.appr || [] });
+  if (REAL && S.today && S.me && !(S.today.work && S.today.work.carry)) store('cc_today', { d: vnNow(S.offset).date, id: S.me.id, records: S.today.records, regs: S.regs, busy: S.busyReqs || [], appr: S.appr || [], pp: S.pp || [] });
 }
 function applyToday(d) {
-  S.today = d; S.regs = d.regs; S.busyReqs = d.busy || []; S.appr = d.appr || []; S.offset = REAL ? d.now.ts - Date.now() : 0; S.syncing = false;
+  S.today = d; S.regs = d.regs; S.busyReqs = d.busy || []; S.appr = d.appr || []; S.pp = d.pp || []; S.offset = REAL ? d.now.ts - Date.now() : 0; S.syncing = false;
   saveToday();
 }
 function startStaff() { S.tab = 'home'; routeStaff(); }
 function routeStaff() {
   if (S.tab === 'hist') return loadHist();
   if (S.tab === 'req') return loadReq();
+  if (S.tab === 'pp') {
+    if (!S.today) return loadToday(renderPP);
+    staffShell(''); renderPP();
+    api('today', S.cred).then(function (d) { if (S.busy || !S.me) return; applyToday(d); if (S.tab === 'pp' && !$('#scrim')) renderPP(); }).catch(onErr);
+    return;
+  }
   if (!S.today) return loadToday(S.tab === 'home' ? renderHome : function () { S.form = null; renderSched(); }, S.tab === 'home');
   staffShell('');
   if (S.tab === 'sched') { S.form = null; renderSched(); return; }
@@ -991,6 +1224,8 @@ function renderHome() {
   var photo = S.boot.settings.photo;
   var banner = (ws !== 'reg' ? '<button class="banner bad" id="goNow"><span><b>Chưa đăng ký ca tuần này</b><br><span class="small">Chấm công khi chưa đăng ký phải chờ quản lý duyệt</span></span><span class="go">Đăng ký →</span></button>' : '') + (weekState(S.me, nextMon, S.regs) === 'reg' ? '' :
     '<button class="banner" id="goSched"><span><b>Chưa đăng ký ca tuần sau</b><br><span class="small">Hạn 24:00 Chủ nhật ' + dm(addDays(nextMon, -1)) + '</span></span><span class="go">Đăng ký →</span></button>');
+  var ppNew = (S.pp || []).filter(function (t) { return t.staffId === S.me.id && ppState(t) === 'Đã duyệt'; })[0];
+  if (ppNew) banner = '<button class="banner bad" id="goPP"><span><b>Bạn có phiếu phạt ' + money(t2(ppNew)) + '</b><br><span class="small">' + esc(ppNew.reason).slice(0, 60) + ' · còn ' + leftTxt(ppDeadline(ppNew) - nowMs()) + ' để khiếu nại</span></span><span class="go">Xem →</span></button>' + banner;
   var arr = (S.appr || []).filter(function (a) { return a.status === 'Quản lý xếp' && a.week >= mon && !(store('cc_seen') || {})[a.staffId + a.week + a.at]; })[0];
   if (arr) banner = '<button class="banner info" id="goArr" data-w="' + (arr.week === mon ? 'this' : 'next') + '" data-k="' + esc(arr.staffId + arr.week + arr.at) + '"><span><b>Quản lý đã sắp xếp lại lịch tuần ' + dm(arr.week) + '</b><br><span class="small">' + esc(arr.note || 'Bấm để xem ca mới của bạn') + '</span></span><span class="go">Xem →</span></button>' + banner;
   var tl = recs.map(function (r) {
@@ -1011,6 +1246,7 @@ function renderHome() {
   $('#punchBtn').onclick = onPunch;
   if ($('#goSched')) $('#goSched').onclick = function () { S.tab = 'sched'; S.sw = 'next'; routeStaff(); };
   if ($('#goNow')) $('#goNow').onclick = function () { S.tab = 'sched'; S.sw = 'this'; routeStaff(); };
+  if ($('#goPP')) $('#goPP').onclick = function () { S.tab = 'pp'; routeStaff(); };
   if ($('#goArr')) $('#goArr').onclick = function () { var seen = store('cc_seen') || {}; seen[this.getAttribute('data-k')] = 1; store('cc_seen', seen); S.tab = 'sched'; S.sw = this.getAttribute('data-w'); routeStaff(); };
   if (S.locAt) { drawLoc(); if (Date.now() - S.locAt > 120000) refreshLoc(false); }
 }
@@ -1229,6 +1465,7 @@ function renderHist() {
     '<div class="tile"><div class="lbl">Giờ làm</div><div class="v">' + dur(sm.mins) + '</div></div>' +
     '<div class="tile"><div class="lbl">Đi muộn</div><div class="v">' + sm.lateN + ' <small>lần · ' + sm.lateM + ' phút</small></div></div>' +
     '<div class="tile"><div class="lbl">Về sớm / quên ra</div><div class="v">' + sm.earlyN + ' <small>/</small> ' + sm.missOut + '</div></div></div>') +
+    ppMonthLine(S.me.id, S.month, S.pp) +
     '<div class="sechead"><h2>Từng ngày</h2><span class="muted small">Giờ làm = tổng các lượt vào → ra</span></div>' +
     '<div class="list">' + (rows || '<div class="empty">Chưa có dữ liệu tháng này.</div>') + '</div>';
   $('#mSel').onchange = function (e) { if (e.target.value) { S.month = e.target.value; loadHist(); } };
@@ -1284,7 +1521,8 @@ function loadAdmin() {
 }
 function pendingCount() {
   if (!S.ad) return 0;
-  return S.ad.requests.filter(function (q) { return q.status === 'Chờ duyệt'; }).length + S.ad.records.filter(function (r) { return r.review === 'pending'; }).length;
+  return S.ad.requests.filter(function (q) { return q.status === 'Chờ duyệt'; }).length + S.ad.records.filter(function (r) { return r.review === 'pending'; }).length +
+    (S.ad.pp || []).filter(function (t) { return t.status === 'Chờ duyệt' || t.status === 'Khiếu nại'; }).length;
 }
 function adminShell(inner) {
   var tabs = [['today', 'Chấm công', ICON.home], ['sched', 'Lịch ca', ICON.week], ['month', 'Bảng công', ICON.table], ['review', 'Duyệt', ICON.check], ['setup', 'Cài đặt', ICON.gear]];
@@ -1579,7 +1817,7 @@ function renderAMonth() {
     '<button class="btn sec sm" id="copyT">Sao chép bảng</button>' + (REAL ? '<button class="btn sm" id="expT">Xuất sang Google Sheet</button>' : '') + '</div></div>' +
     '<p class="small muted" style="margin:8px 0 12px">Số ca = số buổi (sáng, chiều, linh hoạt) có mặt. Giờ làm = tổng các lượt vào → ra, không tính thời gian ra ngoài. Lượt bị từ chối không tính.</p>' +
     '<div class="tablewrap sticky"><table><thead><tr>' + COLS.map(function (h, i) { return '<th' + (i === 1 ? ' style="text-align:left"' : '') + '>' + h + '</th>'; }).join('') + '</tr></thead><tbody>' + body + '</tbody>' +
-    '<tfoot><tr><td>Tổng</td><td></td><td>' + T.days + '</td><td>' + T.shifts + '</td><td>' + T.leaveN + '</td><td>' + dur(T.mins) + '</td><td>' + T.lateN + '</td><td>' + T.lateM + '</td><td>' + T.earlyN + '</td><td>' + T.earlyM + '</td><td>' + T.missOut + '</td><td>' + T.pending + '</td></tr></tfoot></table></div>' + liveTable(lv);
+    '<tfoot><tr><td>Tổng</td><td></td><td>' + T.days + '</td><td>' + T.shifts + '</td><td>' + T.leaveN + '</td><td>' + dur(T.mins) + '</td><td>' + T.lateN + '</td><td>' + T.lateM + '</td><td>' + T.earlyN + '</td><td>' + T.earlyM + '</td><td>' + T.missOut + '</td><td>' + T.pending + '</td></tr></tfoot></table></div>' + liveTable(lv) + ppTable();
   $('#amSel').onchange = function (e) { if (e.target.value) { S.amonth = e.target.value; loadAdmin(); } };
   $('#copyT').onclick = function () {
     var tsv = [COLS].concat(tableData()).map(function (r) { return r.join('\t'); }).join('\n');
@@ -1601,6 +1839,13 @@ function tableData() {
     out.push(pad([]));
     out.push(pad(LCOLS.slice()));
     liveRows(lv).forEach(function (x) { var o = x.o; out.push(pad([o.st.name, o.st.role, o.shifts, x.L.target, x.L.offUsed + '/' + x.L.offAllowed, o.lateN, o.lateM, o.earlyN, o.earlyM, o.missOut, o.pending])); });
+  }
+  var sum = ppSums(S.amonth);
+  if (sum.length) {
+    var padP = function (r) { while (r.length < COLS.length) r.push(''); return r; };
+    out.push(padP([]));
+    out.push(padP(['Tiền phạt', '', 'Số phiếu', 'Đã chốt (đ)', 'Chờ chốt (đ)', 'Đang khiếu nại (đ)']));
+    sum.forEach(function (x) { out.push(padP([x.name, '', x.n, x.chot, x.cho, x.kn])); });
   }
   return out;
 }
@@ -1630,11 +1875,13 @@ function renderAReview() {
     return '<div class="li"><div class="main"><b>' + esc(q.name) + '</b> · ' + esc(q.kind) + '<div class="small muted mono">' + rangeTxt(q) + '</div></div>' + statusPill(q.status) + '</div>';
   }).join('');
   $('#main').innerHTML =
-    '<div class="sechead" style="margin-top:8px"><h2>Đơn từ chờ duyệt</h2><span class="muted small">' + qs.length + ' đơn</span></div>' +
+    ppAdminSections() +
+    '<div class="sechead"><h2>Đơn từ chờ duyệt</h2><span class="muted small">' + qs.length + ' đơn</span></div>' +
     '<div class="list">' + (qHtml || '<div class="empty">Không có đơn nào chờ duyệt.</div>') + '</div>' +
     '<div class="sechead"><h2>Chấm công cần xem lại</h2><span class="muted small">Ngoài vùng, không có vị trí, hoặc chưa đăng ký ca</span></div>' +
     '<div class="list">' + (rHtml || '<div class="empty">Không có lượt chấm nào cần xem.</div>') + '</div>' +
     '<div class="sechead"><h2>Đã xử lý gần đây</h2></div><div class="list">' + (dHtml || '<div class="empty">Chưa có.</div>') + '</div>';
+  bindPPAdmin();
   bindPhotos();
   $$('[data-q]').forEach(function (b) {
     b.onclick = function () {
@@ -1708,6 +1955,7 @@ function start() {
       S.regs = mine ? (ct.regs || []) : [];
       S.busyReqs = mine ? (ct.busy || []) : [];
       S.appr = mine ? (ct.appr || []) : [];
+      S.pp = mine ? (ct.pp || []) : [];
       S.today = { now: vnNow(), records: mine && ct.d === vnNow().date ? (ct.records || []) : [], regs: S.regs };
       S.tab = 'home'; staffShell(''); renderHome(); refreshLoc();
       painted = true;
