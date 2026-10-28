@@ -262,6 +262,11 @@ table.sched tfoot td.hl-bad{color:var(--bad);font-weight:700}
 .ppth{position:relative;display:inline-block}
 .ppth img{width:72px;height:72px;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
 .ppth button{position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;border:0;background:var(--bad);color:#fff;font-weight:700;line-height:1}
+.segwide{display:flex;width:100%}
+.segwide button{flex:1}
+.act{font:500 11.5px/1.35 var(--mono);color:var(--muted);margin-top:4px}
+.act.late,.act.miss{color:var(--bad);font-weight:700}
+table.team tr.me td,table.team tr.me td:first-child{background:var(--accent-soft)}
 </style>
 </head>
 <body>
@@ -421,7 +426,7 @@ function leaveMap(staffId, requests, month) {
    Máy chủ giả lập (chỉ dùng khi chưa nối Google Sheet)
    ========================================================= */
 var Demo = (function () {
-  var KEY = 'cc_demo_v6', mem = null, GF = 5, shots = {};
+  var KEY = 'cc_demo_v7', mem = null, GF = 5, shots = {};
   var SHOPS = [
     { id: 'CH1', name: 'Cửa hàng Jebee (mẫu)', lat: 21.0285, lng: 105.8542, radius: 150 },
     { id: 'VP', name: 'Văn phòng online (mẫu)', lat: 21.0301, lng: 105.8503, radius: 150 }
@@ -520,9 +525,9 @@ var Demo = (function () {
       { id: 'pp3', created: st3(30 * 3600e3), by: 'NV09', byName: 'Ngô Phương Linh', staffId: 'NV06', name: 'Vũ Thanh Tùng', amount: 200000, reason: 'Tắt nhầm chiến dịch quảng cáo đang chạy tốt', imgs: [], status: 'Khiếu nại', approvedAt: st3(20 * 3600e3), final: 200000, note: '', complaint: 'Tài khoản quảng cáo bị khoá tự động, không phải em tắt', knImgs: [], complainedAt: st3(5 * 3600e3) },
       { id: 'pp4', created: st3(6 * 86400e3), by: 'NV01', byName: 'Nguyễn Thu Hà', staffId: 'NV05', name: 'Đỗ Ngọc Mai', amount: 30000, reason: 'Vào live trễ 15 phút', imgs: [], status: 'Đã duyệt', approvedAt: st3(5 * 86400e3), final: 30000, note: '', complaint: '', knImgs: [], complainedAt: '' }
     ];
-    return { v: 6, staff: staff, records: recs, requests: reqs, regs: regs, appr: appr, pp: pp };
+    return { v: 7, staff: staff, records: recs, requests: reqs, regs: regs, appr: appr, pp: pp };
   }
-  function db() { if (!mem) { mem = store(KEY); if (!mem || mem.v !== 6) { mem = seed(); save(); } } return mem; }
+  function db() { if (!mem) { mem = store(KEY); if (!mem || mem.v !== 7) { mem = seed(); save(); } } return mem; }
   function save() { store(KEY, mem); }
   function fail(msg, code) { throw { error: msg, code: code || '' }; }
   function auth(p) {
@@ -645,6 +650,14 @@ var Demo = (function () {
       else if (a === 'keep') { t.status = 'Đã chốt'; t.final = +p.amount || t.final || t.amount; t.note = p.note || ''; }
       else if (a === 'cancel') { t.status = 'Huỷ'; t.note = p.note || ''; }
       save(); return true;
+    },
+    team: function (p) {
+      auth(p); var D = db(), week = p.week, sun = addDays(week, 6);
+      return {
+        week: week, staff: D.staff.filter(function (s) { return s.status !== 'Nghỉ việc'; }).map(pub),
+        regs: D.regs.filter(function (r) { return r.date >= week && r.date <= sun; }),
+        records: D.records.filter(function (r) { return r.date >= week && r.date <= sun && r.review !== 'rejected'; }).map(function (r) { return { staffId: r.staffId, date: r.date, type: r.type, time: r.time, late: r.late }; })
+      };
     },
     ppImages: function (p) { var t = ppFind(p.ticket); if (!t) fail('Không tìm thấy phiếu phạt.'); return { loi: t.imgs || [], kn: t.knImgs || [] }; },
     adminSetWeek: function (p) {
@@ -1160,7 +1173,7 @@ document.addEventListener('click', function (e) {
     api('resetPin', { admin: S.admin, staffId: id }).then(function () { modal(''); toast('Đã đặt lại PIN của ' + name + ' về 1234'); }).catch(function (er) { modal(''); toast(er.error, true); });
   };
 });
-function logout() { RG.mode = 'today'; RG.from = RG.to = ''; RG.data = null; store('cc_cred', null); store('cc_admin', null); store('cc_me', null); store('cc_today', null); S.cred = S.me = S.admin = null; S.today = null; S.hist = null; S.syncing = false; renderLogin(); }
+function logout() { RG.mode = 'today'; RG.from = RG.to = ''; RG.data = null; store('cc_cred', null); store('cc_admin', null); store('cc_me', null); store('cc_today', null); S.cred = S.me = S.admin = null; S.today = null; S.hist = null; S.teamData = null; S.schedView = 'me'; S.syncing = false; renderLogin(); }
 
 /* =========================================================
    Màn nhân viên
@@ -1342,6 +1355,59 @@ function busyDialog(key) {
     }).catch(function (e) { btn.disabled = false; toast(e.error || 'Không gửi được, thử lại.', true); });
   };
 }
+/* ---- Lịch cả nhóm: ai đăng ký ca nào, thực tế vào/ra lúc mấy giờ ---- */
+function viewToggle() {
+  var v = S.schedView === 'team' ? 'team' : 'me';
+  return '<div class="seg segwide" style="margin-top:8px"><button data-v="me" aria-pressed="' + (v === 'me') + '">Lịch của tôi</button><button data-v="team" aria-pressed="' + (v === 'team') + '">Lịch cả nhóm</button></div>';
+}
+// Xem cả nhóm thì mở tuần này (có giờ thực tế); quay về lịch của tôi thì mở tuần sau (để đăng ký)
+function bindView() { $$('[data-v]').forEach(function (b) { b.onclick = function () { var v = b.getAttribute('data-v'); if (v !== S.schedView) S.sw = v === 'team' ? 'this' : 'next'; S.schedView = v; S.form = null; renderSched(); }; }); }
+function teamWeek() { var thisMon = monday(vnNow(S.offset).date); return S.sw === 'next' ? addDays(thisMon, 7) : S.sw === 'prev' ? addDays(thisMon, -7) : thisMon; }
+function renderTeam() {
+  var mon = teamWeek(), d = (S.teamData || {})[mon];
+  $('#main').innerHTML = viewToggle() +
+    '<div class="monthbar" style="padding-top:8px"><h2 style="font-size:20px">Lịch cả nhóm</h2><div class="seg"><button data-w="prev" aria-pressed="' + (S.sw === 'prev') + '">Tuần trước</button><button data-w="this" aria-pressed="' + (S.sw === 'this') + '">Tuần này</button><button data-w="next" aria-pressed="' + (S.sw === 'next') + '">Tuần sau</button></div></div>' +
+    '<p class="small muted" style="margin:10px 0 12px">Tuần ' + dm(mon) + ' – ' + dm(addDays(mon, 6)) + '. Mỗi ô: dòng trên là ca đã đăng ký, dòng dưới là giờ vào → ra thực tế (chữ đỏ: đi muộn hoặc vắng).</p>' +
+    (d ? teamTable(d, mon) : spinner());
+  $$('.seg [data-w]').forEach(function (b) { b.onclick = function () { S.sw = b.getAttribute('data-w'); renderTeam(); }; });
+  bindView();
+  if (!d || Date.now() - d._at > 60000) {
+    api('team', { id: S.cred.id, pin: S.cred.pin, week: mon }).then(function (r) {
+      r._at = Date.now(); (S.teamData = S.teamData || {})[mon] = r;
+      if (S.tab === 'sched' && S.schedView === 'team' && teamWeek() === mon && !$('#scrim')) renderTeam();
+    }).catch(onErr);
+  }
+}
+function teamTable(d, mon) {
+  var today = vnNow(S.offset).date, me = S.me.id;
+  var dates = [0, 1, 2, 3, 4, 5, 6].map(function (i) { return addDays(mon, i); });
+  var staff = d.staff.slice().sort(function (x, y) {
+    if (x.id === me) return -1; if (y.id === me) return 1;
+    return (x.group || '') < (y.group || '') ? -1 : (x.group || '') > (y.group || '') ? 1 : 0;
+  });
+  var body = staff.map(function (st) {
+    var ws = weekState(st, mon, d.regs);
+    return '<tr' + (st.id === me ? ' class="me"' : '') + '><td><b>' + esc(st.name) + '</b>' + (st.id === me ? ' <span class="small muted">(bạn)</span>' : '') +
+      '<div class="small muted">' + esc(st.role) + '</div>' + (ws === 'none' ? '<span class="pill p-bad">Chưa đăng ký</span>' : '') + '</td>' +
+      dates.map(function (dt) {
+        var sg = segs(st, dt, d.regs);
+        var recs = d.records.filter(function (r) { return r.staffId === st.id && r.date === dt; }).sort(function (a, b) { return a.time < b.time ? -1 : 1; });
+        var plan = sg.length ? sg.map(function (g) { return g.id === 'LH' ? '<span class="mono">' + g.start + '–' + g.end + '</span>' : esc(g.name); }).join('<br>') : (ws === 'none' ? '—' : '<span class="muted">Nghỉ</span>');
+        var act = recs.length ? '<div class="act' + (recs.some(function (r) { return r.late; }) ? ' late' : '') + '">' + esc(chain(recs)) + '</div>'
+          : (sg.length && dt < today ? '<div class="act miss">Vắng</div>' : '');
+        return '<td class="cell' + (dt === today ? ' today' : '') + '">' + plan + act + '</td>';
+      }).join('') + '</tr>';
+  }).join('');
+  var cov = S.boot.shifts.map(function (f) {
+    return '<tr><td class="small">' + esc(f.name) + ' <span class="mono muted">' + f.start + '–' + f.end + '</span></td>' + dates.map(function (dt) {
+      var who = staff.filter(function (st) { return segs(st, dt, d.regs).some(function (g) { return g.id === f.id; }); }).map(function (st) { return shortName(st.name); });
+      var live = f.group === 'LIVE', bad = live && who.length !== 1;
+      return '<td class="' + (bad ? 'hl-bad' : '') + (dt === today ? ' today' : '') + '">' + (who.length ? esc(who.join(', ')) : (live ? 'Trống' : '<span class="muted">—</span>')) + '</td>';
+    }).join('') + '</tr>';
+  }).join('');
+  return '<div class="tablewrap sticky"><table class="sched team"><thead><tr><th>Nhân viên</th>' + dates.map(function (dt) { return '<th>' + WDS[dow(dt)] + ' ' + dm(dt) + '</th>'; }).join('') + '</tr></thead><tbody>' + body + '</tbody>' +
+    '<tfoot><tr><td colspan="8" class="lbl" style="text-align:left">Ai làm ca nào</td></tr>' + cov + '</tfoot></table></div>';
+}
 function buildForm(mon) {
   var days = [];
   for (var i = 0; i < 7; i++) {
@@ -1352,6 +1418,7 @@ function buildForm(mon) {
   return { mon: mon, days: days };
 }
 function renderSched() {
+  if (S.schedView === 'team') return renderTeam();
   var n = vnNow(S.offset), thisMon = monday(n.date), nextMon = addDays(thisMon, 7);
   var mon = S.sw === 'next' ? nextMon : S.sw === 'prev' ? addDays(thisMon, -7) : thisMon, ws = weekState(S.me, mon, S.regs);
   var ap = apprOf(S.appr, S.me.id, mon), arranged = !!(ap && ap.status === 'Quản lý xếp');
@@ -1385,7 +1452,7 @@ function renderSched() {
       (editable && off ? '<span class="pill p-mute">Nghỉ</span>' : '') + '</div>';
   }).join('');
   $('#main').innerHTML =
-    '<div class="monthbar" style="padding-top:8px"><h2 style="font-size:20px">Lịch ca</h2><div class="seg"><button data-w="prev" aria-pressed="' + (S.sw === 'prev') + '">Tuần trước</button><button data-w="this" aria-pressed="' + (S.sw === 'this') + '">Tuần này</button><button data-w="next" aria-pressed="' + (S.sw === 'next') + '">Tuần sau</button></div></div>' +
+    viewToggle() + '<div class="monthbar" style="padding-top:8px"><h2 style="font-size:20px">Lịch ca</h2><div class="seg"><button data-w="prev" aria-pressed="' + (S.sw === 'prev') + '">Tuần trước</button><button data-w="this" aria-pressed="' + (S.sw === 'this') + '">Tuần này</button><button data-w="next" aria-pressed="' + (S.sw === 'next') + '">Tuần sau</button></div></div>' +
     '<div class="row" style="justify-content:space-between;margin:12px 0 8px;flex-wrap:wrap"><span class="mono small muted">' + dm(mon) + ' – ' + dm(addDays(mon, 6)) + '</span>' + state + '</div>' +
     (arranged ? '<p class="small" style="margin:0 0 10px;color:var(--out)">Quản lý đã sắp xếp lại lịch tuần này' + (ap.note ? ': <b>' + esc(ap.note) + '</b>' : '') + '. Bạn không tự sửa được nữa; cần đổi thì nhắn quản lý, bận đột xuất thì bấm Báo bận.</p>'
       : S.sw === 'next' ? '<p class="small muted" style="margin:0 0 10px">Chọn ca cho từng ngày, ngày không chọn là nghỉ. Hạn đăng ký: <b>24:00 Chủ nhật ' + dm(addDays(mon, -1)) + '</b>. Trước hạn sửa lại bao nhiêu lần cũng được.</p>'
@@ -1395,6 +1462,7 @@ function renderSched() {
     '<div class="list">' + rows + '</div>' +
     (editable ? '<div class="acts" style="margin-top:14px"><button class="btn" id="saveReg">Lưu đăng ký ' + (S.sw === 'next' ? 'tuần sau' : 'tuần này') + '</button><button class="btn sec" id="copyMon">Áp dụng Thứ Hai cho T3–T7</button></div>' : '');
   $$('.seg [data-w]').forEach(function (b) { b.onclick = function () { S.sw = b.getAttribute('data-w'); S.form = null; renderSched(); }; });
+  bindView();
   $$('[data-bz]').forEach(function (b) { b.onclick = function () { busyDialog(b.getAttribute('data-bz')); }; });
   if (!editable) return;
   $$('.chip').forEach(function (b) {
