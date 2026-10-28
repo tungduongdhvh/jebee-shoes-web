@@ -462,44 +462,84 @@ src="https://www.facebook.com/tr?id=1610885197344731&ev=PageView&noscript=1"
   }
 </style>
 <style id="cam-theme">
-/* ===== THEME CAM (ban nhap) — nen cam, logo/chu den nhu hop ===== */
-:root,:root[data-theme="light"],:root[data-theme="dark"]{
-  --bg:#EC5A24; --surface:#FFFFFF; --surface-2:#FFFFFF;
-  --ink:#1A1A1A; --ink-soft:#3A2B22; --ink-mut:#6B5647;
-  --line:#EFE2D6; --line-strong:#E2D2C2;
-  --brand:#141414; --brand-deep:#000000; --brand-tint:rgba(0,0,0,.06);
-  --navy:#141414; --navy-soft:#333333; --star:#E8A838; --btn-text:#FFFFFF;
-  --shadow:0 1px 2px rgba(0,0,0,.08), 0 12px 30px -14px rgba(0,0,0,.30);
-  --shadow-lift:0 1px 2px rgba(0,0,0,.10), 0 26px 48px -20px rgba(0,0,0,.42);
-}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#EC5A24; --surface:#FFFFFF; --surface-2:#FFFFFF;
-  --ink:#1A1A1A; --ink-soft:#3A2B22; --ink-mut:#6B5647;
-  --line:#EFE2D6; --line-strong:#E2D2C2;
-  --brand:#141414; --brand-deep:#000000; --brand-tint:rgba(0,0,0,.06);
-  --navy:#141414; --navy-soft:#333333; --star:#E8A838; --btn-text:#FFFFFF;
-}}
-/* Header: nen cam, chu + logo den */
-header{background:#EC5A24; border-bottom:1px solid rgba(0,0,0,.2)}
-.brandmark .bn{color:#141414}
-.brandmark .bs{color:rgba(0,0,0,.6)}
-.menu a{color:rgba(0,0,0,.74)}
-.menu a:hover,.menu a.active{color:#000; border-color:#141414}
-.nav-cta .btn-zalo{background:#141414; color:#fff}
-.nav-cta .btn-zalo:hover{background:#000; color:#fff}
-.cart,.navsearch-btn{border-color:rgba(0,0,0,.42); color:#141414}
-.cart:hover,.navsearch-btn:hover{border-color:#000}
-.cart b{background:#141414; color:#fff}
-.burger{color:#141414}
-.menu.open{background:#141414}
-/* Muc danh gia: nen den (nhu vien hop) */
-.reviews{background:#141414}
-/* Nut Zalo tren nen cam -> den */
-.btn-zalo{background:#141414; color:#fff}
-/* Diem nhan tren hero cho noi tren nen cam */
-.hero h1 em{color:#fff}
-/* Thanh thong bao tren cung -> den */
-.mockbar{background:#141414; color:#FBF6EC}
+  /* ===== 1) TOKEN :root — ep tone Cam-Trang-Den cho CA light & dark ===== */
+  :root,
+  :root[data-theme="light"],
+  :root[data-theme="dark"]{
+    --bg:#FCFBF9; --surface:#FFFFFF; --surface-2:#F5F2EC;
+    --ink:#1A1512; --ink-soft:#574F49; --ink-mut:#8A807A;
+    --line:#ECE7E0; --line-strong:#DAD3C9;
+    --brand:#CF4A18; --brand-deep:#A6380F; --brand-tint:#FBE7DD;
+    --navy:#1E1712; --navy-soft:#4A4039;
+    --star:#E3A52B; --btn-text:#FFFFFF;
+    --shadow:0 1px 2px rgba(26,21,18,.05), 0 12px 30px -16px rgba(26,21,18,.22);
+    --shadow-lift:0 1px 2px rgba(26,21,18,.06), 0 26px 50px -22px rgba(26,21,18,.30);
+  }
+  /* May khach dang dark mode van hien thi dung tone sang nay */
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --bg:#FCFBF9; --surface:#FFFFFF; --surface-2:#F5F2EC;
+    --ink:#1A1512; --ink-soft:#574F49; --ink-mut:#8A807A;
+    --line:#ECE7E0; --line-strong:#DAD3C9;
+    --brand:#CF4A18; --brand-deep:#A6380F; --brand-tint:#FBE7DD;
+    --navy:#1E1712; --navy-soft:#4A4039;
+    --star:#E3A52B; --btn-text:#FFFFFF;
+    --shadow:0 1px 2px rgba(26,21,18,.05), 0 12px 30px -16px rgba(26,21,18,.22);
+    --shadow-lift:0 1px 2px rgba(26,21,18,.06), 0 26px 50px -22px rgba(26,21,18,.30);
+  }}
+  body{background:var(--bg); color:var(--ink);}
+
+  /* ===== 2) HEADER: nen TRANG, logo den, vien manh, cam chi o nut CTA + gach chan active ===== */
+  header{background:#FFFFFF; border-bottom:1px solid var(--line);}
+  .brandmark .bn{color:var(--ink);}
+  .brandmark .bs{color:var(--ink-mut);}
+  .menu a{color:var(--ink-soft);}
+  .menu a:hover, .menu a.active{color:var(--ink); border-color:var(--brand);}
+  .nav-cta .btn-zalo{background:var(--brand); color:#FFFFFF;}
+  .nav-cta .btn-zalo:hover{background:var(--brand-deep); color:#FFFFFF;}
+  .cart{border:1.5px solid var(--line-strong); color:var(--ink); background:none;}
+  .cart:hover{border-color:var(--brand); color:var(--brand);}
+  .cart b{background:var(--brand); color:#FFFFFF;}
+  .navsearch-btn{border:1.5px solid var(--line-strong); color:var(--ink);}
+  .navsearch-btn:hover{border-color:var(--brand); color:var(--brand);}
+  .navsearch-in{background:var(--surface-2); color:var(--ink); border:1px solid var(--line);}
+  .burger{color:var(--ink);}
+  /* menu mobile: nen trang, chu den (ghi de !important goc) */
+  .menu.open{background:#FFFFFF; border:1px solid var(--line); box-shadow:0 14px 26px -12px rgba(26,21,18,.14);}
+  .menu.open a{color:var(--ink)!important; border-bottom:1px solid var(--line);}
+
+  /* ===== 3) Thanh mockbar + flash-sale countdown: nen DEN, nhan cam ===== */
+  .mockbar{background:#141210; color:#F3EEE8;}
+  .mockbar b{color:#F7A277;}
+  .flash{background:#141210; color:#F3EEE8;}
+  .flash .lbl svg{color:var(--brand);}
+  .flash .cd b{background:var(--brand); color:#FFFFFF;}
+  .flash .cd i{color:var(--brand);}
+  .flash .code-off b{color:#F7A277;}
+  /* ribbon flash trong card san pham: chuyen dai do -> dai cam */
+  .pd-flash{background:linear-gradient(90deg,var(--brand),var(--brand-deep));}
+
+  /* Nut Zalo chung (ngoai header): nen DEN cho sang, tranh xanh */
+  .btn-zalo{background:#1A1512; color:#FFFFFF;}
+  .btn-zalo:hover{background:#000000;}
+
+  /* ===== 4) Marquee: nen DEN (thay vi cam tran) cho diu mat ===== */
+  .marquee{background:#141210; color:#F3EEE8;}
+
+  /* ===== 5) Muc DANH GIA: nen DEN tao chieu sau, chu sang ===== */
+  .reviews{background:#17120F; color:#EDE6DE;}
+  .reviews .eyebrow{color:#F2956A;} .reviews .eyebrow::before{background:#F2956A;}
+  .reviews .sec-head h2{color:#FFFFFF;} .reviews .sec-head p{color:#C9C1B9;}
+  .review{background:rgba(255,255,255,.055); border:1px solid rgba(255,255,255,.12);}
+  .review .st{color:var(--star);}
+  .review p{color:#EDE6DE;}
+  .review .av{background:linear-gradient(135deg,var(--brand),var(--brand-deep)); color:#FFFFFF;}
+  .review .who span{color:#B7AFA7;}
+
+  /* ===== 6) Badge/tag san pham: bo vang choi -> cam, chu trang ===== */
+  .tag-h, .tag-sale{background:var(--brand); color:#FFFFFF; box-shadow:0 1px 4px rgba(0,0,0,.25);}
+
+  /* Vien focus o tim kiem theo tong cam */
+  .searchbar:focus-within{border-color:var(--brand); box-shadow:0 0 0 3px rgba(207,74,24,.14);}
 </style>
 
 </head>
