@@ -268,6 +268,9 @@ table.sched tfoot td.hl-bad{color:var(--bad);font-weight:700}
 .act.late,.act.miss{color:var(--bad);font-weight:700}
 table.team td.cell .pill{margin-top:4px}
 table.team tr.me td,table.team tr.me td:first-child{background:var(--accent-soft)}
+.ot{color:var(--accent);font-weight:600}
+td.fixable{cursor:pointer}
+td.fixable:hover{outline:2px solid var(--accent-soft);outline-offset:-2px}
 </style>
 </head>
 <body>
@@ -371,6 +374,10 @@ function lateReg(st, mon, regs) {
   return regs.some(function (r) { return r.staffId === st.id && r.date >= mon && r.date <= sun && r.at && r.at.slice(0, 10) >= mon; });
 }
 /* Báo bận ca */
+function reqCaTxt(q) {
+  var k = String(q.ca || '').split('|');
+  return k[0] === 'FIX' ? (k[1] === 'IN' ? 'Bổ sung giờ vào ' : 'Bổ sung giờ ra ') + k[2] : caTxt(q.ca);
+}
 function caTxt(ca) {
   var k = String(ca || '').split('|'), f = S.boot.shifts.filter(function (x) { return x.id === k[0]; })[0];
   return (f ? f.name : 'Linh hoạt') + ' ' + (k[1] || '') + '–' + (k[2] || '');
@@ -390,8 +397,9 @@ function weekState(st, mon, regs) {
   return String(st.shift || '').trim() ? 'def' : 'none';
 }
 // Thống kê 1 ngày từ các lượt chấm (đã xếp theo giờ, bỏ lượt bị từ chối).
+var OT_MIN = 15; // đến sớm / về muộn vài phút không tính là làm thêm
 function dayStats(recs, segs, date, today, nowMin) {
-  var o = { mins: 0, inShift: 0, lateN: 0, lateM: 0, earlyN: 0, earlyM: 0, missOut: 0, shifts: 0, open: false, iv: [], first: null, last: null, n: recs.length };
+  var o = { mins: 0, inShift: 0, ot: 0, lateN: 0, lateM: 0, earlyN: 0, earlyM: 0, missOut: 0, shifts: 0, open: false, iv: [], first: null, last: null, n: recs.length };
   var open = null;
   recs.forEach(function (r) {
     var m = toMin(r.time);
@@ -401,6 +409,17 @@ function dayStats(recs, segs, date, today, nowMin) {
   var past = date < today;
   if (open != null) { if (past) o.missOut = 1; else { o.open = true; o.iv.push([open, Math.max(open, nowMin)]); } }
   o.iv.forEach(function (v) { o.mins += v[1] - v[0]; });
+  o.iv.forEach(function (v) {
+    var parts = [v];
+    segs.forEach(function (g) {
+      var a = toMin(g.start), b = toMin(g.end);
+      parts = [].concat.apply([], parts.map(function (q) {
+        if (q[1] <= a || q[0] >= b) return [q];
+        var r = []; if (q[0] < a) r.push([q[0], a]); if (q[1] > b) r.push([b, q[1]]); return r;
+      }));
+    });
+    parts.forEach(function (q) { if (q[1] - q[0] >= OT_MIN) o.ot += q[1] - q[0]; });
+  });
   if (!segs.length && o.first) o.shifts = 1;
   segs.forEach(function (g) {
     var a = toMin(g.start), b = toMin(g.end), mx = -1, ov = 0;
@@ -551,6 +570,13 @@ var Demo = (function () {
   function myPP(id) { return (db().pp || []).filter(function (t) { return (t.staffId === id && t.status !== 'Chờ duyệt' && t.status !== 'Từ chối') || t.by === id; }).map(ppPub).reverse(); }
   function ppFind(id) { return (db().pp || []).filter(function (t) { return t.id === id; })[0]; }
   function stampD() { var n = vnNow(); return n.date + ' ' + n.time.slice(0, 5); }
+  function demoAdd(id, date, type, time, note) {
+    var D = db(), s = D.staff.filter(function (x) { return x.id === id; })[0];
+    if (type === 'OUT' && toMin(time) < 240) time = (+time.slice(0, 2) + 24) + time.slice(2);
+    var ins = D.records.filter(function (r) { return r.staffId === id && r.date === date && r.type === 'IN' && r.review !== 'rejected'; }).map(function (r) { return r.time; });
+    var late = type === 'IN' ? calcLate(segs(s, date, D.regs), ins, time + ':00') : 0;
+    D.records.push({ id: 'r' + Date.now(), date: date, staffId: id, name: s.name, shop: s.shop, type: type, time: time + ':00', dist: null, review: 'ok', reason: 'Bổ sung', late: late, photo: '', note: note });
+  }
   function myBusy(id) { return db().requests.filter(function (q) { return q.staffId === id && q.kind === 'Báo bận ca'; }); }
   var H = {
     busy: function (p) {
@@ -622,7 +648,9 @@ var Demo = (function () {
     request: function (p) {
       var s = auth(p); if (!p.kind || !p.from) fail('Chọn loại đơn và ngày.');
       var n = vnNow();
-      db().requests.push({ id: 'q' + Date.now(), created: n.date + ' ' + n.time.slice(0, 5), staffId: s.id, name: s.name, kind: p.kind, from: p.from, to: p.to || p.from, reason: p.reason || '', status: 'Chờ duyệt' });
+      var fix = p.kind === 'Quên chấm công' ? 'FIX|' + p.fixType + '|' + p.fixTime : '';
+      if (p.kind === 'Quên chấm công' && !/^\d{2}:\d{2}$/.test(p.fixTime || '')) fail('Điền giờ thực tế vào hoặc ra.');
+      db().requests.push({ id: 'q' + Date.now(), created: n.date + ' ' + n.time.slice(0, 5), staffId: s.id, name: s.name, kind: p.kind, from: p.from, to: fix ? p.from : (p.to || p.from), reason: p.reason || '', status: 'Chờ duyệt', ca: fix });
       save(); return true;
     },
     adminLogin: function (p) { admin(p); return true; },
@@ -699,10 +727,12 @@ var Demo = (function () {
           var hit = day.filter(function (r) { return r.shift === k[0] && r.start === k[1]; })[0];
           if (hit) { if (day.length === 1) { hit.shift = 'NGHỈ'; hit.start = hit.end = ''; } else D.regs.splice(D.regs.indexOf(hit), 1); }
         }
+        if (q.kind === 'Quên chấm công' && p.status === 'Đã duyệt' && q.status !== 'Đã duyệt' && /^FIX\|/.test(q.ca || '')) { var k2 = q.ca.split('|'); demoAdd(q.staffId, q.from, k2[1], k2[2], 'Bổ sung theo đơn quên chấm công'); }
         q.status = p.status;
       });
       save(); return true;
     },
+    adminPunch: function (p) { admin(p); demoAdd(p.staffId, p.date, p.type, p.time, 'Quản lý bổ sung' + (p.note ? ': ' + p.note : '')); save(); return true; },
     range: function (p) { admin(p); return { records: db().records.filter(function (r) { return r.date >= p.from && r.date <= p.to; }), regs: db().regs.slice() }; },
     reviewPunch: function (p) { admin(p); db().records.forEach(function (r) { if (r.id === p.id) r.review = p.ok ? 'ok' : 'rejected'; }); save(); return true; },
     photos: function (p) { admin(p); var o = {}; (p.ids || []).forEach(function (id) { if (shots[id]) o[id] = shots[id]; }); return o; },
@@ -822,13 +852,13 @@ function summarize(st, records, requests, regs, month, today, nowMin) {
     if (r.review === 'rejected') return;
     (by[r.date] = by[r.date] || []).push(r);
   });
-  var o = { st: st, byDay: {}, days: 0, shifts: 0, mins: 0, liveMins: 0, workDates: {}, lateN: 0, lateM: 0, earlyN: 0, earlyM: 0, missOut: 0, pending: pending, leave: leaveMap(st.id, requests, month) };
+  var o = { st: st, byDay: {}, days: 0, shifts: 0, mins: 0, ot: 0, liveMins: 0, workDates: {}, lateN: 0, lateM: 0, earlyN: 0, earlyM: 0, missOut: 0, pending: pending, leave: leaveMap(st.id, requests, month) };
   Object.keys(by).forEach(function (d) {
     var recs = by[d].sort(function (a, b) { return a.time < b.time ? -1 : 1; });
     var sgd = segs(st, d, regs), x = dayStats(recs, sgd, d, today, nowMin);
     x.recs = recs; o.byDay[d] = x;
     if (x.first) o.days++;
-    ['shifts', 'mins', 'lateN', 'lateM', 'earlyN', 'earlyM', 'missOut'].forEach(function (k) { o[k] += x[k]; });
+    ['shifts', 'mins', 'ot', 'lateN', 'lateM', 'earlyN', 'earlyM', 'missOut'].forEach(function (k) { o[k] += x[k]; });
     o.liveMins += sgd.length ? x.inShift : x.mins; // giờ live: chỉ phần nằm trong ca đã đăng ký
     if (x.first) o.workDates[d] = 1;
   });
@@ -1558,23 +1588,30 @@ function renderReq() {
   var today = vnNow(S.offset).date;
   var list = S.hist.requests.map(function (q) {
     return '<div class="li"><div class="main"><div class="row" style="justify-content:space-between"><b>' + esc(q.kind) + '</b>' + statusPill(q.status) + '</div>' +
-      '<div class="small muted mono">' + rangeTxt(q) + (q.ca ? ' · ' + esc(caTxt(q.ca)) : '') + '</div>' + (q.reason ? '<div class="small">' + esc(q.reason) + '</div>' : '') + '</div></div>';
+      '<div class="small muted mono">' + rangeTxt(q) + (q.ca ? ' · ' + esc(reqCaTxt(q)) : '') + '</div>' + (q.reason ? '<div class="small">' + esc(q.reason) + '</div>' : '') + '</div></div>';
   }).join('');
   $('#main').innerHTML =
     '<h2 style="font-size:20px;padding-top:8px">Gửi đơn</h2>' +
     '<form id="rqForm" class="card stack" style="margin-top:12px">' +
     '<div class="field"><label class="lbl" for="rqKind">Loại đơn</label><select id="rqKind">' + KINDS.map(function (k) { return '<option>' + k + '</option>'; }).join('') + '</select></div>' +
     '<div class="grid2"><div class="field"><label class="lbl" for="rqFrom">Từ ngày</label><input type="date" id="rqFrom" value="' + today + '"></div>' +
-    '<div class="field"><label class="lbl" for="rqTo">Đến ngày</label><input type="date" id="rqTo" value="' + today + '"></div></div>' +
+    '<div class="field" id="rqToF"><label class="lbl" for="rqTo">Đến ngày</label><input type="date" id="rqTo" value="' + today + '"></div></div>' +
+    '<div class="grid2" id="rqFix" hidden><div class="field"><label class="lbl" for="rqFixT">Quên lượt nào</label><select id="rqFixT"><option value="OUT">Quên chấm ra</option><option value="IN">Quên chấm vào</option></select></div>' +
+    '<div class="field"><label class="lbl" for="rqFixH">Giờ thực tế</label><input type="time" id="rqFixH"></div></div>' +
     '<div class="field"><label class="lbl" for="rqWhy">Lý do</label><textarea id="rqWhy" rows="2" placeholder="VD: quên chấm ra lúc 18:05"></textarea></div>' +
     '<button class="btn" type="submit" id="rqBtn">Gửi cho quản lý</button></form>' +
     '<div class="sechead"><h2>Đơn đã gửi</h2></div><div class="list">' + (list || '<div class="empty">Bạn chưa gửi đơn nào.</div>') + '</div>';
   $('#rqFrom').onchange = function () { if ($('#rqTo').value < this.value) $('#rqTo').value = this.value; };
+  $('#rqKind').onchange = function () { var f = this.value === 'Quên chấm công'; $('#rqFix').hidden = !f; $('#rqToF').hidden = f; };
   $('#rqForm').onsubmit = function (e) {
     e.preventDefault();
     var p = { id: S.cred.id, pin: S.cred.pin, kind: $('#rqKind').value, from: $('#rqFrom').value, to: $('#rqTo').value, reason: $('#rqWhy').value.trim() };
     if (!p.from) return toast('Chọn ngày.', true);
     if (p.to < p.from) p.to = p.from;
+    if (p.kind === 'Quên chấm công') {
+      p.fixType = $('#rqFixT').value; p.fixTime = $('#rqFixH').value.slice(0, 5); p.to = p.from;
+      if (!p.fixTime) return toast('Điền giờ thực tế bạn vào hoặc ra.', true);
+    }
     $('#rqBtn').disabled = true;
     api('request', p).then(function () { toast('Đã gửi đơn ' + p.kind.toLowerCase()); loadReq(); })
       .catch(function (er) { $('#rqBtn').disabled = false; toast(er.error, true); });
@@ -1845,6 +1882,7 @@ function renderAAct() {
   $$('.seg [data-w]').forEach(function (b) { b.onclick = function () { S.aw = b.getAttribute('data-w'); renderASched(); }; });
   bindAView();
   $('#actReload').onclick = function () { if (S.aAct) delete S.aAct[mon]; renderAAct(); };
+  $$('[data-fx]').forEach(function (c) { c.onclick = function () { var k = c.getAttribute('data-fx').split('|'); fixDay(k[0], k[1], mon); }; });
   if (mon > today) return;
   if (!d || Date.now() - d._at > 60000) {
     api('range', { admin: S.admin, from: mon, to: sun > today ? today : sun }).then(function (r) {
@@ -1861,7 +1899,7 @@ function aActTable(d, mon) {
   dates.forEach(function (dt) { noData[dt] = dt < today && !recs.some(function (r) { return r.date === dt; }); D[dt] = { present: 0, late: 0, absent: 0 }; });
   var staff = activeStaff().slice().sort(function (x, y) { return (x.group || '') < (y.group || '') ? -1 : (x.group || '') > (y.group || '') ? 1 : 0; });
   var body = staff.map(function (st) {
-    var lv = leaveMap(st.id, S.ad.requests, null), T = { shifts: 0, plan: 0, mins: 0, late: 0, absent: 0, miss: 0 };
+    var lv = leaveMap(st.id, S.ad.requests, null), T = { shifts: 0, plan: 0, mins: 0, ot: 0, late: 0, absent: 0, miss: 0 };
     var cells = dates.map(function (dt) {
       var sg = dt > today ? [] : segs(st, dt, d.regs);
       var rs = recs.filter(function (r) { return r.staffId === st.id && r.date === dt; }).sort(function (a, b) { return a.time < b.time ? -1 : 1; });
@@ -1870,10 +1908,12 @@ function aActTable(d, mon) {
       if (dt <= today) T.plan += sg.length;
       if (rs.length) {
         var o = dayStats(rs, sg, dt, today, nowMin);
-        T.shifts += o.shifts; T.mins += o.mins; T.late += o.lateN; T.miss += o.missOut;
+        T.shifts += o.shifts; T.mins += o.mins; T.ot += o.ot; T.late += o.lateN; T.miss += o.missOut;
         D[dt].present++; if (o.lateN) D[dt].late++;
         out += '<div class="act' + (o.lateN ? ' late' : '') + '">' + esc(chain(rs)) + '</div>' +
           '<div class="small"><b>' + dur(o.mins) + '</b>' + (o.lateN ? ' <span class="hl-bad">· muộn ' + mt(o.lateM) + '</span>' : '') + (o.earlyN ? ' <span class="hl-warn">· về sớm ' + mt(o.earlyM) + '</span>' : '') + '</div>' +
+          (o.ot ? '<div class="small ot">+' + dur(o.ot) + ' ngoài ca</div>' : '') +
+          (rs.some(function (r) { return r.reason === 'Bổ sung'; }) ? '<span class="pill p-info">Có bổ sung</span>' : '') +
           (o.missOut ? '<div class="act miss">Quên chấm ra</div>' : '') +
           (rs.some(function (r) { return r.review === 'pending'; }) ? '<span class="pill p-warn">Chờ duyệt</span>' : '');
       } else if (lv[dt]) {
@@ -1886,9 +1926,9 @@ function aActTable(d, mon) {
           if (allPast) { T.absent++; D[dt].absent++; }
         }
       }
-      return '<td class="cell' + (dt === today ? ' today' : '') + '">' + out + '</td>';
+      return '<td class="cell' + (dt === today ? ' today' : '') + (dt <= today ? ' fixable" data-fx="' + esc(st.id) + '|' + dt : '') + '">' + out + '</td>';
     }).join('');
-    var sum = '<td class="cell"><b>' + T.shifts + '</b>/' + T.plan + ' ca<div class="small"><b>' + dur(T.mins) + '</b></div>' +
+    var sum = '<td class="cell"><b>' + T.shifts + '</b>/' + T.plan + ' ca<div class="small"><b>' + dur(T.mins) + '</b></div>' + (T.ot ? '<div class="small ot">+' + dur(T.ot) + ' ngoài ca</div>' : '') +
       (T.late ? '<div class="small hl-bad">Muộn ' + T.late + ' lần</div>' : '') + (T.absent ? '<div class="small hl-bad">Vắng ' + T.absent + '</div>' : '') + (T.miss ? '<div class="small hl-bad">Quên ra ' + T.miss + '</div>' : '') + '</td>';
     return '<tr><td><b>' + esc(st.name) + '</b>' + (st.group ? ' <span class="small muted">' + esc(st.group) + '</span>' : '') + '<div class="small muted">' + esc(st.role) + '</div></td>' + cells + sum + '</tr>';
   }).join('');
@@ -1899,7 +1939,46 @@ function aActTable(d, mon) {
   }).join('') + '<td></td></tr>';
   return '<div class="tablewrap sticky"><table class="sched team"><thead><tr><th>Nhân viên</th>' + dates.map(function (dt) { return '<th>' + WDS[dow(dt)] + ' ' + dm(dt) + '</th>'; }).join('') + '<th>Cả tuần</th></tr></thead><tbody>' + body + '</tbody>' +
     '<tfoot><tr><td colspan="9" class="lbl" style="text-align:left">Tổng theo ngày</td></tr>' + foot + '</tfoot></table></div>' +
-    '<p class="small muted" style="margin:8px 0 0">"Cả tuần": số ca đã làm / số ca đăng ký tính đến hôm nay và tổng giờ. Xem ảnh selfie và duyệt lượt chấm ở tab <b>Chấm công</b>.</p>';
+    '<p class="small muted" style="margin:8px 0 0">"Cả tuần": số ca đã làm / số ca đăng ký tính đến hôm nay và tổng giờ. "Ngoài ca": giờ làm ngoài ca đã đăng ký (mỗi đoạn từ ' + OT_MIN + ' phút). <b>Bấm vào một ô</b> để thêm lượt chấm bị quên hoặc bỏ lượt chấm sai của ngày đó.</p>';
+}
+// Sửa công một ngày: xem các lượt chấm, bỏ lượt sai, thêm lượt bị quên
+function fixDay(id, date, mon) {
+  var st = S.ad.staff.filter(function (x) { return x.id === id; })[0], d = S.aAct[mon];
+  var rs = d.records.filter(function (r) { return r.staffId === id && r.date === date; }).sort(function (a, b) { return a.time < b.time ? -1 : 1; });
+  var ok = rs.filter(function (r) { return r.review !== 'rejected'; }), last = ok[ok.length - 1];
+  var list = rs.map(function (r) {
+    var off = r.review === 'rejected';
+    return '<div class="li"><div class="main"><b class="mono">' + (r.type === 'IN' ? 'Vào ' : 'Ra ') + hm(r.time) + '</b> ' + recBadges(r) + (r.reason === 'Bổ sung' ? '<span class="pill p-info">Bổ sung</span>' : '') +
+      ((r.reason && r.reason !== 'Bổ sung') || r.note ? '<div class="small muted">' + esc([r.reason !== 'Bổ sung' ? r.reason : '', r.note].filter(Boolean).join(' · ')) + '</div>' : '') + '</div>' +
+      '<button class="btn ' + (off ? 'sec' : 'bad') + ' sm" data-rv="' + esc(r.id) + '" data-ok="' + (off ? 1 : 0) + '">' + (off ? 'Tính lại' : 'Không tính') + '</button></div>';
+  }).join('');
+  var def = last && last.type === 'IN' ? 'OUT' : 'IN';
+  modal('<h3>Sửa công · ' + esc(st.name) + '</h3><p class="small muted" style="margin:0">' + WD[dow(date)] + ', ' + vnDate(date) + '</p>' +
+    '<div class="list">' + (list || '<div class="empty">Ngày này chưa có lượt chấm nào.</div>') + '</div>' +
+    '<div class="lbl" style="margin-top:4px">Thêm lượt chấm bị quên</div>' +
+    '<div class="grid2"><div class="field"><select id="fxType" aria-label="Loại lượt"><option value="IN"' + (def === 'IN' ? ' selected' : '') + '>Giờ vào</option><option value="OUT"' + (def === 'OUT' ? ' selected' : '') + '>Giờ ra</option></select></div>' +
+    '<div class="field"><input type="time" id="fxTime" aria-label="Giờ thực tế"></div></div>' +
+    '<div class="field"><input type="text" id="fxNote" maxlength="150" placeholder="Ghi chú, VD: quên chấm ra, camera thấy về 18:05"></div>' +
+    '<p class="small muted" style="margin:0">Giờ ra sau nửa đêm (ca live tối) cứ điền 00:xx, app tự tính vào ngày này.</p>' +
+    '<div class="acts"><button class="btn" id="fxSave">Thêm lượt chấm</button><button class="btn sec" id="fxNo">Đóng</button></div>');
+  $('#fxNo').onclick = function () { modal(''); };
+  function done(msg) { modal(''); toast(msg); delete S.aAct[mon]; loadAdmin(); }
+  $$('[data-rv]').forEach(function (b) {
+    b.onclick = function () {
+      b.disabled = true;
+      api('reviewPunch', { admin: S.admin, id: b.getAttribute('data-rv'), ok: b.getAttribute('data-ok') === '1' })
+        .then(function () { done(b.getAttribute('data-ok') === '1' ? 'Đã tính lại lượt chấm' : 'Đã bỏ lượt chấm khỏi công'); })
+        .catch(function (e) { b.disabled = false; toast(e.error, true); });
+    };
+  });
+  $('#fxSave').onclick = function () {
+    var t = $('#fxTime').value;
+    if (!t) return toast('Điền giờ thực tế.', true);
+    var btn = this; btn.disabled = true;
+    api('adminPunch', { admin: S.admin, staffId: id, date: date, type: $('#fxType').value, time: t.slice(0, 5), note: $('#fxNote').value.trim() })
+      .then(function () { done('Đã thêm lượt chấm cho ' + st.name); })
+      .catch(function (e) { btn.disabled = false; toast(e.error, true); });
+  };
 }
 // Bảng sửa lịch một người (quản lý)
 function formFor(st, mon, regs) {
@@ -1948,27 +2027,27 @@ function adminEdit(id) {
     }).catch(function (e) { btn.disabled = false; toast(e.error, true); });
   };
 }
-var COLS = ['Nhân viên', 'Vị trí', 'Ngày làm', 'Số ca', 'Nghỉ phép', 'Giờ làm', 'Muộn (lần)', 'Muộn (phút)', 'Về sớm (lần)', 'Về sớm (phút)', 'Quên chấm ra', 'Chờ duyệt'];
+var COLS = ['Nhân viên', 'Vị trí', 'Ngày làm', 'Số ca', 'Nghỉ phép', 'Giờ làm', 'Ngoài ca (giờ)', 'Muộn (lần)', 'Muộn (phút)', 'Về sớm (lần)', 'Về sớm (phút)', 'Quên chấm ra', 'Chờ duyệt'];
 function monthRows() {
   var n = vnNow(S.offset), today = S.ad.now.date;
   return S.ad.staff.map(function (st) { return summarize(st, S.ad.records, S.ad.requests, S.ad.regs, S.amonth, today, toMin(n.time)); })
     .filter(function (o) { return o.st.status !== 'Nghỉ việc' || o.days; });
 }
 function renderAMonth() {
-  var allRows = monthRows(), rs = allRows.filter(function (o) { return o.st.group !== 'LIVE'; }), lv = allRows.filter(function (o) { return o.st.group === 'LIVE'; }), K = ['days', 'shifts', 'leaveN', 'mins', 'lateN', 'lateM', 'earlyN', 'earlyM', 'missOut', 'pending'], T = {};
+  var allRows = monthRows(), rs = allRows.filter(function (o) { return o.st.group !== 'LIVE'; }), lv = allRows.filter(function (o) { return o.st.group === 'LIVE'; }), K = ['days', 'shifts', 'leaveN', 'mins', 'ot', 'lateN', 'lateM', 'earlyN', 'earlyM', 'missOut', 'pending'], T = {};
   K.forEach(function (k) { T[k] = 0; rs.forEach(function (o) { T[k] += o[k]; }); });
   function c(v, cls) { return '<td class="' + (v ? cls || '' : '') + '"><span class="num">' + v + '</span></td>'; }
   var body = rs.map(function (o) {
     return '<tr><td><b>' + esc(o.st.name) + '</b></td><td style="text-align:left" class="muted">' + esc(o.st.role) + '</td>' + c(o.days) + c(o.shifts) + c(o.leaveN) +
-      '<td><span class="num">' + dur(o.mins) + '</span></td>' + c(o.lateN, 'hl-warn') + c(o.lateM, 'hl-warn') + c(o.earlyN, 'hl-warn') + c(o.earlyM, 'hl-warn') + c(o.missOut, 'hl-bad') + c(o.pending, 'hl-bad') + '</tr>';
+      '<td><span class="num">' + dur(o.mins) + '</span></td><td>' + (o.ot ? '<span class="num ot">' + dur(o.ot) + '</span>' : '<span class="num">0</span>') + '</td>' + c(o.lateN, 'hl-warn') + c(o.lateM, 'hl-warn') + c(o.earlyN, 'hl-warn') + c(o.earlyM, 'hl-warn') + c(o.missOut, 'hl-bad') + c(o.pending, 'hl-bad') + '</tr>';
   }).join('');
   $('#main').innerHTML =
     '<div class="monthbar" style="padding-top:8px"><h2 style="font-size:20px">Bảng công tháng</h2><div class="row" style="flex-wrap:wrap">' +
     '<input type="month" id="amSel" value="' + S.amonth + '" aria-label="Chọn tháng">' +
     '<button class="btn sec sm" id="copyT">Sao chép bảng</button>' + (REAL ? '<button class="btn sm" id="expT">Xuất sang Google Sheet</button>' : '') + '</div></div>' +
-    '<p class="small muted" style="margin:8px 0 12px">Số ca = số buổi (sáng, chiều, linh hoạt) có mặt. Giờ làm = tổng các lượt vào → ra, không tính thời gian ra ngoài. Lượt bị từ chối không tính.</p>' +
+    '<p class="small muted" style="margin:8px 0 12px">Số ca = số buổi (sáng, chiều, linh hoạt) có mặt. Giờ làm = tổng các lượt vào → ra, không tính thời gian ra ngoài. Ngoài ca = phần giờ làm nằm ngoài ca đã đăng ký (mỗi đoạn từ ' + OT_MIN + ' phút trở lên mới tính; ngày không đăng ký ca thì cả ngày là ngoài ca). Lượt bị từ chối không tính.</p>' +
     '<div class="tablewrap sticky"><table><thead><tr>' + COLS.map(function (h, i) { return '<th' + (i === 1 ? ' style="text-align:left"' : '') + '>' + h + '</th>'; }).join('') + '</tr></thead><tbody>' + body + '</tbody>' +
-    '<tfoot><tr><td>Tổng</td><td></td><td>' + T.days + '</td><td>' + T.shifts + '</td><td>' + T.leaveN + '</td><td>' + dur(T.mins) + '</td><td>' + T.lateN + '</td><td>' + T.lateM + '</td><td>' + T.earlyN + '</td><td>' + T.earlyM + '</td><td>' + T.missOut + '</td><td>' + T.pending + '</td></tr></tfoot></table></div>' + liveTable(lv) + ppTable();
+    '<tfoot><tr><td>Tổng</td><td></td><td>' + T.days + '</td><td>' + T.shifts + '</td><td>' + T.leaveN + '</td><td>' + dur(T.mins) + '</td><td>' + dur(T.ot) + '</td><td>' + T.lateN + '</td><td>' + T.lateM + '</td><td>' + T.earlyN + '</td><td>' + T.earlyM + '</td><td>' + T.missOut + '</td><td>' + T.pending + '</td></tr></tfoot></table></div>' + liveTable(lv) + ppTable();
   $('#amSel').onchange = function (e) { if (e.target.value) { S.amonth = e.target.value; loadAdmin(); } };
   $('#copyT').onclick = function () {
     var tsv = [COLS].concat(tableData()).map(function (r) { return r.join('\t'); }).join('\n');
@@ -1983,7 +2062,7 @@ function renderAMonth() {
 }
 function tableData() {
   var all = monthRows();
-  var out = all.filter(function (o) { return o.st.group !== 'LIVE'; }).map(function (o) { return [o.st.name, o.st.role, o.days, o.shifts, o.leaveN, (o.mins / 60).toFixed(1).replace('.', ','), o.lateN, o.lateM, o.earlyN, o.earlyM, o.missOut, o.pending]; });
+  var out = all.filter(function (o) { return o.st.group !== 'LIVE'; }).map(function (o) { return [o.st.name, o.st.role, o.days, o.shifts, o.leaveN, (o.mins / 60).toFixed(1).replace('.', ','), (o.ot / 60).toFixed(1).replace('.', ','), o.lateN, o.lateM, o.earlyN, o.earlyM, o.missOut, o.pending]; });
   var lv = all.filter(function (o) { return o.st.group === 'LIVE'; });
   if (lv.length) {
     var pad = function (r) { while (r.length < COLS.length) r.push(''); return r; };
@@ -2013,7 +2092,8 @@ function renderAReview() {
   var qHtml = qs.map(function (q) {
     return '<div class="reqcard"><div class="row" style="justify-content:space-between;flex-wrap:wrap"><b>' + esc(q.name) + ' · ' + esc(q.kind) + '</b><span class="mono small muted">' + rangeTxt(q) + '</span></div>' +
       (q.kind === 'Báo bận ca' ? (function () { var tm = busyTiming(q.from, q.ca.split('|')[1], q.created); return '<div class="row" style="flex-wrap:wrap"><b class="mono">' + esc(caTxt(q.ca)) + '</b><span class="pill ' + tm.cls + '">' + tm.txt + '</span></div>'; })() : '') +
-      (q.reason ? '<div>' + esc(q.reason) + '</div>' : '') + '<div class="small muted">Gửi lúc ' + esc(q.created) + (q.kind === 'Báo bận ca' ? ' · Duyệt thì ca này được gỡ khỏi lịch, không tính vắng' : '') + '</div>' +
+      (/^FIX\|/.test(q.ca || '') ? '<div><b class="mono">' + esc(reqCaTxt(q)) + '</b></div>' : '') +
+      (q.reason ? '<div>' + esc(q.reason) + '</div>' : '') + '<div class="small muted">Gửi lúc ' + esc(q.created) + (q.kind === 'Báo bận ca' ? ' · Duyệt thì ca này được gỡ khỏi lịch, không tính vắng' : '') + (/^FIX\|/.test(q.ca || '') ? ' · Duyệt thì giờ này được thêm vào công' : '') + '</div>' +
       '<div class="acts"><button class="btn sm" data-q="' + esc(q.id) + '" data-s="Đã duyệt">Duyệt</button><button class="btn bad sm" data-q="' + esc(q.id) + '" data-s="Từ chối">Từ chối</button></div></div>';
   }).join('');
   var rHtml = rs.map(function (r) {
