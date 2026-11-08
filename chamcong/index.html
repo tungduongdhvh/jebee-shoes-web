@@ -266,6 +266,9 @@ table.sched tfoot td.hl-bad{color:var(--bad);font-weight:700}
 .segwide button{flex:1}
 .act{font:500 11.5px/1.35 var(--mono);color:var(--muted);margin-top:4px}
 .act.late,.act.miss{color:var(--bad);font-weight:700}
+.modelist{display:flex;flex-direction:column;gap:8px;margin:12px 0 4px}
+.modebtn{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;height:auto;padding:10px 14px;white-space:normal}
+.modebtn .small{font-weight:400;color:var(--muted)}
 table.team td.cell .pill{margin-top:4px}
 table.team tr.me td,table.team tr.me td:first-child{background:var(--accent-soft)}
 .ot{color:var(--accent);font-weight:600}
@@ -346,20 +349,35 @@ var ICON = {
    Luật ca và cách tính công (dùng chung cho nhân viên, quản lý, bản dùng thử)
    ========================================================= */
 // Ca của 1 người trong 1 ngày: tuần đã đăng ký thì theo đăng ký, chưa thì theo ca mặc định.
+// Ca nhân viên tự thêm lúc chấm công (chọn "làm ca chính" khi chưa có ca): cộng vào lịch, không tính là đã đăng ký tuần
+function autoReg(r) { return /chấm công/.test(String(r.at || '')); }
 function segsBase(st, date, regs, shifts, graceFlex) {
   var mon = monday(date), sun = addDays(mon, 6), out;
-  var mine = regs.filter(function (r) { return r.staffId === st.id && r.date >= mon && r.date <= sun; });
+  var all = regs.filter(function (r) { return r.staffId === st.id && r.date >= mon && r.date <= sun; });
+  var mine = all.filter(function (r) { return !autoReg(r); });
+  function toSeg(r) {
+    var f = shifts.filter(function (x) { return x.id === r.shift; })[0];
+    return { id: r.shift, name: f ? f.name : 'Linh hoạt', start: r.start, end: r.end, grace: f ? f.grace : graceFlex, auto: autoReg(r) };
+  }
   if (mine.length) {
-    out = mine.filter(function (r) { return r.date === date && r.shift !== 'NGHỈ'; }).map(function (r) {
-      var f = shifts.filter(function (x) { return x.id === r.shift; })[0];
-      return { id: r.shift, name: f ? f.name : 'Linh hoạt', start: r.start, end: r.end, grace: f ? f.grace : graceFlex };
-    });
+    out = mine.filter(function (r) { return r.date === date && r.shift !== 'NGHỈ'; }).map(toSeg);
   } else {
     out = String(st.shift || '').split(',').map(function (x) { return x.trim(); })
       .map(function (id) { return shifts.filter(function (x) { return x.id === id; })[0]; }).filter(Boolean)
       .map(function (f) { return { id: f.id, name: f.name, start: f.start, end: f.end, grace: f.grace }; });
   }
+  all.filter(function (r) { return autoReg(r) && r.date === date && r.shift !== 'NGHỈ'; }).forEach(function (r) {
+    if (!out.some(function (x) { return x.id === r.shift && x.start === r.start; })) out.push(toSeg(r));
+  });
   return out.sort(function (a, b) { return toMin(a.start) - toMin(b.start); });
+}
+function modeOpts(today, shifts, time) {
+  var nowM = toMin(time);
+  if (today.some(function (x) { return toMin(x.start) - 30 <= nowM && nowM < toMin(x.end); })) return null;
+  return shifts.filter(function (f) {
+    return f.group !== 'LIVE' && f.id !== 'LH' && toMin(f.end) > nowM &&
+      !today.some(function (x) { return toMin(x.start) < toMin(f.end) && toMin(f.start) < toMin(x.end); });
+  });
 }
 function segAt(segs, time) { var m = toMin(time); return segs.filter(function (g) { return toMin(g.end) > m; })[0]; }
 // Đi muộn chỉ tính cho lượt vào đầu tiên của mỗi ca.
@@ -371,7 +389,7 @@ function calcLate(segs, priorInTimes, time) {
 }
 function lateReg(st, mon, regs) {
   var sun = addDays(mon, 6);
-  return regs.some(function (r) { return r.staffId === st.id && r.date >= mon && r.date <= sun && r.at && r.at.slice(0, 10) >= mon; });
+  return regs.some(function (r) { return r.staffId === st.id && r.date >= mon && r.date <= sun && !autoReg(r) && r.at && r.at.slice(0, 10) >= mon; });
 }
 /* Báo bận ca */
 function reqCaTxt(q) {
@@ -394,7 +412,7 @@ function apprOf(list, id, week) { return (list || []).filter(function (a) { retu
 function shortName(n) { var w = String(n).trim().split(/\s+/); return w.length > 2 ? w.slice(-2).join(' ') : n; }
 function weekState(st, mon, regs) {
   var sun = addDays(mon, 6);
-  if (regs.some(function (r) { return r.staffId === st.id && r.date >= mon && r.date <= sun; })) return 'reg';
+  if (regs.some(function (r) { return r.staffId === st.id && r.date >= mon && r.date <= sun && !autoReg(r); })) return 'reg';
   return String(st.shift || '').trim() ? 'def' : 'none';
 }
 // Thống kê 1 ngày từ các lượt chấm (đã xếp theo giờ, bỏ lượt bị từ chối).
@@ -614,14 +632,28 @@ var Demo = (function () {
       if (p.type && p.type !== type) fail('Trạng thái chấm công đã thay đổi, hãy tải lại trang.', 'STALE');
       var sp = shop(s.shop), reasons = [], dist = null;
       if (type === 'IN' && weekState(s, monday(n.date), D.regs) !== 'reg') reasons.push('Chưa đăng ký ca tuần này');
+      var modeNote = '';
+      if (type === 'IN' && s.group !== 'LIVE') {
+        var opts = modeOpts(segs(s, n.date, D.regs), SHIFTS, n.time);
+        if (opts) {
+          if (p.mode !== 'ot' && p.mode !== 'main') return { needMode: true, time: n.time.slice(0, 5), opts: opts };
+          if (p.mode === 'main') {
+            var pick = [].concat(p.shifts || []), chosen = opts.filter(function (f) { return pick.indexOf(f.id) >= 0; });
+            if (!chosen.length || chosen.length !== pick.length) fail('Ca đã chọn không còn hợp lệ, hãy bấm chấm công lại.', 'STALE');
+            chosen.forEach(function (f, i) { D.regs.push({ id: 'g' + Date.now() + i, staffId: s.id, date: n.date, shift: f.id, start: f.start, end: f.end, at: n.date + ' ' + n.time.slice(0, 5) + ' · chấm công' }); });
+            modeNote = 'Chọn làm ca chính: ' + chosen.map(function (f) { return f.name; }).join(' + ');
+          } else modeNote = 'Chọn làm thêm giờ';
+        }
+      }
       if (p.lat != null) dist = Math.round(haversine(p.lat, p.lng, sp.lat, sp.lng));
       if (dist == null) { if (!p.force) return { needReason: true, why: 'nogps' }; reasons.push('Không lấy được vị trí'); }
       else if (dist > sp.radius) { if (!p.force) return { needReason: true, why: 'far', dist: dist, radius: sp.radius }; reasons.push('Ngoài phạm vi (' + dist + ' m)'); }
       if (!p.photo) fail('Cần chụp ảnh khi chấm công.', 'PHOTO');
       var late = type === 'IN' ? calcLate(segs(s, n.date, D.regs), mine.filter(function (r) { return r.type === 'IN'; }).map(function (r) { return r.time; }), n.time) : 0;
-      var r = { id: 'r' + Date.now(), date: n.date, staffId: s.id, name: s.name, shop: s.shop, type: type, time: n.time, dist: dist, review: reasons.length ? 'pending' : 'ok', reason: reasons.join('; '), late: late, photo: 'demo', note: p.note || '' };
+      var r = { id: 'r' + Date.now(), date: n.date, staffId: s.id, name: s.name, shop: s.shop, type: type, time: n.time, dist: dist, review: reasons.length ? 'pending' : 'ok', reason: reasons.join('; '), late: late, photo: 'demo', note: [modeNote, p.note || ''].filter(Boolean).join(' · ') };
       shots[r.id] = p.photo; D.records.push(r); save();
-      return { record: r };
+      var mon0 = monday(n.date);
+      return { record: r, mode: modeNote ? p.mode : '', regs: p.mode === 'main' && modeNote ? myRegs(s.id, addDays(mon0, -7), addDays(mon0, 13)) : undefined };
     },
     register: function (p) {
       var s = auth(p), n = vnNow(), D = db(), thisMon = monday(n.date), nextMon = addDays(thisMon, 7), week = String(p.week);
@@ -1343,16 +1375,39 @@ function doPunch(photo, force, note) {
   var locP = (S.loc && Date.now() - S.locAt < 30000) ? Promise.resolve(S.loc) : getLoc();
   locP.then(function (l) {
     S.loc = l; S.locAt = Date.now();
-    return api('punch', { id: S.cred.id, pin: S.cred.pin, type: nt, lat: l ? l.lat : null, lng: l ? l.lng : null, acc: l ? l.acc : null, photo: photo, device: deviceId(), force: force, note: note });
+    return api('punch', { id: S.cred.id, pin: S.cred.pin, type: nt, lat: l ? l.lat : null, lng: l ? l.lng : null, acc: l ? l.acc : null, photo: photo, device: deviceId(), force: force, note: note, mode: S.pMode ? S.pMode.mode : '', shifts: S.pMode ? S.pMode.shifts : [] });
   }).then(function (r) {
     S.busy = false;
+    if (r.needMode) { askMode(r, photo); renderHome(); return; }
     if (r.needReason) { askReason(r, photo); renderHome(); return; }
+    S.pMode = null;
+    if (r.regs) { S.regs = r.regs; S.today.regs = r.regs; }
     var rec = r.record; S.today.records.push(rec); saveToday();
-    toast((rec.type === 'IN' ? 'Đã vào ca lúc ' : 'Đã ra ca lúc ') + hm(rec.time) + (rec.late ? ' · muộn ' + mt(rec.late) : '') + (rec.review === 'pending' ? ' · chờ quản lý duyệt' : ''));
+    toast((rec.type === 'IN' ? (r.mode === 'ot' ? 'Đã vào làm thêm giờ lúc ' : 'Đã vào ca lúc ') : 'Đã ra ca lúc ') + hm(rec.time) + (rec.late ? ' · muộn ' + mt(rec.late) : '') + (rec.review === 'pending' ? ' · chờ quản lý duyệt' : '') + (r.mode === 'ot' ? ' · chấm ra xong nhớ giải trình để được duyệt' : ''));
     // vừa chấm ra cho ca tối hôm qua: tải lại để chuyển sang ngày mới
     if (S.today.work && S.today.work.carry) return loadToday(renderHome, false);
     renderHome();
-  }).catch(function (e) { S.busy = false; renderHome(); toast(e.error || 'Không chấm được, thử lại.', true); });
+  }).catch(function (e) { S.busy = false; S.pMode = null; renderHome(); toast(e.error || 'Không chấm được, thử lại.', true); });
+}
+// Vào làm lúc không có ca đã đăng ký: chọn làm ca chính hay làm thêm giờ
+function askMode(r, photo) {
+  var opts = r.opts || [], nowM = toMin(r.time);
+  function lateTxt(f) { var d = Math.floor(nowM - toMin(f.start)); return d > (f.grace || 0) ? ' <span class="hl-bad">· vào muộn ' + mt(d) + '</span>' : ''; }
+  var btns = opts.map(function (f) {
+    return '<button class="btn sec modebtn" data-mm="' + esc(f.id) + '"><b>Làm ca chính · ' + esc(f.name) + ' ' + f.start + '–' + f.end + '</b><span class="small">Thêm ca này vào lịch hôm nay, tính công ca chính' + lateTxt(f) + '</span></button>';
+  });
+  if (opts.length > 1) btns.push('<button class="btn sec modebtn" data-mm="' + esc(opts.map(function (f) { return f.id; }).join(',')) + '"><b>Làm ca chính · cả ' + esc(opts.map(function (f) { return f.name; }).join(' + ')) + '</b><span class="small">Thêm tất cả các ca này vào lịch hôm nay' + lateTxt(opts[0]) + '</span></button>');
+  btns.push('<button class="btn sec modebtn" data-mm="ot"><b>Làm thêm giờ (ngoài ca)</b><span class="small">Tính vào giờ ngoài ca: chỉ tính từng 30 phút tròn, chấm ra xong phải giải trình và được quản lý duyệt</span></button>');
+  modal('<h3>Bạn đi làm theo ca nào?</h3><p class="muted" style="margin:0">Bây giờ là <b>' + r.time + '</b>, hôm nay bạn chưa đăng ký ca vào giờ này. Chọn đúng để công được tính chuẩn.</p>' +
+    '<div class="modelist">' + btns.join('') + '</div><div class="acts"><button class="btn sec" id="mmNo">Huỷ</button></div>');
+  $('#mmNo').onclick = function () { S.pMode = null; modal(''); };
+  $$('[data-mm]').forEach(function (b) {
+    b.onclick = function () {
+      var v = b.getAttribute('data-mm');
+      S.pMode = v === 'ot' ? { mode: 'ot', shifts: [] } : { mode: 'main', shifts: v.split(',') };
+      modal(''); doPunch(photo, false, '');
+    };
+  });
 }
 function askReason(r, photo) {
   var msg = r.why === 'far'
@@ -1361,7 +1416,7 @@ function askReason(r, photo) {
   modal('<h3>Chấm công ngoài cửa hàng?</h3><p class="muted" style="margin:0">' + msg + ' Nếu bạn đang đi công việc, ghi lý do để quản lý duyệt.</p>' +
     '<div class="field"><label class="lbl" for="reasonTxt">Lý do</label><textarea id="reasonTxt" rows="3" placeholder="VD: đang đi giao hàng ở Cầu Giấy"></textarea></div>' +
     '<div class="acts"><button class="btn" id="rsOk">Gửi chấm công</button><button class="btn sec" id="rsNo">Huỷ</button></div>');
-  $('#rsNo').onclick = function () { modal(''); };
+  $('#rsNo').onclick = function () { S.pMode = null; modal(''); };
   $('#rsOk').onclick = function () {
     var t = $('#reasonTxt').value.trim();
     if (!t) { $('#reasonTxt').focus(); toast('Ghi lý do trước khi gửi.', true); return; }
