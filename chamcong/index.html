@@ -623,7 +623,7 @@ var Demo = (function () {
     setLiveRate: function (p) { admin(p); db().liveRate = +p.value || 0; save(); return db().liveRate; },
     today: function (p) {
       var s = auth(p), n = vnNow(), mon = monday(n.date);
-      return { now: n, records: db().records.filter(function (r) { return r.staffId === s.id && r.date === n.date; }), regs: myRegs(s.id, addDays(mon, -7), addDays(mon, 13)), busy: myBusy(s.id), appr: myAppr(s.id), pp: myPP(s.id) };
+      return { now: n, records: db().records.filter(function (r) { return r.staffId === s.id && r.date === n.date; }), regs: myRegs(s.id, addDays(mon, -7), addDays(mon, 13)), busy: myBusy(s.id), appr: myAppr(s.id), pp: myPP(s.id), otReq: db().requests.filter(function (q) { return q.staffId === s.id && q.kind === 'Làm thêm giờ' && q.from >= addDays(mon, -7); }) };
     },
     punch: function (p) {
       var s = auth(p), n = vnNow(), D = db();
@@ -1315,6 +1315,12 @@ function renderHome() {
   var ppNew = (S.pp || []).filter(function (t) { return t.staffId === S.me.id && ppState(t) === 'Đã duyệt'; })[0];
   if (ppNew) banner = '<button class="banner bad" id="goPP"><span><b>Bạn có phiếu phạt ' + money(t2(ppNew)) + '</b><br><span class="small">' + esc(ppNew.reason).slice(0, 60) + ' · còn ' + leftTxt(ppDeadline(ppNew) - nowMs()) + ' để khiếu nại</span></span><span class="go">Xem →</span></button>' + banner;
   var arr = (S.appr || []).filter(function (a) { return a.status === 'Quản lý xếp' && a.week >= mon && !(store('cc_seen') || {})[a.staffId + a.week + a.at]; })[0];
+  var otS = otState(S.me.id, wd, S.today.otReq || []);
+  if (S.me.group !== 'LIVE' && st.ot && (otS === '' || otS === 'no')) {
+    banner = '<button class="banner bad" id="goOt" data-otd="' + wd + '" data-otm="' + st.ot + '"><span><b>Hôm nay bạn có +' + dur(st.ot) + ' làm ngoài ca' + (otS === 'no' ? ' (đơn trước bị từ chối)' : '') + '</b><br><span class="small">' + (st.open ? 'Chấm ra xong thì giải trình' : 'Giải trình phát sinh việc gì để quản lý duyệt, chưa duyệt thì không được tính') + '</span></span><span class="go">Giải trình →</span></button>' + banner;
+  } else if (S.me.group !== 'LIVE' && st.ot && otS === 'wait') {
+    banner = '<div class="banner info"><span><b>+' + dur(st.ot) + ' ngoài ca hôm nay</b><br><span class="small">Đã gửi giải trình, đang chờ quản lý duyệt</span></span></div>' + banner;
+  }
   if (arr) banner = '<button class="banner info" id="goArr" data-w="' + (arr.week === mon ? 'this' : 'next') + '" data-k="' + esc(arr.staffId + arr.week + arr.at) + '"><span><b>Quản lý đã sắp xếp lại lịch tuần ' + dm(arr.week) + '</b><br><span class="small">' + esc(arr.note || 'Bấm để xem ca mới của bạn') + '</span></span><span class="go">Xem →</span></button>' + banner;
   var tl = recs.map(function (r) {
     return '<div class="li"><span class="tlic ' + (r.type === 'IN' ? 'in' : 'out') + '">' + (r.type === 'IN' ? ICON.pinIn : ICON.pinOut) + '</span><div class="main"><b>' + (r.type === 'IN' ? 'Vào ca' : 'Ra ca') + '</b>' +
@@ -1333,6 +1339,7 @@ function renderHome() {
     (tl ? '<div class="sechead"><h2>Các lượt hôm nay</h2></div><div class="list">' + tl + '</div>' : '');
   $('#punchBtn').onclick = onPunch;
   if ($('#goSched')) $('#goSched').onclick = function () { S.tab = 'sched'; S.sw = 'next'; routeStaff(); };
+  bindOtBtns();
   if ($('#goNow')) $('#goNow').onclick = function () { S.tab = 'sched'; S.sw = 'this'; routeStaff(); };
   if ($('#goPP')) $('#goPP').onclick = function () { S.tab = 'pp'; routeStaff(); };
   if ($('#goArr')) $('#goArr').onclick = function () { var seen = store('cc_seen') || {}; seen[this.getAttribute('data-k')] = 1; store('cc_seen', seen); S.tab = 'sched'; S.sw = this.getAttribute('data-w'); routeStaff(); };
@@ -1387,6 +1394,7 @@ function doPunch(photo, force, note) {
     // vừa chấm ra cho ca tối hôm qua: tải lại để chuyển sang ngày mới
     if (S.today.work && S.today.work.carry) return loadToday(renderHome, false);
     renderHome();
+    if (rec.type === 'OUT' && $('#goOt')) setTimeout(function () { toast('Bạn có giờ làm ngoài ca hôm nay, bấm “Giải trình” ở trên để gửi quản lý duyệt'); }, 2500);
   }).catch(function (e) { S.busy = false; S.pMode = null; renderHome(); toast(e.error || 'Không chấm được, thử lại.', true); });
 }
 // Vào làm lúc không có ca đã đăng ký: chọn làm ca chính hay làm thêm giờ
@@ -1708,7 +1716,7 @@ function renderReq() {
       var xo = sm && sm.byDay[p.from]; p.otMins = xo ? xo.ot : (S.otMins || 0);
     }
     $('#rqBtn').disabled = true;
-    api('request', p).then(function () { S.otFill = null; toast('Đã gửi đơn ' + p.kind.toLowerCase()); loadReq(); })
+    api('request', p).then(function () { S.otFill = null; if (p.kind === 'Làm thêm giờ' && S.today) { (S.today.otReq = S.today.otReq || []).push({ staffId: S.me.id, kind: p.kind, from: p.from, to: p.from, status: 'Chờ duyệt' }); saveToday(); } toast('Đã gửi đơn ' + p.kind.toLowerCase()); loadReq(); })
       .catch(function (er) { $('#rqBtn').disabled = false; toast(er.error, true); });
   };
 }
