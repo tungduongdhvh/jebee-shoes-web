@@ -376,6 +376,7 @@ function lateReg(st, mon, regs) {
 /* Báo bận ca */
 function reqCaTxt(q) {
   var k = String(q.ca || '').split('|');
+  if (k[0] === 'OT') return 'Ngoài ca ' + dur(+k[1] || 0);
   return k[0] === 'FIX' ? (k[1] === 'IN' ? 'Bổ sung giờ vào ' : 'Bổ sung giờ ra ') + k[2] : caTxt(q.ca);
 }
 function caTxt(ca) {
@@ -397,7 +398,7 @@ function weekState(st, mon, regs) {
   return String(st.shift || '').trim() ? 'def' : 'none';
 }
 // Thống kê 1 ngày từ các lượt chấm (đã xếp theo giờ, bỏ lượt bị từ chối).
-var OT_MIN = 15; // đến sớm / về muộn vài phút không tính là làm thêm
+var OT_STEP = 30; // giờ ngoài ca tính theo từng 30 phút tròn; phần lẻ dưới 30 phút chỉ là công bình thường
 function dayStats(recs, segs, date, today, nowMin) {
   var o = { mins: 0, inShift: 0, ot: 0, lateN: 0, lateM: 0, earlyN: 0, earlyM: 0, missOut: 0, shifts: 0, open: false, iv: [], first: null, last: null, n: recs.length };
   var open = null;
@@ -418,7 +419,7 @@ function dayStats(recs, segs, date, today, nowMin) {
         var r = []; if (q[0] < a) r.push([q[0], a]); if (q[1] > b) r.push([b, q[1]]); return r;
       }));
     });
-    parts.forEach(function (q) { if (q[1] - q[0] >= OT_MIN) o.ot += q[1] - q[0]; });
+    parts.forEach(function (q) { o.ot += Math.floor((q[1] - q[0]) / OT_STEP) * OT_STEP; });
   });
   if (!segs.length && o.first) o.shifts = 1;
   segs.forEach(function (g) {
@@ -433,6 +434,15 @@ function dayStats(recs, segs, date, today, nowMin) {
   });
   return o;
 }
+// Giờ ngoài ca chỉ được tính khi có đơn "Làm thêm giờ" ngày đó đã duyệt
+function otState(staffId, date, requests) {
+  var qs = (requests || []).filter(function (q) { return q.staffId === staffId && q.kind === 'Làm thêm giờ' && q.from <= date && (q.to || q.from) >= date; });
+  if (qs.some(function (q) { return q.status === 'Đã duyệt'; })) return 'ok';
+  if (qs.some(function (q) { return q.status === 'Chờ duyệt'; })) return 'wait';
+  return qs.length ? 'no' : '';
+}
+var OT_TXT = { ok: ['p-good', 'Đã duyệt'], wait: ['p-warn', 'Chờ duyệt'], no: ['p-bad', 'Bị từ chối'], '': ['p-bad', 'Chưa giải trình'] };
+function otPill(x) { var t = OT_TXT[x.otSt || '']; return '<span class="pill ' + t[0] + '">+' + dur(x.ot) + ' ngoài ca · ' + t[1] + '</span>'; }
 function leaveMap(staffId, requests, month) {
   var set = {};
   requests.forEach(function (q) {
@@ -648,7 +658,8 @@ var Demo = (function () {
     request: function (p) {
       var s = auth(p); if (!p.kind || !p.from) fail('Chọn loại đơn và ngày.');
       var n = vnNow();
-      var fix = p.kind === 'Quên chấm công' ? 'FIX|' + p.fixType + '|' + p.fixTime : '';
+      var fix = p.kind === 'Quên chấm công' ? 'FIX|' + p.fixType + '|' + p.fixTime : p.kind === 'Làm thêm giờ' ? 'OT|' + (p.otMins || 0) : '';
+      if (p.kind === 'Làm thêm giờ') { if (String(p.reason || '').trim().length < 5) fail('Ghi rõ phát sinh công việc gì nên phải ở lại làm thêm.'); if (db().requests.some(function (q) { return q.staffId === s.id && q.kind === 'Làm thêm giờ' && q.from === p.from && q.status !== 'Từ chối'; })) fail('Ngày này bạn đã giải trình làm thêm giờ rồi.'); p.to = p.from; }
       if (p.kind === 'Quên chấm công' && !/^\d{2}:\d{2}$/.test(p.fixTime || '')) fail('Điền giờ thực tế vào hoặc ra.');
       db().requests.push({ id: 'q' + Date.now(), created: n.date + ' ' + n.time.slice(0, 5), staffId: s.id, name: s.name, kind: p.kind, from: p.from, to: fix ? p.from : (p.to || p.from), reason: p.reason || '', status: 'Chờ duyệt', ca: fix });
       save(); return true;
@@ -852,13 +863,14 @@ function summarize(st, records, requests, regs, month, today, nowMin) {
     if (r.review === 'rejected') return;
     (by[r.date] = by[r.date] || []).push(r);
   });
-  var o = { st: st, byDay: {}, days: 0, shifts: 0, mins: 0, ot: 0, liveMins: 0, workDates: {}, lateN: 0, lateM: 0, earlyN: 0, earlyM: 0, missOut: 0, pending: pending, leave: leaveMap(st.id, requests, month) };
+  var o = { st: st, byDay: {}, days: 0, shifts: 0, mins: 0, ot: 0, otWait: 0, otDays: [], liveMins: 0, workDates: {}, lateN: 0, lateM: 0, earlyN: 0, earlyM: 0, missOut: 0, pending: pending, leave: leaveMap(st.id, requests, month) };
   Object.keys(by).forEach(function (d) {
     var recs = by[d].sort(function (a, b) { return a.time < b.time ? -1 : 1; });
     var sgd = segs(st, d, regs), x = dayStats(recs, sgd, d, today, nowMin);
     x.recs = recs; o.byDay[d] = x;
     if (x.first) o.days++;
-    ['shifts', 'mins', 'ot', 'lateN', 'lateM', 'earlyN', 'earlyM', 'missOut'].forEach(function (k) { o[k] += x[k]; });
+    ['shifts', 'mins', 'lateN', 'lateM', 'earlyN', 'earlyM', 'missOut'].forEach(function (k) { o[k] += x[k]; });
+    if (x.ot) { x.otSt = otState(st.id, d, requests); if (x.otSt === 'ok') o.ot += x.ot; else { o.otWait += x.ot; o.otDays.push(d); } }
     o.liveMins += sgd.length ? x.inShift : x.mins; // giờ live: chỉ phần nằm trong ca đã đăng ký
     if (x.first) o.workDates[d] = 1;
   });
@@ -1554,20 +1566,25 @@ function renderHist() {
     var none = !x && !lv && !pend[d];
     return '<div class="li' + (none ? ' dim' : '') + '"><div class="dayd"><b>' + d.slice(8) + '</b><span>' + WDS[dow(d)] + '</span></div><div class="main">' +
       (x ? '<div class="times">' + esc(chain(x.recs)) + '</div><div class="small muted">' + x.shifts + ' ca · ' + dur(x.mins) + '</div>' : none ? '<span class="muted small">Không chấm công</span>' : '') +
-      (b ? '<div class="badges">' + b + '</div>' : '') + '</div></div>';
+      (b || (x && x.ot) ? '<div class="badges">' + b + (x && x.ot ? otPill(x) : '') + '</div>' : '') +
+      (x && x.ot && (x.otSt === '' || x.otSt === 'no') && S.me.group !== 'LIVE' ? '<button class="btn sm" data-otd="' + d + '" data-otm="' + x.ot + '" style="margin-top:6px">Giải trình làm thêm</button>' : '') + '</div></div>';
   }).join('');
   $('#main').innerHTML =
     '<div class="monthbar" style="padding-top:8px"><h2 style="font-size:20px">Công tháng</h2><input type="month" id="mSel" value="' + S.month + '" aria-label="Chọn tháng"></div>' +
     (S.me.group === 'LIVE' ? liveTiles(sm, today) :
     '<div class="tiles" style="margin-top:12px">' +
     '<div class="tile"><div class="lbl">Số ca đã làm</div><div class="v">' + sm.shifts + ' <small>ca · ' + sm.days + ' ngày' + (sm.leaveN ? ' · ' + sm.leaveN + ' phép' : '') + '</small></div></div>' +
-    '<div class="tile"><div class="lbl">Giờ làm</div><div class="v">' + dur(sm.mins) + '</div></div>' +
+    '<div class="tile"><div class="lbl">Giờ làm</div><div class="v">' + dur(sm.mins) + (sm.ot || sm.otWait ? ' <small>· ngoài ca ' + dur(sm.ot) + (sm.otWait ? ', chưa duyệt ' + dur(sm.otWait) : '') + '</small>' : '') + '</div></div>' +
     '<div class="tile"><div class="lbl">Đi muộn</div><div class="v">' + sm.lateN + ' <small>lần · ' + sm.lateM + ' phút</small></div></div>' +
     '<div class="tile"><div class="lbl">Về sớm / quên ra</div><div class="v">' + sm.earlyN + ' <small>/</small> ' + sm.missOut + '</div></div></div>') +
     ppMonthLine(S.me.id, S.month, S.pp) +
     '<div class="sechead"><h2>Từng ngày</h2><span class="muted small">Giờ làm = tổng các lượt vào → ra</span></div>' +
     '<div class="list">' + (rows || '<div class="empty">Chưa có dữ liệu tháng này.</div>') + '</div>';
   $('#mSel').onchange = function (e) { if (e.target.value) { S.month = e.target.value; loadHist(); } };
+  bindOtBtns();
+}
+function bindOtBtns() {
+  $$('[data-otd]').forEach(function (b) { b.onclick = function () { S.otFill = { date: b.getAttribute('data-otd'), mins: +b.getAttribute('data-otm') }; S.tab = 'req'; routeStaff(); }; });
 }
 
 /* ---- Đơn từ ---- */
@@ -1585,24 +1602,42 @@ function loadReq() {
 function statusPill(s) { return '<span class="pill ' + (s === 'Đã duyệt' ? 'p-good' : s === 'Từ chối' ? 'p-bad' : 'p-warn') + '">' + esc(s) + '</span>'; }
 function rangeTxt(q) { return vnDate(q.from) + (q.to && q.to !== q.from ? ' – ' + vnDate(q.to) : ''); }
 function renderReq() {
-  var today = vnNow(S.offset).date;
+  var nn = vnNow(S.offset), today = nn.date;
+  var sm = S.me.group === 'LIVE' ? null : summarize(S.me, S.hist.records, S.hist.requests, S.hist.regs, S.month, today, toMin(nn.time));
+  var need = sm ? sm.otDays.filter(function (d) { var x = sm.byDay[d]; return x.otSt === '' || x.otSt === 'no'; }).sort().reverse() : [];
+  var otBox = need.length ? '<div class="card stack" style="margin-top:12px;border-color:var(--warn)"><b>Giờ làm ngoài ca cần giải trình</b>' +
+    '<div class="small muted">Ghi rõ phát sinh công việc gì nên phải ở lại / đến sớm. Quản lý duyệt thì giờ này mới được tính công ngoài ca.</div><div class="list">' +
+    need.map(function (d) { var x = sm.byDay[d]; return '<div class="li"><div class="main"><b>' + WDS[dow(d)] + ' ' + dm(d) + '</b> · <span class="mono">' + esc(chain(x.recs)) + '</span><div class="small">+' + dur(x.ot) + ' ngoài ca' + (x.otSt === 'no' ? ' · lần trước bị từ chối' : '') + '</div></div><button class="btn sm" data-otd="' + d + '" data-otm="' + x.ot + '">Giải trình</button></div>'; }).join('') +
+    '</div></div>' : '';
   var list = S.hist.requests.map(function (q) {
     return '<div class="li"><div class="main"><div class="row" style="justify-content:space-between"><b>' + esc(q.kind) + '</b>' + statusPill(q.status) + '</div>' +
       '<div class="small muted mono">' + rangeTxt(q) + (q.ca ? ' · ' + esc(reqCaTxt(q)) : '') + '</div>' + (q.reason ? '<div class="small">' + esc(q.reason) + '</div>' : '') + '</div></div>';
   }).join('');
   $('#main').innerHTML =
-    '<h2 style="font-size:20px;padding-top:8px">Gửi đơn</h2>' +
+    '<h2 style="font-size:20px;padding-top:8px">Gửi đơn</h2>' + otBox +
     '<form id="rqForm" class="card stack" style="margin-top:12px">' +
     '<div class="field"><label class="lbl" for="rqKind">Loại đơn</label><select id="rqKind">' + KINDS.map(function (k) { return '<option>' + k + '</option>'; }).join('') + '</select></div>' +
     '<div class="grid2"><div class="field"><label class="lbl" for="rqFrom">Từ ngày</label><input type="date" id="rqFrom" value="' + today + '"></div>' +
     '<div class="field" id="rqToF"><label class="lbl" for="rqTo">Đến ngày</label><input type="date" id="rqTo" value="' + today + '"></div></div>' +
     '<div class="grid2" id="rqFix" hidden><div class="field"><label class="lbl" for="rqFixT">Quên lượt nào</label><select id="rqFixT"><option value="OUT">Quên chấm ra</option><option value="IN">Quên chấm vào</option></select></div>' +
     '<div class="field"><label class="lbl" for="rqFixH">Giờ thực tế</label><input type="time" id="rqFixH"></div></div>' +
-    '<div class="field"><label class="lbl" for="rqWhy">Lý do</label><textarea id="rqWhy" rows="2" placeholder="VD: quên chấm ra lúc 18:05"></textarea></div>' +
+    '<div class="field"><label class="lbl" for="rqWhy" id="rqWhyL">Lý do</label><textarea id="rqWhy" rows="2" placeholder="VD: quên chấm ra lúc 18:05"></textarea></div>' +
     '<button class="btn" type="submit" id="rqBtn">Gửi cho quản lý</button></form>' +
     '<div class="sechead"><h2>Đơn đã gửi</h2></div><div class="list">' + (list || '<div class="empty">Bạn chưa gửi đơn nào.</div>') + '</div>';
   $('#rqFrom').onchange = function () { if ($('#rqTo').value < this.value) $('#rqTo').value = this.value; };
-  $('#rqKind').onchange = function () { var f = this.value === 'Quên chấm công'; $('#rqFix').hidden = !f; $('#rqToF').hidden = f; };
+  $('#rqKind').onchange = function () {
+    var f = this.value === 'Quên chấm công', ot = this.value === 'Làm thêm giờ';
+    $('#rqFix').hidden = !f; $('#rqToF').hidden = f || ot;
+    $('#rqWhyL').textContent = ot ? 'Phát sinh công việc gì nên phải làm thêm' : 'Lý do';
+    $('#rqWhy').placeholder = ot ? 'VD: ở lại đóng 25 đơn gấp cho khách sỉ' : 'VD: quên chấm ra lúc 18:05';
+  };
+  function otFill(d, m) {
+    $('#rqKind').value = 'Làm thêm giờ'; $('#rqKind').onchange.call($('#rqKind'));
+    $('#rqFrom').value = $('#rqTo').value = d; S.otMins = m;
+    $('#rqForm').scrollIntoView({ block: 'start' }); $('#rqWhy').focus();
+  }
+  $$('#main [data-otd]').forEach(function (b) { b.onclick = function () { otFill(b.getAttribute('data-otd'), +b.getAttribute('data-otm')); }; });
+  if (S.otFill) otFill(S.otFill.date, S.otFill.mins);
   $('#rqForm').onsubmit = function (e) {
     e.preventDefault();
     var p = { id: S.cred.id, pin: S.cred.pin, kind: $('#rqKind').value, from: $('#rqFrom').value, to: $('#rqTo').value, reason: $('#rqWhy').value.trim() };
@@ -1612,8 +1647,13 @@ function renderReq() {
       p.fixType = $('#rqFixT').value; p.fixTime = $('#rqFixH').value.slice(0, 5); p.to = p.from;
       if (!p.fixTime) return toast('Điền giờ thực tế bạn vào hoặc ra.', true);
     }
+    if (p.kind === 'Làm thêm giờ') {
+      p.to = p.from;
+      if (p.reason.length < 5) return toast('Ghi rõ phát sinh công việc gì nên phải làm thêm.', true);
+      var xo = sm && sm.byDay[p.from]; p.otMins = xo ? xo.ot : (S.otMins || 0);
+    }
     $('#rqBtn').disabled = true;
-    api('request', p).then(function () { toast('Đã gửi đơn ' + p.kind.toLowerCase()); loadReq(); })
+    api('request', p).then(function () { S.otFill = null; toast('Đã gửi đơn ' + p.kind.toLowerCase()); loadReq(); })
       .catch(function (er) { $('#rqBtn').disabled = false; toast(er.error, true); });
   };
 }
@@ -1899,7 +1939,7 @@ function aActTable(d, mon) {
   dates.forEach(function (dt) { noData[dt] = dt < today && !recs.some(function (r) { return r.date === dt; }); D[dt] = { present: 0, late: 0, absent: 0 }; });
   var staff = activeStaff().slice().sort(function (x, y) { return (x.group || '') < (y.group || '') ? -1 : (x.group || '') > (y.group || '') ? 1 : 0; });
   var body = staff.map(function (st) {
-    var lv = leaveMap(st.id, S.ad.requests, null), T = { shifts: 0, plan: 0, mins: 0, ot: 0, late: 0, absent: 0, miss: 0 };
+    var lv = leaveMap(st.id, S.ad.requests, null), T = { shifts: 0, plan: 0, mins: 0, ot: 0, otWait: 0, late: 0, absent: 0, miss: 0 };
     var cells = dates.map(function (dt) {
       var sg = dt > today ? [] : segs(st, dt, d.regs);
       var rs = recs.filter(function (r) { return r.staffId === st.id && r.date === dt; }).sort(function (a, b) { return a.time < b.time ? -1 : 1; });
@@ -1908,11 +1948,12 @@ function aActTable(d, mon) {
       if (dt <= today) T.plan += sg.length;
       if (rs.length) {
         var o = dayStats(rs, sg, dt, today, nowMin);
-        T.shifts += o.shifts; T.mins += o.mins; T.ot += o.ot; T.late += o.lateN; T.miss += o.missOut;
+        if (o.ot) { o.otSt = otState(st.id, dt, S.ad.requests); if (o.otSt === 'ok') T.ot += o.ot; else T.otWait += o.ot; }
+        T.shifts += o.shifts; T.mins += o.mins; T.late += o.lateN; T.miss += o.missOut;
         D[dt].present++; if (o.lateN) D[dt].late++;
         out += '<div class="act' + (o.lateN ? ' late' : '') + '">' + esc(chain(rs)) + '</div>' +
           '<div class="small"><b>' + dur(o.mins) + '</b>' + (o.lateN ? ' <span class="hl-bad">· muộn ' + mt(o.lateM) + '</span>' : '') + (o.earlyN ? ' <span class="hl-warn">· về sớm ' + mt(o.earlyM) + '</span>' : '') + '</div>' +
-          (o.ot ? '<div class="small ot">+' + dur(o.ot) + ' ngoài ca</div>' : '') +
+          (o.ot ? otPill(o) : '') +
           (rs.some(function (r) { return r.reason === 'Bổ sung'; }) ? '<span class="pill p-info">Có bổ sung</span>' : '') +
           (o.missOut ? '<div class="act miss">Quên chấm ra</div>' : '') +
           (rs.some(function (r) { return r.review === 'pending'; }) ? '<span class="pill p-warn">Chờ duyệt</span>' : '');
@@ -1928,7 +1969,7 @@ function aActTable(d, mon) {
       }
       return '<td class="cell' + (dt === today ? ' today' : '') + (dt <= today ? ' fixable" data-fx="' + esc(st.id) + '|' + dt : '') + '">' + out + '</td>';
     }).join('');
-    var sum = '<td class="cell"><b>' + T.shifts + '</b>/' + T.plan + ' ca<div class="small"><b>' + dur(T.mins) + '</b></div>' + (T.ot ? '<div class="small ot">+' + dur(T.ot) + ' ngoài ca</div>' : '') +
+    var sum = '<td class="cell"><b>' + T.shifts + '</b>/' + T.plan + ' ca<div class="small"><b>' + dur(T.mins) + '</b></div>' + (T.ot ? '<div class="small ot">+' + dur(T.ot) + ' ngoài ca được tính</div>' : '') + (T.otWait ? '<div class="small hl-warn">+' + dur(T.otWait) + ' ngoài ca chưa duyệt</div>' : '') +
       (T.late ? '<div class="small hl-bad">Muộn ' + T.late + ' lần</div>' : '') + (T.absent ? '<div class="small hl-bad">Vắng ' + T.absent + '</div>' : '') + (T.miss ? '<div class="small hl-bad">Quên ra ' + T.miss + '</div>' : '') + '</td>';
     return '<tr><td><b>' + esc(st.name) + '</b>' + (st.group ? ' <span class="small muted">' + esc(st.group) + '</span>' : '') + '<div class="small muted">' + esc(st.role) + '</div></td>' + cells + sum + '</tr>';
   }).join('');
@@ -1939,7 +1980,7 @@ function aActTable(d, mon) {
   }).join('') + '<td></td></tr>';
   return '<div class="tablewrap sticky"><table class="sched team"><thead><tr><th>Nhân viên</th>' + dates.map(function (dt) { return '<th>' + WDS[dow(dt)] + ' ' + dm(dt) + '</th>'; }).join('') + '<th>Cả tuần</th></tr></thead><tbody>' + body + '</tbody>' +
     '<tfoot><tr><td colspan="9" class="lbl" style="text-align:left">Tổng theo ngày</td></tr>' + foot + '</tfoot></table></div>' +
-    '<p class="small muted" style="margin:8px 0 0">"Cả tuần": số ca đã làm / số ca đăng ký tính đến hôm nay và tổng giờ. "Ngoài ca": giờ làm ngoài ca đã đăng ký (mỗi đoạn từ ' + OT_MIN + ' phút). <b>Bấm vào một ô</b> để thêm lượt chấm bị quên hoặc bỏ lượt chấm sai của ngày đó.</p>';
+    '<p class="small muted" style="margin:8px 0 0">"Cả tuần": số ca đã làm / số ca đăng ký tính đến hôm nay và tổng giờ. "Ngoài ca": giờ làm ngoài ca đăng ký, tính theo từng ' + OT_STEP + ' phút tròn, chỉ vào công khi nhân viên giải trình và quản lý duyệt (tab Duyệt). <b>Bấm vào một ô</b> để thêm lượt chấm bị quên hoặc bỏ lượt chấm sai của ngày đó.</p>';
 }
 // Sửa công một ngày: xem các lượt chấm, bỏ lượt sai, thêm lượt bị quên
 function fixDay(id, date, mon) {
@@ -2027,27 +2068,27 @@ function adminEdit(id) {
     }).catch(function (e) { btn.disabled = false; toast(e.error, true); });
   };
 }
-var COLS = ['Nhân viên', 'Vị trí', 'Ngày làm', 'Số ca', 'Nghỉ phép', 'Giờ làm', 'Ngoài ca (giờ)', 'Muộn (lần)', 'Muộn (phút)', 'Về sớm (lần)', 'Về sớm (phút)', 'Quên chấm ra', 'Chờ duyệt'];
+var COLS = ['Nhân viên', 'Vị trí', 'Ngày làm', 'Số ca', 'Nghỉ phép', 'Giờ làm', 'Ngoài ca đã duyệt (giờ)', 'Ngoài ca chưa duyệt (giờ)', 'Muộn (lần)', 'Muộn (phút)', 'Về sớm (lần)', 'Về sớm (phút)', 'Quên chấm ra', 'Chờ duyệt'];
 function monthRows() {
   var n = vnNow(S.offset), today = S.ad.now.date;
   return S.ad.staff.map(function (st) { return summarize(st, S.ad.records, S.ad.requests, S.ad.regs, S.amonth, today, toMin(n.time)); })
     .filter(function (o) { return o.st.status !== 'Nghỉ việc' || o.days; });
 }
 function renderAMonth() {
-  var allRows = monthRows(), rs = allRows.filter(function (o) { return o.st.group !== 'LIVE'; }), lv = allRows.filter(function (o) { return o.st.group === 'LIVE'; }), K = ['days', 'shifts', 'leaveN', 'mins', 'ot', 'lateN', 'lateM', 'earlyN', 'earlyM', 'missOut', 'pending'], T = {};
+  var allRows = monthRows(), rs = allRows.filter(function (o) { return o.st.group !== 'LIVE'; }), lv = allRows.filter(function (o) { return o.st.group === 'LIVE'; }), K = ['days', 'shifts', 'leaveN', 'mins', 'ot', 'otWait', 'lateN', 'lateM', 'earlyN', 'earlyM', 'missOut', 'pending'], T = {};
   K.forEach(function (k) { T[k] = 0; rs.forEach(function (o) { T[k] += o[k]; }); });
   function c(v, cls) { return '<td class="' + (v ? cls || '' : '') + '"><span class="num">' + v + '</span></td>'; }
   var body = rs.map(function (o) {
     return '<tr><td><b>' + esc(o.st.name) + '</b></td><td style="text-align:left" class="muted">' + esc(o.st.role) + '</td>' + c(o.days) + c(o.shifts) + c(o.leaveN) +
-      '<td><span class="num">' + dur(o.mins) + '</span></td><td>' + (o.ot ? '<span class="num ot">' + dur(o.ot) + '</span>' : '<span class="num">0</span>') + '</td>' + c(o.lateN, 'hl-warn') + c(o.lateM, 'hl-warn') + c(o.earlyN, 'hl-warn') + c(o.earlyM, 'hl-warn') + c(o.missOut, 'hl-bad') + c(o.pending, 'hl-bad') + '</tr>';
+      '<td><span class="num">' + dur(o.mins) + '</span></td><td>' + (o.ot ? '<span class="num ot">' + dur(o.ot) + '</span>' : '<span class="num">0</span>') + '</td><td class="' + (o.otWait ? 'hl-warn' : '') + '"><span class="num">' + (o.otWait ? dur(o.otWait) : 0) + '</span></td>' + c(o.lateN, 'hl-warn') + c(o.lateM, 'hl-warn') + c(o.earlyN, 'hl-warn') + c(o.earlyM, 'hl-warn') + c(o.missOut, 'hl-bad') + c(o.pending, 'hl-bad') + '</tr>';
   }).join('');
   $('#main').innerHTML =
     '<div class="monthbar" style="padding-top:8px"><h2 style="font-size:20px">Bảng công tháng</h2><div class="row" style="flex-wrap:wrap">' +
     '<input type="month" id="amSel" value="' + S.amonth + '" aria-label="Chọn tháng">' +
     '<button class="btn sec sm" id="copyT">Sao chép bảng</button>' + (REAL ? '<button class="btn sm" id="expT">Xuất sang Google Sheet</button>' : '') + '</div></div>' +
-    '<p class="small muted" style="margin:8px 0 12px">Số ca = số buổi (sáng, chiều, linh hoạt) có mặt. Giờ làm = tổng các lượt vào → ra, không tính thời gian ra ngoài. Ngoài ca = phần giờ làm nằm ngoài ca đã đăng ký (mỗi đoạn từ ' + OT_MIN + ' phút trở lên mới tính; ngày không đăng ký ca thì cả ngày là ngoài ca). Lượt bị từ chối không tính.</p>' +
+    '<p class="small muted" style="margin:8px 0 12px">Số ca = số buổi (sáng, chiều, linh hoạt) có mặt. Giờ làm = tổng các lượt vào → ra, không tính thời gian ra ngoài. Ngoài ca = giờ làm ngoài ca đã đăng ký, tính theo từng ' + OT_STEP + ' phút tròn (lẻ dưới ' + OT_STEP + ' phút chỉ là công bình thường; ngày không đăng ký ca thì cả ngày là ngoài ca). Chỉ phần đã được duyệt giải trình mới tính công ngoài ca. Lượt bị từ chối không tính.</p>' +
     '<div class="tablewrap sticky"><table><thead><tr>' + COLS.map(function (h, i) { return '<th' + (i === 1 ? ' style="text-align:left"' : '') + '>' + h + '</th>'; }).join('') + '</tr></thead><tbody>' + body + '</tbody>' +
-    '<tfoot><tr><td>Tổng</td><td></td><td>' + T.days + '</td><td>' + T.shifts + '</td><td>' + T.leaveN + '</td><td>' + dur(T.mins) + '</td><td>' + dur(T.ot) + '</td><td>' + T.lateN + '</td><td>' + T.lateM + '</td><td>' + T.earlyN + '</td><td>' + T.earlyM + '</td><td>' + T.missOut + '</td><td>' + T.pending + '</td></tr></tfoot></table></div>' + liveTable(lv) + ppTable();
+    '<tfoot><tr><td>Tổng</td><td></td><td>' + T.days + '</td><td>' + T.shifts + '</td><td>' + T.leaveN + '</td><td>' + dur(T.mins) + '</td><td>' + dur(T.ot) + '</td><td>' + dur(T.otWait) + '</td><td>' + T.lateN + '</td><td>' + T.lateM + '</td><td>' + T.earlyN + '</td><td>' + T.earlyM + '</td><td>' + T.missOut + '</td><td>' + T.pending + '</td></tr></tfoot></table></div>' + liveTable(lv) + ppTable();
   $('#amSel').onchange = function (e) { if (e.target.value) { S.amonth = e.target.value; loadAdmin(); } };
   $('#copyT').onclick = function () {
     var tsv = [COLS].concat(tableData()).map(function (r) { return r.join('\t'); }).join('\n');
@@ -2062,7 +2103,7 @@ function renderAMonth() {
 }
 function tableData() {
   var all = monthRows();
-  var out = all.filter(function (o) { return o.st.group !== 'LIVE'; }).map(function (o) { return [o.st.name, o.st.role, o.days, o.shifts, o.leaveN, (o.mins / 60).toFixed(1).replace('.', ','), (o.ot / 60).toFixed(1).replace('.', ','), o.lateN, o.lateM, o.earlyN, o.earlyM, o.missOut, o.pending]; });
+  var out = all.filter(function (o) { return o.st.group !== 'LIVE'; }).map(function (o) { return [o.st.name, o.st.role, o.days, o.shifts, o.leaveN, (o.mins / 60).toFixed(1).replace('.', ','), (o.ot / 60).toFixed(1).replace('.', ','), (o.otWait / 60).toFixed(1).replace('.', ','), o.lateN, o.lateM, o.earlyN, o.earlyM, o.missOut, o.pending]; });
   var lv = all.filter(function (o) { return o.st.group === 'LIVE'; });
   if (lv.length) {
     var pad = function (r) { while (r.length < COLS.length) r.push(''); return r; };
@@ -2092,8 +2133,8 @@ function renderAReview() {
   var qHtml = qs.map(function (q) {
     return '<div class="reqcard"><div class="row" style="justify-content:space-between;flex-wrap:wrap"><b>' + esc(q.name) + ' · ' + esc(q.kind) + '</b><span class="mono small muted">' + rangeTxt(q) + '</span></div>' +
       (q.kind === 'Báo bận ca' ? (function () { var tm = busyTiming(q.from, q.ca.split('|')[1], q.created); return '<div class="row" style="flex-wrap:wrap"><b class="mono">' + esc(caTxt(q.ca)) + '</b><span class="pill ' + tm.cls + '">' + tm.txt + '</span></div>'; })() : '') +
-      (/^FIX\|/.test(q.ca || '') ? '<div><b class="mono">' + esc(reqCaTxt(q)) + '</b></div>' : '') +
-      (q.reason ? '<div>' + esc(q.reason) + '</div>' : '') + '<div class="small muted">Gửi lúc ' + esc(q.created) + (q.kind === 'Báo bận ca' ? ' · Duyệt thì ca này được gỡ khỏi lịch, không tính vắng' : '') + (/^FIX\|/.test(q.ca || '') ? ' · Duyệt thì giờ này được thêm vào công' : '') + '</div>' +
+      (/^(FIX|OT)\|/.test(q.ca || '') ? '<div><b class="mono">' + esc(reqCaTxt(q)) + '</b></div>' : '') +
+      (q.reason ? '<div>' + esc(q.reason) + '</div>' : '') + '<div class="small muted">Gửi lúc ' + esc(q.created) + (q.kind === 'Báo bận ca' ? ' · Duyệt thì ca này được gỡ khỏi lịch, không tính vắng' : '') + (/^FIX\|/.test(q.ca || '') ? ' · Duyệt thì giờ này được thêm vào công' : '') + (q.kind === 'Làm thêm giờ' ? ' · Duyệt thì giờ ngoài ca ngày này được tính công' : '') + '</div>' +
       '<div class="acts"><button class="btn sm" data-q="' + esc(q.id) + '" data-s="Đã duyệt">Duyệt</button><button class="btn bad sm" data-q="' + esc(q.id) + '" data-s="Từ chối">Từ chối</button></div></div>';
   }).join('');
   var rHtml = rs.map(function (r) {
