@@ -59,6 +59,23 @@ export default async function handler(req, res) {
       });
     }
 
+    // vw tam: soi cau truc variations_warehouses + product_attributes de tim "da ban". Loc bo field gia von.
+    if (req.query && req.query.vw) {
+      const bad = /price|import|von|cost|capital|profit|loi_nhuan|nhap|gia/i;
+      const clean = function (o) { const r = {}; Object.keys(o || {}).forEach(function (k) { if (!bad.test(k)) { const val = o[k]; if (val === null || typeof val !== "object") r[k] = val; else r[k] = "[" + (Array.isArray(val) ? "array" : "object") + "]"; } }); return r; };
+      const shoe = all.find(function (p) { const cats = (p.categories || []).map(function (c) { return (c.name || "").toLowerCase(); }).join(" "); return /gi[aà]y|dep|dép/.test(cats) && (p.variations || []).length; }) || {};
+      const v0 = (shoe.variations || [])[0] || {};
+      const vw0 = (v0.variations_warehouses || [])[0] || {};
+      const pa0 = (shoe.product_attributes || [])[0] || {};
+      return res.status(200).json({
+        ma: shoe.custom_id, display_id: shoe.display_id,
+        vw_keys: Object.keys(vw0), vw_sample: clean(vw0),
+        vw_count: (v0.variations_warehouses || []).length,
+        product_attributes_keys: Object.keys(pa0), product_attributes_sample: clean(pa0),
+        product_attributes_count: (shoe.product_attributes || []).length
+      });
+    }
+
     // diag tam thoi: liet ke tung san pham + ly do bi loc (KHONG tra gia von). Chi bat khi ?diag=1.
     if (req.query && req.query.diag) {
       const q = String(req.query.diag);
