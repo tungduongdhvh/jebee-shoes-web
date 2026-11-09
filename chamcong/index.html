@@ -416,7 +416,7 @@ function weekState(st, mon, regs) {
   return String(st.shift || '').trim() ? 'def' : 'none';
 }
 // Thống kê 1 ngày từ các lượt chấm (đã xếp theo giờ, bỏ lượt bị từ chối).
-var OT_STEP = 30; // giờ ngoài ca tính theo từng 30 phút tròn; phần lẻ dưới 30 phút chỉ là công bình thường
+var OT_STEP = 30; // giờ ngoài ca: cộng tất cả các đoạn ngoài ca trong ngày rồi làm tròn xuống bội 30 phút; phần lẻ chỉ là công bình thường
 function dayStats(recs, segs, date, today, nowMin) {
   var o = { mins: 0, inShift: 0, ot: 0, lateN: 0, lateM: 0, earlyN: 0, earlyM: 0, missOut: 0, shifts: 0, open: false, iv: [], first: null, last: null, n: recs.length };
   var open = null;
@@ -437,8 +437,9 @@ function dayStats(recs, segs, date, today, nowMin) {
         var r = []; if (q[0] < a) r.push([q[0], a]); if (q[1] > b) r.push([b, q[1]]); return r;
       }));
     });
-    parts.forEach(function (q) { o.ot += Math.floor((q[1] - q[0]) / OT_STEP) * OT_STEP; });
+    parts.forEach(function (q) { o.ot += q[1] - q[0]; });
   });
+  o.ot = Math.floor(o.ot / OT_STEP) * OT_STEP;
   if (!segs.length && o.first) o.shifts = 1;
   segs.forEach(function (g) {
     var a = toMin(g.start), b = toMin(g.end), mx = -1, ov = 0;
@@ -2043,7 +2044,7 @@ function aActTable(d, mon) {
   }).join('') + '<td></td></tr>';
   return '<div class="tablewrap sticky"><table class="sched team"><thead><tr><th>Nhân viên</th>' + dates.map(function (dt) { return '<th>' + WDS[dow(dt)] + ' ' + dm(dt) + '</th>'; }).join('') + '<th>Cả tuần</th></tr></thead><tbody>' + body + '</tbody>' +
     '<tfoot><tr><td colspan="9" class="lbl" style="text-align:left">Tổng theo ngày</td></tr>' + foot + '</tfoot></table></div>' +
-    '<p class="small muted" style="margin:8px 0 0">"Cả tuần": số ca đã làm / số ca đăng ký tính đến hôm nay và tổng giờ. "Ngoài ca": giờ làm ngoài ca đăng ký, tính theo từng ' + OT_STEP + ' phút tròn, chỉ vào công khi nhân viên giải trình và quản lý duyệt (tab Duyệt). <b>Bấm vào một ô</b> để thêm lượt chấm bị quên hoặc bỏ lượt chấm sai của ngày đó.</p>';
+    '<p class="small muted" style="margin:8px 0 0">"Cả tuần": số ca đã làm / số ca đăng ký tính đến hôm nay và tổng giờ. "Ngoài ca": giờ làm ngoài ca đăng ký, cộng cả ngày rồi tính theo từng ' + OT_STEP + ' phút tròn, chỉ vào công khi nhân viên giải trình và quản lý duyệt (tab Duyệt). <b>Bấm vào một ô</b> để thêm lượt chấm bị quên hoặc bỏ lượt chấm sai của ngày đó.</p>';
 }
 // Sửa công một ngày: xem các lượt chấm, bỏ lượt sai, thêm lượt bị quên
 function fixDay(id, date, mon) {
@@ -2149,7 +2150,7 @@ function renderAMonth() {
     '<div class="monthbar" style="padding-top:8px"><h2 style="font-size:20px">Bảng công tháng</h2><div class="row" style="flex-wrap:wrap">' +
     '<input type="month" id="amSel" value="' + S.amonth + '" aria-label="Chọn tháng">' +
     '<button class="btn sec sm" id="copyT">Sao chép bảng</button>' + (REAL ? '<button class="btn sm" id="expT">Xuất sang Google Sheet</button>' : '') + '</div></div>' +
-    '<p class="small muted" style="margin:8px 0 12px">Số ca = số buổi (sáng, chiều, linh hoạt) có mặt. Giờ làm = tổng các lượt vào → ra, không tính thời gian ra ngoài. Ngoài ca = giờ làm ngoài ca đã đăng ký, tính theo từng ' + OT_STEP + ' phút tròn (lẻ dưới ' + OT_STEP + ' phút chỉ là công bình thường; ngày không đăng ký ca thì cả ngày là ngoài ca). Chỉ phần đã được duyệt giải trình mới tính công ngoài ca. Lượt bị từ chối không tính.</p>' +
+    '<p class="small muted" style="margin:8px 0 12px">Số ca = số buổi (sáng, chiều, linh hoạt) có mặt. Giờ làm = tổng các lượt vào → ra, không tính thời gian ra ngoài. Ngoài ca = giờ làm ngoài ca đã đăng ký (đến sớm + về muộn cộng cả ngày), tính theo từng ' + OT_STEP + ' phút tròn (lẻ dưới ' + OT_STEP + ' phút chỉ là công bình thường; ngày không đăng ký ca thì cả ngày là ngoài ca). Chỉ phần đã được duyệt giải trình mới tính công ngoài ca. Lượt bị từ chối không tính.</p>' +
     '<div class="tablewrap sticky"><table><thead><tr>' + COLS.map(function (h, i) { return '<th' + (i === 1 ? ' style="text-align:left"' : '') + '>' + h + '</th>'; }).join('') + '</tr></thead><tbody>' + body + '</tbody>' +
     '<tfoot><tr><td>Tổng</td><td></td><td>' + T.days + '</td><td>' + T.shifts + '</td><td>' + T.leaveN + '</td><td>' + dur(T.mins) + '</td><td>' + dur(T.ot) + '</td><td>' + dur(T.otWait) + '</td><td>' + T.lateN + '</td><td>' + T.lateM + '</td><td>' + T.earlyN + '</td><td>' + T.earlyM + '</td><td>' + T.missOut + '</td><td>' + T.pending + '</td></tr></tfoot></table></div>' + liveTable(lv) + ppTable();
   $('#amSel').onchange = function (e) { if (e.target.value) { S.amonth = e.target.value; loadAdmin(); } };
