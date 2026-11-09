@@ -805,7 +805,8 @@ document.documentElement.classList.add('js');
     JB598:[678000,1064000], JB286:[734000,1165000], JB552:[702000,1114000], JB182:[260000,433000],
     JB569:[670000,1063000], JB1317:[624000,990000], JB2632:[678000,1076000], JB20:[670000,993000],
     JB5359:[750000,1300000], JB393:[632000,1016000], JB707:[726000,1081000], JB139:[670000,1148000],
-    JB111A:[899000,1447000], JB18:[518000,833000], JB08LOT:[200000,345000], JB02:[170000,275000], JB553:[734000,1165000]
+    JB111A:[899000,1447000], JB18:[518000,833000], JB08LOT:[200000,345000], JB02:[170000,275000], JB553:[734000,1165000],
+    JB708:[669000,1062000], JB619:[818000,1298000], JB622:[724000,1149000], JB367:[669000,1062000], JB5502:[716000,1137000]
   };
   // Tên mẫu TĨNH (mở modal tức thì khi vào link ?sp= trước khi POS tải xong; tên thật POS sẽ ghi đè)
   var PNAME={
@@ -832,10 +833,20 @@ document.documentElement.classList.add('js');
     JB111A:"Giày thể thao lông cừu Mông Cổ thật, giữ ấm chân, đế siêu mềm cao 5cm",
     JB18:"Bốt cổ len tăng chiều cao 8cm phong cách Hàn Quốc",
     JB08LOT:"Dép Sandal nữ đế xuồng hở mũi 6,5cm EVA cao cấp phong cách dễ thương",
-    JB02:"Dép Sandal nữ đế xuồng EVA cao cấp hottrend Triệu Lộ Tư", JB553:"Giày thể thao nữ độn đế 9cm lưới thoáng khí, siêu nhẹ, đi êm chân"
+    JB02:"Dép Sandal nữ đế xuồng EVA cao cấp hottrend Triệu Lộ Tư", JB553:"Giày thể thao nữ độn đế 9cm lưới thoáng khí, siêu nhẹ, đi êm chân",
+    JB708:"Giày sneaker da nữ độn đế tăng chiều cao 12cm siêu nhẹ, êm chân",
+    JB619:"Giày sneaker chunky nữ độn đế tăng chiều cao 10cm phong cách Hàn Quốc",
+    JB622:"Giày sneaker nữ kẻ sọc độn đế tăng chiều cao 11cm năng động",
+    JB367:"Giày sneaker cổ cao nữ độn đế tăng chiều cao 7cm cá tính",
+    JB5502:"Giày sneaker chunky nữ độn đế tăng chiều cao 10cm êm chân"
   };
   // ===== ẢNH GALLERY từ Google Drive (banner + ảnh thành phần), theo mã JB — thứ tự: banner trước =====
   var GIMG={
+    JB708:["1GbwE237ZnaxpGT6lFVr8vFTHy6qlVm6K","1HvgsKzkyROOUjM0vcSOuvOF7BOMmyGfZ","14aiVwKR14ZU9-SP50rsGiYUR3KKQVcEZ","17spIIR196xv0dztomW2cSl72wKDDDLFp","1I9BydW0y0YZT6h1ftZykzqxPaaWgCWEn","1MV8Pnz5kKBCBCc2erqKF5UKnq3DBiHYe"],
+    JB619:["1sigkEte8T0_ooDM5NiQ2U_N2uRwUT4C9","1KQVFaWI-IFZEdzQaV6qt88ZD_GCy9nIP","1YmosMGoU024qP9bpOhxBUXGgPea3vqFo","1QCOkl0VIcLucWWwCxu3rYbHNwI0bjV-l","11J9VTJjAcwj48JvGBbA3_WmghbHBckZ_","1od2naVoN37hPMG18Ivfr2pUY0WK5MSRK"],
+    JB622:["1bnYzcuEEq6pwj5Y3h8sqOd9O_nOTPNB0","1pSKCwrBaiT1u6Cu1NKLWS8f3H4QKi0u3","1NTelcarWVt031-7paXk4U4UEkFCJ4dRO","1cx2TslZGERQWjZN6ap9Molf3E29mBEXU","1Kf-sLvIENYgeqeI_2yOs44wsiwYg9NKo","1Ik-tM2gZoeuAyri6eZorcGuT8Y_MBxEm"],
+    JB367:["1lFWPxwwnjEY-qVurgGprozHUNxnNw30L","19tyPf25urABcEqca49IvgPfB6-8lMqBn","1qr-77WdbpPH02SdTjwpGGhc8Q6cPL6k5","1sp75_wfC3uZ9xIOAfdXseluoa-r41F0i","12pgYH_k2hOmYagnpBfGJvRf2tg7lGfAw","1zpFufwSk5Xwlj0QNY9CD3CkENDxz2oiu"],
+    JB5502:["1Ts_tRbbr-UVQe0NBz-OvlnCOtbmSs9hM","1pw8lqRgzO15qOMt8abqynRqmj6p8WgsZ","1RgAW4JNSFZTk0SX4bV-7mx2Bm1ODBuhk","1X4PcfoDdEYTVGYl_t2u8dO05b00U1Z9l","1hyS0m5fe4pfdCQTavD2Vsl2d2iLFocp3","1LCbFRbuX9V0uee7EIcANVgWpcyzqu9M2"],
     JB27:["1qYJZPKzdm8qVJoF28EqP0zY10bL4rAsI","1WENHVpzwrPvgrcer9LJZmOYNlacb05ji","1BBQ_ZI7PEe1VgskHKW9LFcEqYNw9_gKU","1buuvhk73Dxy4oamo1F1OJnRVXA-w9fcO","1dvQLqJd4A12nXW-dEevSElpcIkVDlh1j","1SyTyFamWQuNwfN8iITVkfQroejZHkoad","17CkN6U6oi-mEPR6__k3mhZz4AYhvQZId"],
     JB5359:["1BKbpExDZ7OwYCPwvUA4meF-E5WB1EwFe","12i0dE2oqJeXChR5E37abRd9NGGcHfkPH","1Gn0mOl0YR10so5nXPYyoFy9YTSlsECAt","1iT-Tfvk75V4clMDxXQDWGCNthEtZz7C5","1nUZs24WWgoyBN_u1juKVepRbxEpncnPM","1cLGPFn53-2SgHZZPwLIoVGi_-LBgeATF"],
     JB5536:["1-8TYA4Pmv9U9LX2hUankmWjzliKHVLf2","1yc9fWHuzFXkeUss23wWCm4fOmiiUz0m6","1XhsJZPFVDqUGXfUvbcGPMbtmUjUzjS5g","1UBCDOJXbg4MaSDWDUWohO6m1kPs2yTLY","1BAIblumg0RcMdtr-uhYj1EFYu5fIgVQH","1zOz0atWwFOJZs1faVcoqmNRQhbGrZkp_","1S7VXH5MuPEvak1WFQM14svnlKBqN7tn7"],
@@ -870,7 +881,8 @@ document.documentElement.classList.add('js');
     JB182:"1ryEHsda4pb8O0Vo9VmI7Abp8PFp3pLzc", JB597:"17Xrajt4Wpb4RvPzSnPhyr_34mWqS8HOL", JB707:"1uZ5rWnfg2eiPZEsMjSrxEIlg-kDu6uIm",
     JB25:"1m78g7PoUdAGIYjGxyCHqqpr3Jon7FNh-", JB02:"1Xtb3Isawx6CJAhceOJCXxvLIsH1EeMZT", JB111A:"1wJkd4ksvwe0yHHTMeHjU4J3kVTR8spdA",
     JB569:"19R1AZwgnUX4ZPANej_KOlwGlv0PV8awd", JB08LOT:"16sjIEnVVa45CVrtUfADTnFHE48fn4v6m", JB139:"17nQHByVxRJKCfAJ_K2ATPJLtdlj9M4EH",
-    JB17:"1WR2724uHumSC7jGyVVd2EhG1bqi__mia", JB1317:"1rPQpt7wq07plVsZUYbG4nU7gtCgE4a4b", JB18:"1olCjJho1ciRzvExwH8xK6lqy2-af5K-C"
+    JB17:"1WR2724uHumSC7jGyVVd2EhG1bqi__mia", JB1317:"1rPQpt7wq07plVsZUYbG4nU7gtCgE4a4b", JB18:"1olCjJho1ciRzvExwH8xK6lqy2-af5K-C",
+    JB708:"1GbwE237ZnaxpGT6lFVr8vFTHy6qlVm6K", JB619:"1sigkEte8T0_ooDM5NiQ2U_N2uRwUT4C9", JB622:"1bnYzcuEEq6pwj5Y3h8sqOd9O_nOTPNB0", JB367:"1lFWPxwwnjEY-qVurgGprozHUNxnNw30L", JB5502:"1Ts_tRbbr-UVQe0NBz-OvlnCOtbmSs9hM"
   };
   function gd(id){ return "https://lh3.googleusercontent.com/d/"+id+"=w1200"; }
   function driveImgs(ma){ var k=(ma||'').toUpperCase(); var a=GIMG[k]?GIMG[k].slice():[]; if(B29[k]){ if(a.length){ a[0]=B29[k]; } else { a=[B29[k]]; } } return a.map(gd); }
@@ -903,6 +915,36 @@ document.documentElement.classList.add('js');
   };
   // Mô tả THẬT theo tài liệu sản phẩm Jebee (Drive): mã -> HTML mô tả
   var DESC={
+    JB708:'<p><b>SNEAKER NỮ JEBEE – ĐỘN ĐẾ 12CM – DA TRƠN CAO CẤP</b><br><span style="color:var(--ink-soft)">Hack dáng đỉnh cao · Siêu nhẹ · Êm chân cả ngày</span></p>'
+      +'<p>Muốn cao vọt 12cm mà nhìn vẫn tự nhiên, không ai biết là giày độn? JB708 chính là "vũ khí" hack dáng cho nàng — tôn dáng tối đa nhưng đi lại nhẹ nhàng, thoải mái.</p>'
+      +'<p class="desc-h">✨ Điểm nổi bật</p><ul class="desc-feats"><li><b>Đế độn 12cm "tàng hình":</b> tăng chiều cao kịch trần mà dáng giày vẫn gọn, nhìn tự nhiên.</li><li><b>Da trơn cao cấp:</b> bề mặt mịn, chống trầy, dễ lau chùi, bền đẹp theo thời gian.</li><li><b>Đế Polyurethane siêu nhẹ:</b> đàn hồi tốt, giảm chấn, bám đường chống trượt.</li><li><b>Thiết kế thời trang:</b> màu đen dễ phối, hợp jeans, váy, đồ năng động.</li></ul>'
+      +'<p class="desc-h">📋 Thông tin sản phẩm</p><ul class="desc-feats"><li><b>Chiều cao đế:</b> 12cm</li><li><b>Chất liệu:</b> da trơn cao cấp + đế PU siêu nhẹ</li><li><b>Màu:</b> Đen</li><li><b>Size:</b> 34–39</li></ul>'
+      +'<p class="desc-h">📏 Hướng dẫn chọn size</p><p>Chọn đúng size thường đi; mu bàn chân dày hoặc hay mang tất thì <b>tăng 1 size</b>. Cần tư vấn: <a href="https://zalo.me/0396589658" target="_blank" rel="noopener">nhắn Zalo</a>.</p>'
+      +'<p class="desc-h">🧼 Bảo quản</p><p>Lau bằng khăn ẩm, để khô tự nhiên nơi thoáng mát; tránh phơi nắng gắt lâu để giữ form &amp; màu.</p>',
+    JB619:'<p><b>SNEAKER CHUNKY NỮ JEBEE – ĐỘN ĐẾ 10CM – PHONG CÁCH HÀN QUỐC</b><br><span style="color:var(--ink-soft)">Dáng "dad shoes" trendy · Êm nhẹ · Dễ phối đồ</span></p>'
+      +'<p>Kiểu sneaker chunky "dad shoes" đang hot — khỏe khoắn, cá tính mà vẫn nữ tính, giúp nàng hack 10cm chiều cao và ăn gian dáng cực đỉnh.</p>'
+      +'<p class="desc-h">✨ Điểm nổi bật</p><ul class="desc-feats"><li><b>Đế độn 10cm tôn dáng:</b> dày dặn mà đi vẫn vững, cân đối tổng thể.</li><li><b>Đế PU siêu nhẹ:</b> đàn hồi, êm chân cả ngày, chống trượt tốt.</li><li><b>Form chunky thời thượng:</b> dễ phối jeans, váy, đồ streetwear.</li><li><b>Nhiều màu:</b> Trắng, Xám, Đen — tha hồ chọn theo gu.</li></ul>'
+      +'<p class="desc-h">📋 Thông tin sản phẩm</p><ul class="desc-feats"><li><b>Chiều cao đế:</b> 10cm</li><li><b>Chất liệu:</b> da phối lưới + đế PU siêu nhẹ</li><li><b>Màu:</b> Trắng / Xám / Đen</li><li><b>Size:</b> 35–39</li></ul>'
+      +'<p class="desc-h">📏 Hướng dẫn chọn size</p><p>Hàng chuẩn size — chọn đúng size thường đi; chân mũm mĩm thì <b>tăng 1 size</b>. Tư vấn: <a href="https://zalo.me/0396589658" target="_blank" rel="noopener">nhắn Zalo</a>.</p>'
+      +'<p class="desc-h">🧼 Bảo quản</p><p>Vệ sinh bằng bàn chải mềm &amp; xà phòng loãng, để khô tự nhiên; tránh ngâm nước lâu.</p>',
+    JB622:'<p><b>SNEAKER NỮ JEBEE – ĐỘN ĐẾ 11CM – KẺ SỌC NĂNG ĐỘNG</b><br><span style="color:var(--ink-soft)">Trẻ trung thể thao · Tôn dáng · Êm chân</span></p>'
+      +'<p>Đôi sneaker kẻ sọc trẻ trung, phối màu tinh tế — vừa năng động vừa hack dáng 11cm, hợp từ đi học, đi làm đến dạo phố cuối tuần.</p>'
+      +'<p class="desc-h">✨ Điểm nổi bật</p><ul class="desc-feats"><li><b>Đế độn 11cm tự nhiên:</b> tăng chiều cao mà nhìn vẫn gọn gàng.</li><li><b>Đế PU siêu nhẹ:</b> êm ái, đàn hồi, bám đường tốt.</li><li><b>Thiết kế kẻ sọc:</b> điểm nhấn thể thao, dễ phối đồ.</li><li><b>Màu:</b> Trắng xanh / Trắng bạc tươi trẻ.</li></ul>'
+      +'<p class="desc-h">📋 Thông tin sản phẩm</p><ul class="desc-feats"><li><b>Chiều cao đế:</b> 11cm</li><li><b>Chất liệu:</b> da phối lưới + đế PU siêu nhẹ</li><li><b>Màu:</b> Trắng xanh / Trắng bạc</li><li><b>Size:</b> 35–39</li></ul>'
+      +'<p class="desc-h">📏 Hướng dẫn chọn size</p><p>Chọn đúng size thường đi; mu chân dày thì <b>tăng 1 size</b>. Cần hỗ trợ: <a href="https://zalo.me/0396589658" target="_blank" rel="noopener">nhắn Zalo</a>.</p>'
+      +'<p class="desc-h">🧼 Bảo quản</p><p>Lau bằng khăn ẩm/bàn chải mềm, để khô thoáng; tránh phơi nắng gắt.</p>',
+    JB367:'<p><b>SNEAKER CỔ CAO NỮ JEBEE – ĐỘN ĐẾ 7CM – CÁ TÍNH</b><br><span style="color:var(--ink-soft)">Phong cách đường phố · Êm chân · Chống trượt</span></p>'
+      +'<p>Giày sneaker cổ cao cá tính, đế chunky nổi bật — tăng 7cm chiều cao, ôm cổ chân chắc chắn, cho nàng phong cách street đầy khí chất.</p>'
+      +'<p class="desc-h">✨ Điểm nổi bật</p><ul class="desc-feats"><li><b>Đế độn 7cm:</b> hack dáng tự nhiên, cân đối, dễ đi.</li><li><b>Dáng cổ cao:</b> ôm &amp; nâng cổ chân, chắc chắn khi di chuyển.</li><li><b>Đế Polyurethane:</b> siêu nhẹ, chống trượt, bám đường tốt.</li><li><b>Da phối đế trắng:</b> điểm nhấn thời trang, dễ phối đồ.</li></ul>'
+      +'<p class="desc-h">📋 Thông tin sản phẩm</p><ul class="desc-feats"><li><b>Chiều cao đế:</b> 7cm</li><li><b>Chất liệu:</b> da cao cấp + đế PU</li><li><b>Màu:</b> Đen</li><li><b>Size:</b> 35–39</li></ul>'
+      +'<p class="desc-h">📏 Hướng dẫn chọn size</p><p>Chọn đúng size thường đi; chân mũm mĩm hoặc mang tất dày thì <b>tăng 1 size</b>. Tư vấn: <a href="https://zalo.me/0396589658" target="_blank" rel="noopener">nhắn Zalo</a>.</p>'
+      +'<p class="desc-h">🧼 Bảo quản</p><p>Lau bằng khăn ẩm, để khô tự nhiên; tránh ngâm nước và phơi nắng gắt lâu.</p>',
+    JB5502:'<p><b>SNEAKER CHUNKY NỮ JEBEE – ĐỘN ĐẾ 10CM – ÊM NHẸ</b><br><span style="color:var(--ink-soft)">Dáng dày trendy · Siêu nhẹ · Êm chân cả ngày</span></p>'
+      +'<p>Sneaker chunky đế dày trendy, hack 10cm chiều cao — khỏe khoắn, dễ phối, đi êm cả ngày không mỏi. Lựa chọn "ăn gian dáng" cho nàng yêu phong cách năng động.</p>'
+      +'<p class="desc-h">✨ Điểm nổi bật</p><ul class="desc-feats"><li><b>Đế độn 10cm:</b> tôn dáng tối đa mà vẫn dễ đi.</li><li><b>Đế PU siêu nhẹ:</b> đàn hồi, giảm chấn, chống trượt.</li><li><b>Form chunky:</b> cá tính, dễ phối jeans/váy/đồ thể thao.</li><li><b>Màu:</b> Đen / Trắng kem sang xịn.</li></ul>'
+      +'<p class="desc-h">📋 Thông tin sản phẩm</p><ul class="desc-feats"><li><b>Chiều cao đế:</b> 10cm</li><li><b>Chất liệu:</b> da phối lưới + đế PU siêu nhẹ</li><li><b>Màu:</b> Đen / Trắng kem</li><li><b>Size:</b> 35–39</li></ul>'
+      +'<p class="desc-h">📏 Hướng dẫn chọn size</p><p>Hàng chuẩn size — chọn đúng size thường đi; chân mũm mĩm thì <b>tăng 1 size</b>. Tư vấn: <a href="https://zalo.me/0396589658" target="_blank" rel="noopener">nhắn Zalo</a>.</p>'
+      +'<p class="desc-h">🧼 Bảo quản</p><p>Vệ sinh bằng bàn chải mềm, để khô thoáng; tránh ngâm nước lâu &amp; phơi nắng gắt.</p>',
     JB02:'<p><b>SANDAL NỮ ĐẾ XUỒNG JEBEE JB02 – HACK DÁNG 9CM</b><br><span style="color:var(--ink-soft)">Siêu nhẹ · Chống nước · Phong cách tối giản &amp; đường phố</span></p>'
       +'<p>Bạn muốn sở hữu đôi chân dài miên man và phong cách trẻ trung như các "nàng thơ" Hoa Ngữ? Siêu phẩm <b>Sandal JB02</b> từ <b>Jebee Shoes</b> chính là bí quyết giúp bạn thăng hạng nhan sắc, tự tin sải bước với chiều cao đột phá nhưng vẫn cực kỳ thoải mái.</p>'
       +'<p class="desc-h">✨ Vì sao JB02 là "siêu phẩm" hot trend?</p>'
