@@ -76,6 +76,33 @@ export default async function handler(req, res) {
       });
     }
 
+    // sold tam: test endpoint analytics/sale lay so da ban theo product_id. Chi bat khi ?sold=1.
+    if (req.query && req.query.sold) {
+      const since = "2024-01-01T00:00:00Z";
+      const until = new Date().toISOString();
+      const sUrl = base + "/analytics/sale?api_key=" + encodeURIComponent(key)
+        + "&since=" + encodeURIComponent(since) + "&until=" + encodeURIComponent(until)
+        + "&split_by[]=" + encodeURIComponent("Variation.product_id");
+      const sr = await fetch(sUrl);
+      if (!sr.ok) return res.status(200).json({ loi: "analytics/sale tra ve " + sr.status, url_thu: sUrl.replace(key, "***") });
+      const sj = await sr.json();
+      const data = (sj && sj.data) || [];
+      // map product_id -> custom_id
+      const idToMa = {};
+      all.forEach(function (p) { idToMa[String(p.id)] = p.custom_id || String(p.display_id); });
+      const rows = data.map(function (d) {
+        const pid = d["Variation.product_id"];
+        const sold = d.success && typeof d.success.product_count === "number" ? d.success.product_count : null;
+        return { product_id: pid, ma: idToMa[String(pid)] || null, da_ban: sold };
+      }).filter(function (r) { return r.da_ban !== null; }).sort(function (a, b) { return b.da_ban - a.da_ban; });
+      return res.status(200).json({
+        ok: !!sj.success, so_dong: data.length,
+        sample_raw: data.slice(0, 2),
+        top15: rows.slice(0, 15),
+        tong_co_ma: rows.filter(function (r) { return r.ma; }).length
+      });
+    }
+
     // diag tam thoi: liet ke tung san pham + ly do bi loc (KHONG tra gia von). Chi bat khi ?diag=1.
     if (req.query && req.query.diag) {
       const q = String(req.query.diag);
