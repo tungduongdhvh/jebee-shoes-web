@@ -421,7 +421,13 @@ function weekState(st, mon, regs) {
 var OT_STEP = 30; // giờ ngoài ca: cộng tất cả các đoạn ngoài ca trong ngày rồi làm tròn xuống bội 30 phút; phần lẻ chỉ là công bình thường
 function dayStats(recs, segs, date, today, nowMin) {
   var o = { mins: 0, inShift: 0, ot: 0, lateN: 0, lateM: 0, earlyN: 0, earlyM: 0, missOut: 0, shifts: 0, open: false, iv: [], first: null, last: null, n: recs.length };
-  var open = null;
+  var open = null, seenSeg = [];
+  recs.forEach(function (r) {
+    if (r.type !== 'IN') return;
+    var g = segAt(segs, r.time), lt = 0;
+    if (g && seenSeg.indexOf(g) < 0) { seenSeg.push(g); var d0 = Math.floor(toMin(r.time) - toMin(g.start)); if (d0 > (+g.grace || 0)) lt = d0; }
+    r.late = lt;
+  });
   recs.forEach(function (r) {
     var m = toMin(r.time);
     if (r.type === 'IN') { if (!o.first) o.first = r; if (r.late) { o.lateN++; o.lateM += r.late; } if (open == null) open = m; }
