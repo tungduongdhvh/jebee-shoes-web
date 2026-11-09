@@ -154,7 +154,7 @@ export default async function handler(req, res) {
     });
 
     // Sap xep best-seller: 5 mau moi luon len dau, con lai theo SO DA BAN giam dan.
-    // So da ban = product_count (da tru tra/doi) tu analytics/sale. KHONG lo so ban ra client (chi dung de sort).
+    // So da ban = product_count (da tru tra/doi) tu analytics/sale. Hien "Da ban X" tren web + dung de sort.
     const NEW5 = ["JB708", "JB619", "JB622", "JB367", "JB5502"];
     let soldMap = null;
     try {
@@ -175,16 +175,15 @@ export default async function handler(req, res) {
       }
     } catch (e) { soldMap = null; }
 
-    out.forEach(function (p) { p._sold = (soldMap && soldMap[(p.ma || "").toUpperCase()]) || 0; });
+    out.forEach(function (p) { p.da_ban = (soldMap && soldMap[(p.ma || "").toUpperCase()]) || 0; });
     out.sort(function (a, b) {
       const na = NEW5.indexOf((a.ma || "").toUpperCase());
       const nb = NEW5.indexOf((b.ma || "").toUpperCase());
       if (na >= 0 && nb >= 0) return na - nb;  // giu thu tu NEW5
       if (na >= 0) return -1;
       if (nb >= 0) return 1;
-      return b._sold - a._sold;                 // ban nhieu len truoc
+      return b.da_ban - a.da_ban;               // ban nhieu len truoc
     });
-    out.forEach(function (p) { delete p._sold; });
 
     res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=300");
     return res.status(200).json({ tong: out.length, san_pham: out });

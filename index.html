@@ -1140,10 +1140,13 @@ document.documentElement.classList.add('js');
     JB18:{b:1528,s:4.6}, JB08LOT:{b:1200,s:4.8}, JB111A:{b:12,s:5.0}, JB02:{b:673,s:4.8}
   };
   function fmtSold(n){ n=+n||0; return String(n).replace(/\B(?=(\d{3})+(?!\d))/g,'.'); }
+  var DABAN={};  // mã -> SỐ ĐÃ BÁN THẬT từ POS (analytics/sale product_count), đổ vào khi tải PRODUCTS. Số sao vẫn lấy từ SOLD.
   function soldLine(ma){
-    var d=SOLD[(ma||'').toUpperCase()];
-    if(d) return '<span class="st">★</span> '+d.s.toFixed(1).replace('.',',')+' · Đã bán '+fmtSold(d.b);
-    return '<span class="st">★</span> 4.8 · Còn hàng';
+    var k=(ma||'').toUpperCase(); var d=SOLD[k];
+    var rate=(d?d.s:4.8).toFixed(1).replace('.',',');
+    var sold=DABAN[k]||0;
+    if(sold>0) return '<span class="st">★</span> '+rate+' · Đã bán '+fmtSold(sold);
+    return '<span class="st">★</span> '+rate+' · Còn hàng';
   }
   // Bỏ dấu tiếng Việt để tìm kiếm không phân biệt dấu (vd "long cuu" khớp "lông cừu")
   function srchNorm(s){ return (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/g,'d').replace(/\s+/g,' ').trim(); }
@@ -1291,9 +1294,11 @@ document.documentElement.classList.add('js');
     // Lượt bán + sao THẬT (TikTok nền + đơn web) trong trang đặt hàng
     var pdS=document.getElementById('pdSold');
     if(pdS){
-      var sd=SOLD[p.ma.toUpperCase()]; var ag=(window.AGG||{})[p.ma.toUpperCase()];
-      if(sd){ var tong=sd.b+((ag&&ag.ban)||0); pdS.innerHTML='<span class="st">★</span> '+sd.s.toFixed(1).replace('.',',')+' · Đã bán '+fmtSold(tong)+' · Freeship toàn quốc'; }
-      else{ pdS.innerHTML='<span class="st">★</span> 4,8 · Freeship toàn quốc · Đổi size 15 ngày'; }
+      var k=p.ma.toUpperCase(); var sd=SOLD[k]; var ag=(window.AGG||{})[k];
+      var rate=(sd?sd.s:4.8).toFixed(1).replace('.',',');
+      var sold=(p.da_ban!=null?p.da_ban:(DABAN[k]||0));
+      if(sold>0){ pdS.innerHTML='<span class="st">★</span> '+rate+' · Đã bán '+fmtSold(sold)+' · Freeship toàn quốc'; }
+      else{ pdS.innerHTML='<span class="st">★</span> '+rate+' · Freeship toàn quốc · Đổi size 15 ngày'; }
     }
     // Nhãn nút "Xem đánh giá" kèm số lượng thật (nếu có)
     var pdJumpT=document.querySelector('#pdToReviews .pd-jump-t');
@@ -1424,12 +1429,9 @@ document.documentElement.classList.add('js');
       document.querySelectorAll('#grid .card').forEach(function(c){
         var ma=(c.getAttribute('data-ma')||'').toUpperCase();
         var a=AGG[ma]; var sd=SOLD[ma]; var sold=c.querySelector('.sold'); if(!sold) return;
-        if(sd){ // số TikTok (nền) + số đơn web mới (cộng dồn thực tế)
-          var tong=sd.b + ((a&&a.ban)||0);
-          sold.innerHTML='<span class="st">★</span> '+sd.s.toFixed(1).replace('.',',')+' · Đã bán '+fmtSold(tong);
-        } else if(a && a.n){
-          sold.innerHTML='<span class="st">★</span> '+a.avg.toFixed(1)+' · '+a.n+' đánh giá';
-        }
+        var db=DABAN[ma]||0; var rate=(sd?sd.s:4.8).toFixed(1).replace('.',',');
+        if(db>0){ sold.innerHTML='<span class="st">★</span> '+rate+' · Đã bán '+fmtSold(db); }
+        else if(a && a.n){ sold.innerHTML='<span class="st">★</span> '+a.avg.toFixed(1)+' · '+a.n+' đánh giá'; }
       });
     }).catch(function(){});
   }
@@ -1895,7 +1897,7 @@ document.documentElement.classList.add('js');
       (p.variations||[]).forEach(function(v){ if(v.anh && !seen[v.anh]){ seen[v.anh]=1; imgs.push(v.anh); } });
       if(!imgs.length && p.anh) imgs=[p.anh];
       imgs.slice(0,3).forEach(function(src,ix){
-        var s={ p:p, img:src, cm:(cmm?cmm[1]:''), sold:(sd?sd.b:null), stars:(sd?sd.s:null) };
+        var s={ p:p, img:src, cm:(cmm?cmm[1]:''), sold:(p.da_ban>0?p.da_ban:null), stars:(sd?sd.s:null) };
         (ix===0?firsts:extras).push(s);
       });
     });
@@ -1963,6 +1965,8 @@ document.documentElement.classList.add('js');
     });
     // Tên hiển thị web = tên SEO trong PNAME (nếu có), đè tên POS. Giữ p.ten_goc = tên POS gốc cho parse cm/chiều cao.
     PRODUCTS.forEach(function(p){ var seo=PNAME[(p.ma||'').toUpperCase()]; if(seo) p.ten=seo; });
+    // Đổ số đã bán THẬT từ POS vào map DABAN (dùng cho badge "Đã bán X" ở thẻ + chi tiết + hero).
+    PRODUCTS.forEach(function(p){ DABAN[(p.ma||'').toUpperCase()]=p.da_ban||0; });
     // Thứ tự = theo API trả về (đã sắp best-seller server-side: 5 mẫu mới lên đầu, còn lại theo số đã bán giảm dần). Giữ nguyên, không re-sort.
     if(!PRODUCTS.length){ loadinfo.textContent='Đang cập nhật sản phẩm, vui lòng nhắn Zalo để đặt hàng.'; return; }
     loadinfo.style.display='none';
