@@ -938,13 +938,16 @@ function summarize(st, records, requests, regs, month, today, nowMin) {
     if (r.review === 'rejected') return;
     (by[r.date] = by[r.date] || []).push(r);
   });
-  var o = { st: st, byDay: {}, days: 0, shifts: 0, mins: 0, ot: 0, otWait: 0, otDays: [], liveMins: 0, workDates: {}, lateN: 0, lateM: 0, earlyN: 0, earlyM: 0, missOut: 0, pending: pending, leave: leaveMap(st.id, requests, month) };
+  var lateOk = {};
+  (requests || []).forEach(function (q) { if (q.staffId === st.id && q.kind === 'Đi muộn' && q.status === 'Đã duyệt') for (var d0 = q.from; d0 && d0 <= (q.to || q.from); d0 = addDays(d0, 1)) lateOk[d0] = 1; });
+  var o = { st: st, byDay: {}, days: 0, shifts: 0, mins: 0, ot: 0, otWait: 0, otDays: [], liveMins: 0, lateFineM: 0, lateExM: 0, workDates: {}, lateN: 0, lateM: 0, earlyN: 0, earlyM: 0, missOut: 0, pending: pending, leave: leaveMap(st.id, requests, month) };
   Object.keys(by).forEach(function (d) {
     var recs = by[d].sort(function (a, b) { return a.time < b.time ? -1 : 1; });
     var sgd = segs(st, d, regs), x = dayStats(recs, sgd, d, today, nowMin);
     x.recs = recs; o.byDay[d] = x;
     if (x.first) o.days++;
     ['shifts', 'mins', 'lateN', 'lateM', 'earlyN', 'earlyM', 'missOut'].forEach(function (k) { o[k] += x[k]; });
+    if (x.lateM) { if (lateOk[d]) { x.lateEx = true; o.lateExM += x.lateM; } else o.lateFineM += x.lateM; }
     if (x.ot) { x.otSt = otState(st.id, d, requests); if (x.otSt === 'ok') o.ot += x.ot; else { o.otWait += x.ot; o.otDays.push(d); } }
     o.liveMins += sgd.length ? x.inShift : x.mins; // giờ live: chỉ phần nằm trong ca đã đăng ký
     if (x.first) o.workDates[d] = 1;
@@ -1106,7 +1109,7 @@ function renderPP() {
   mine.forEach(function (t) { if (String(t.created).slice(0, 7) !== month) return; var st = ppState(t); if (st === 'Đã chốt' || st === 'Đã duyệt') chot += t2(t); else if (st === 'Khiếu nại') kn += t2(t); });
   // phút đi muộn tháng này: lấy từ dữ liệu Công tháng (tải nếu chưa có)
   var hm0 = S.hist && S.histKey === month ? S.hist : null, lateM = null;
-  if (hm0) { var nn = vnNow(S.offset); lateM = summarize(S.me, hm0.records, hm0.requests, hm0.regs, month, nn.date, toMin(nn.time)).lateM; }
+  if (hm0) { var nn = vnNow(S.offset); var smx = summarize(S.me, hm0.records, hm0.requests, hm0.regs, month, nn.date, toMin(nn.time)); lateM = smx.lateFineM; var lateEx = smx.lateExM; }
   else if (!S.ppHistBusy) {
     S.ppHistBusy = true;
     api('history', { id: S.cred.id, pin: S.cred.pin, month: month }).then(function (d) { S.ppHistBusy = false; S.month = month; S.hist = d; S.histKey = month; if (S.tab === 'pp' && !$('#scrim')) renderPP(); }).catch(function () { S.ppHistBusy = false; });
@@ -1115,7 +1118,7 @@ function renderPP() {
   $('#main').innerHTML =
     '<div class="monthbar" style="padding-top:8px"><h2 style="font-size:20px">Phiếu phạt</h2><button class="btn sm" id="ppNew">Lập phiếu phạt</button></div>' +
     '<div class="tiles" style="margin-top:12px"><div class="tile"><div class="lbl">Tổng tiền phạt tháng ' + month.slice(5) + '</div><div class="v' + (chot + lf ? ' bad' : '') + '">' + (lateM == null ? '…' : money(chot + lf)) + '</div><div class="small muted">Đi muộn + phiếu phạt đã duyệt</div></div>' +
-    '<div class="tile"><div class="lbl">Phạt đi muộn</div><div class="v">' + (lateM == null ? '…' : money(lf)) + '</div><div class="small muted">' + (lateM == null ? 'Đang tính…' : lateM + ' phút × ' + money(lateRate())) + '</div></div>' +
+    '<div class="tile"><div class="lbl">Phạt đi muộn</div><div class="v">' + (lateM == null ? '…' : money(lf)) + '</div><div class="small muted">' + (lateM == null ? 'Đang tính…' : lateM + ' phút × ' + money(lateRate()) + (lateEx ? ' · miễn ' + lateEx + ' phút có đơn' : '')) + '</div></div>' +
     '<div class="tile"><div class="lbl">Phiếu phạt đã duyệt</div><div class="v">' + money(chot) + '</div><div class="small muted">Gồm cả phiếu còn hạn khiếu nại</div></div>' +
     '<div class="tile"><div class="lbl">Đang khiếu nại</div><div class="v">' + money(kn) + '</div><div class="small muted">Chưa tính vào tổng</div></div></div>' + ppSearchBox('ppS') +
     '<div class="sechead"><h2>Phiếu phạt của bạn</h2></div><div class="list">' + (mine.map(function (t) { return ppCard(t, true); }).join('') || '<div class="empty">Bạn không có phiếu phạt nào.</div>') + '</div>' +
@@ -1327,18 +1330,18 @@ function ppFineRows() {
   var byId = {};
   ((S.ad && S.ad.pp) || []).forEach(function (t) { if (String(t.created).slice(0, 7) === m) byId[t.staffId] = 1; });
   return monthRows().map(function (o) {
-    var x = sums[o.st.name] || { chot: 0, cho: 0, kn: 0, n: 0 }, lf = lateFine(o.lateM);
-    return { name: o.st.name, role: o.st.role, lateN: o.lateN, lateM: o.lateM, lf: lf, chot: x.chot, cho: x.cho, kn: x.kn, n: x.n, total: lf + x.chot + x.cho };
-  }).filter(function (x) { return x.lateM || x.n; }).sort(function (a, b) { return b.total - a.total; });
+    var x = sums[o.st.name] || { chot: 0, cho: 0, kn: 0, n: 0 }, lf = lateFine(o.lateFineM);
+    return { name: o.st.name, role: o.st.role, lateN: o.lateN, lateM: o.lateFineM, lateEx: o.lateExM, lf: lf, chot: x.chot, cho: x.cho, kn: x.kn, n: x.n, total: lf + x.chot + x.cho };
+  }).filter(function (x) { return x.lateM || x.lateEx || x.n; }).sort(function (a, b) { return b.total - a.total; });
 }
 function ppFineTable() {
   var rows = ppFineRows(), T = { lateM: 0, lf: 0, chot: 0, cho: 0, kn: 0, total: 0 };
   rows.forEach(function (x) { for (var k in T) T[k] += x[k]; });
-  var head = '<div class="sechead" style="margin-top:8px"><h2>Tiền phạt tháng ' + S.amonth.slice(5) + '/' + S.amonth.slice(0, 4) + '</h2><span class="muted small">Đi muộn ' + money(lateRate()) + '/phút · phiếu theo ngày lập</span></div>';
+  var head = '<div class="sechead" style="margin-top:8px"><h2>Tiền phạt tháng ' + S.amonth.slice(5) + '/' + S.amonth.slice(0, 4) + '</h2><span class="muted small">Đi muộn ' + money(lateRate()) + '/phút (miễn ngày có đơn Đi muộn đã duyệt) · phiếu theo ngày lập</span></div>';
   if (!rows.length) return head + '<div class="list"><div class="empty">Tháng này chưa ai bị phạt.</div></div>';
   return head + '<div class="tablewrap"><table style="min-width:640px"><thead><tr><th>Nhân viên</th><th>Tổng tiền phạt</th><th>Đi muộn</th><th>Phạt đi muộn</th><th>Phiếu đã chốt</th><th>Phiếu chờ chốt</th><th>Đang khiếu nại</th></tr></thead><tbody>' +
     rows.map(function (x) {
-      return '<tr><td><b>' + esc(x.name) + '</b></td><td class="' + (x.total ? 'hl-bad' : '') + '"><b>' + money(x.total) + '</b></td><td>' + (x.lateM ? x.lateN + ' lần · ' + x.lateM + 'p' : '0') + '</td><td>' + money(x.lf) + '</td><td>' + money(x.chot) + '</td><td>' + money(x.cho) + '</td><td>' + money(x.kn) + '</td></tr>';
+      return '<tr><td><b>' + esc(x.name) + '</b></td><td class="' + (x.total ? 'hl-bad' : '') + '"><b>' + money(x.total) + '</b></td><td>' + (x.lateM || x.lateEx ? x.lateN + ' lần · ' + x.lateM + 'p bị phạt' + (x.lateEx ? '<div class="small muted">miễn ' + x.lateEx + 'p có đơn</div>' : '') : '0') + '</td><td>' + money(x.lf) + '</td><td>' + money(x.chot) + '</td><td>' + money(x.cho) + '</td><td>' + money(x.kn) + '</td></tr>';
     }).join('') +
     '</tbody><tfoot><tr><td>Tổng</td><td>' + money(T.total) + '</td><td>' + T.lateM + 'p</td><td>' + money(T.lf) + '</td><td>' + money(T.chot) + '</td><td>' + money(T.cho) + '</td><td>' + money(T.kn) + '</td></tr></tfoot></table></div>' +
     '<p class="small muted" style="margin:8px 0 0">Tổng = phạt đi muộn + phiếu đã chốt + phiếu đã duyệt còn hạn khiếu nại. Phiếu đang khiếu nại chưa tính, sếp xử lý xong mới cộng vào.</p>';
@@ -1833,7 +1836,7 @@ function loadHist() {
 function dayBadges(x, lv, hasPending) {
   var b = '';
   if (x) {
-    if (x.lateN) b += '<span class="pill p-warn">Muộn ' + mt(x.lateM) + '</span>';
+    if (x.lateN) b += x.lateEx ? '<span class="pill p-mute">Muộn ' + mt(x.lateM) + ' · có đơn, không phạt</span>' : '<span class="pill p-warn">Muộn ' + mt(x.lateM) + ' · phạt ' + money(lateFine(x.lateM)) + '</span>';
     if (x.earlyN) b += '<span class="pill p-warn">Về sớm ' + mt(x.earlyM) + '</span>';
     if (x.missOut) b += '<span class="pill p-bad">Quên chấm ra</span>';
   }
@@ -1864,7 +1867,7 @@ function renderHist() {
     '<div class="tile"><div class="lbl">Giờ làm</div><div class="v">' + dur(sm.mins) + (sm.ot || sm.otWait ? ' <small>· ngoài ca ' + dur(sm.ot) + (sm.otWait ? ', chưa duyệt ' + dur(sm.otWait) : '') + '</small>' : '') + '</div></div>' +
     '<div class="tile"><div class="lbl">Đi muộn</div><div class="v">' + sm.lateN + ' <small>lần · ' + sm.lateM + ' phút</small></div></div>' +
     '<div class="tile"><div class="lbl">Về sớm / quên ra</div><div class="v">' + sm.earlyN + ' <small>/</small> ' + sm.missOut + '</div></div></div>') +
-    ppMonthLine(S.me.id, S.month, S.pp, sm.lateM) +
+    ppMonthLine(S.me.id, S.month, S.pp, sm.lateFineM) + (sm.lateExM ? '<p class="small muted" style="margin:4px 0 0">Miễn phạt ' + sm.lateExM + ' phút đi muộn ở các ngày có đơn Đi muộn đã duyệt.</p>' : '') +
     '<div class="sechead"><h2>Từng ngày</h2><span class="muted small">Giờ làm = tổng các lượt vào → ra</span></div>' +
     '<div class="list">' + (rows || '<div class="empty">Chưa có dữ liệu tháng này.</div>') + '</div>';
   $('#mSel').onchange = function (e) { if (e.target.value) { S.month = e.target.value; loadHist(); } };
