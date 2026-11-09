@@ -59,6 +59,48 @@ export default async function handler(req, res) {
       });
     }
 
+    // diag tam thoi: liet ke tung san pham + ly do bi loc (KHONG tra gia von). Chi bat khi ?diag=1.
+    if (req.query && req.query.diag) {
+      const q = String(req.query.diag);
+      const shoeRe = /gi[aà]y|dep|dép/;
+      const nameBlockRe = /t[aấ]t|v[oớ]|^l[oó]t\b|thanh l[íy]/;
+      const rows = all.map(function (p) {
+        const cats = (p.categories || []).map(function (c) { return (c.name || "").toLowerCase(); }).join(" ");
+        const ten = cleanName(p.name);
+        const vars = (p.variations || []).filter(function (v) { return !v.is_removed && !v.is_hidden; });
+        let giaMin = null;
+        vars.forEach(function (v) { const g = v.retail_price_after_discount || v.retail_price || 0; if (g > 0 && (giaMin === null || g < giaMin)) giaMin = g; });
+        const inShoe = shoeRe.test(cats);
+        const nameBlocked = nameBlockRe.test(ten.toLowerCase());
+        const shown = inShoe && !nameBlocked && giaMin !== null;
+        let ly_do = "HIEN";
+        if (!shown) {
+          if (!inShoe) ly_do = "KHONG thuoc danh muc giay/dep (cat=" + cats + ")";
+          else if (nameBlocked) ly_do = "Ten bi chan (tat/vo/lot/thanh ly)";
+          else if (giaMin === null) ly_do = "KHONG co bien the ban duoc (0 bien the co gia>0, " + (p.variations || []).length + " bien the tong)";
+        }
+        return {
+          ma: p.custom_id || null,
+          display_id: p.display_id,
+          ten_goc: p.name,
+          so_bien_the: (p.variations || []).length,
+          bien_the_ban_duoc: giaMin !== null,
+          trong_danh_muc_giay: inShoe,
+          hien_tren_web: shown,
+          ly_do: ly_do
+        };
+      });
+      let filtered = rows;
+      if (q !== "1" && q !== "all") {
+        const codes = q.toUpperCase().split(/[,\s]+/).filter(Boolean);
+        filtered = rows.filter(function (r) {
+          const hay = ((r.ma || "") + " " + (r.ten_goc || "")).toUpperCase();
+          return codes.some(function (c) { return hay.indexOf(c) >= 0; });
+        });
+      }
+      return res.status(200).json({ tong_tho: all.length, tim_thay: filtered.length, san_pham: filtered });
+    }
+
     const inShoeCat = function (p) {
       const cats = (p.categories || []).map(function (c) { return (c.name || "").toLowerCase(); }).join(" ");
       return /gi[aà]y|dep|dép/.test(cats);
