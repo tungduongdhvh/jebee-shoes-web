@@ -1959,6 +1959,8 @@ document.documentElement.classList.add('js');
       if(!p.anh) return false; // chỉ đăng mẫu ĐÃ có ảnh (mẫu chưa ảnh bổ sung sau)
       return p.variations.some(function(v){ return v.ton>0; });
     });
+    // Tên hiển thị web = tên SEO trong PNAME (nếu có), đè tên POS. Giữ p.ten_goc = tên POS gốc cho parse cm/chiều cao.
+    PRODUCTS.forEach(function(p){ var seo=PNAME[(p.ma||'').toUpperCase()]; if(seo) p.ten=seo; });
     // sắp best-seller: nhiều tồn lên trước? giữ thứ tự POS nhưng đưa mẫu có ảnh lên trước
     PRODUCTS.sort(function(a,b){ return (b.images.length>0?1:0)-(a.images.length>0?1:0); });
     if(!PRODUCTS.length){ loadinfo.textContent='Đang cập nhật sản phẩm, vui lòng nhắn Zalo để đặt hàng.'; return; }
