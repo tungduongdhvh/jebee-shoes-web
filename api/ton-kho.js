@@ -59,50 +59,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // vw tam: soi cau truc variations_warehouses + product_attributes de tim "da ban". Loc bo field gia von.
-    if (req.query && req.query.vw) {
-      const bad = /price|import|von|cost|capital|profit|loi_nhuan|nhap|gia/i;
-      const clean = function (o) { const r = {}; Object.keys(o || {}).forEach(function (k) { if (!bad.test(k)) { const val = o[k]; if (val === null || typeof val !== "object") r[k] = val; else r[k] = "[" + (Array.isArray(val) ? "array" : "object") + "]"; } }); return r; };
-      const shoe = all.find(function (p) { const cats = (p.categories || []).map(function (c) { return (c.name || "").toLowerCase(); }).join(" "); return /gi[aà]y|dep|dép/.test(cats) && (p.variations || []).length; }) || {};
-      const v0 = (shoe.variations || [])[0] || {};
-      const vw0 = (v0.variations_warehouses || [])[0] || {};
-      const pa0 = (shoe.product_attributes || [])[0] || {};
-      return res.status(200).json({
-        ma: shoe.custom_id, display_id: shoe.display_id,
-        vw_keys: Object.keys(vw0), vw_sample: clean(vw0),
-        vw_count: (v0.variations_warehouses || []).length,
-        product_attributes_keys: Object.keys(pa0), product_attributes_sample: clean(pa0),
-        product_attributes_count: (shoe.product_attributes || []).length
-      });
-    }
-
-    // sold tam: test endpoint analytics/sale lay so da ban theo product_id. Chi bat khi ?sold=1.
-    if (req.query && req.query.sold) {
-      const since = "2024-01-01T00:00:00Z";
-      const until = new Date().toISOString();
-      const sUrl = base + "/analytics/sale?api_key=" + encodeURIComponent(key)
-        + "&since=" + encodeURIComponent(since) + "&until=" + encodeURIComponent(until)
-        + "&split_by[]=" + encodeURIComponent("Variation.product_id");
-      const sr = await fetch(sUrl);
-      if (!sr.ok) return res.status(200).json({ loi: "analytics/sale tra ve " + sr.status, url_thu: sUrl.replace(key, "***") });
-      const sj = await sr.json();
-      const data = (sj && sj.data) || [];
-      // map product_id -> custom_id
-      const idToMa = {};
-      all.forEach(function (p) { idToMa[String(p.id)] = p.custom_id || String(p.display_id); });
-      const rows = data.map(function (d) {
-        const pid = d["Variation.product_id"];
-        const sold = d.success && typeof d.success.product_count === "number" ? d.success.product_count : null;
-        return { product_id: pid, ma: idToMa[String(pid)] || null, da_ban: sold };
-      }).filter(function (r) { return r.da_ban !== null; }).sort(function (a, b) { return b.da_ban - a.da_ban; });
-      return res.status(200).json({
-        ok: !!sj.success, so_dong: data.length,
-        sample_raw: data.slice(0, 2),
-        top15: rows.slice(0, 15),
-        tong_co_ma: rows.filter(function (r) { return r.ma; }).length
-      });
-    }
-
     // diag tam thoi: liet ke tung san pham + ly do bi loc (KHONG tra gia von). Chi bat khi ?diag=1.
     if (req.query && req.query.diag) {
       const q = String(req.query.diag);
@@ -196,6 +152,39 @@ export default async function handler(req, res) {
         variations: vars
       });
     });
+
+    // Sap xep best-seller: 5 mau moi luon len dau, con lai theo SO DA BAN giam dan.
+    // So da ban = product_count (da tru tra/doi) tu analytics/sale. KHONG lo so ban ra client (chi dung de sort).
+    const NEW5 = ["JB708", "JB619", "JB622", "JB367", "JB5502"];
+    let soldMap = null;
+    try {
+      const since = "2024-01-01T00:00:00Z";
+      const until = new Date().toISOString();
+      const sUrl = base + "/analytics/sale?api_key=" + encodeURIComponent(key)
+        + "&since=" + encodeURIComponent(since) + "&until=" + encodeURIComponent(until)
+        + "&split_by[]=" + encodeURIComponent("Variation.product_id");
+      const sr = await fetch(sUrl);
+      if (sr.ok) {
+        const sj = await sr.json();
+        soldMap = {};
+        ((sj && sj.data) || []).forEach(function (d) {
+          const cid = d.product && d.product.custom_id;
+          const sold = d.success && typeof d.success.product_count === "number" ? d.success.product_count : 0;
+          if (cid) soldMap[String(cid).toUpperCase()] = sold;
+        });
+      }
+    } catch (e) { soldMap = null; }
+
+    out.forEach(function (p) { p._sold = (soldMap && soldMap[(p.ma || "").toUpperCase()]) || 0; });
+    out.sort(function (a, b) {
+      const na = NEW5.indexOf((a.ma || "").toUpperCase());
+      const nb = NEW5.indexOf((b.ma || "").toUpperCase());
+      if (na >= 0 && nb >= 0) return na - nb;  // giu thu tu NEW5
+      if (na >= 0) return -1;
+      if (nb >= 0) return 1;
+      return b._sold - a._sold;                 // ban nhieu len truoc
+    });
+    out.forEach(function (p) { delete p._sold; });
 
     res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=300");
     return res.status(200).json({ tong: out.length, san_pham: out });
