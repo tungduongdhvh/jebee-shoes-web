@@ -432,6 +432,7 @@ function weekState(st, mon, regs) {
   return String(st.shift || '').trim() ? 'def' : 'none';
 }
 // Thống kê 1 ngày từ các lượt chấm (đã xếp theo giờ, bỏ lượt bị từ chối).
+var OT_FROM = '2026-11-11'; // luật làm tròn 30 phút áp dụng từ ngày này; trước đó tính đủ số phút ngoài ca như cũ
 var OT_STEP = 30; // giờ ngoài ca: cộng tất cả các đoạn ngoài ca trong ngày rồi làm tròn xuống bội 30 phút; phần lẻ chỉ là công bình thường
 function dayStats(recs, segs, date, today, nowMin) {
   var o = { mins: 0, inShift: 0, ot: 0, lateN: 0, lateM: 0, earlyN: 0, earlyM: 0, missOut: 0, shifts: 0, open: false, iv: [], first: null, last: null, n: recs.length };
@@ -461,7 +462,7 @@ function dayStats(recs, segs, date, today, nowMin) {
     });
     parts.forEach(function (q) { o.ot += q[1] - q[0]; });
   });
-  o.ot = Math.floor(o.ot / OT_STEP) * OT_STEP;
+  o.ot = date >= OT_FROM ? Math.floor(o.ot / OT_STEP) * OT_STEP : Math.floor(o.ot);
   if (!segs.length && o.first) o.shifts = 1;
   segs.forEach(function (g) {
     var a = toMin(g.start), b = toMin(g.end), mx = -1, ov = 0;
@@ -2483,7 +2484,7 @@ function renderAMonth() {
     '<div class="monthbar" style="padding-top:8px"><h2 style="font-size:20px">Bảng công tháng</h2><div class="row" style="flex-wrap:wrap">' +
     '<input type="month" id="amSel" value="' + S.amonth + '" aria-label="Chọn tháng">' +
     '<button class="btn sec sm" id="copyT">Sao chép bảng</button>' + (REAL ? '<button class="btn sm" id="expT">Xuất sang Google Sheet</button>' : '') + '</div></div>' +
-    '<p class="small muted" style="margin:8px 0 12px">Số ca = số buổi (sáng, chiều, linh hoạt) có mặt. Giờ làm = tổng các lượt vào → ra, không tính thời gian ra ngoài. Ngoài ca = giờ làm ngoài ca đã đăng ký (đến sớm + về muộn cộng cả ngày), tính theo từng ' + OT_STEP + ' phút tròn (lẻ dưới ' + OT_STEP + ' phút chỉ là công bình thường; ngày không đăng ký ca thì cả ngày là ngoài ca). Chỉ phần đã được duyệt giải trình mới tính công ngoài ca. Bê hàng = số giờ nhân viên khai sau khi chấm ra (hàng về, làm nặng), quản lý duyệt ở tab Duyệt, dùng để tính lương riêng. Lượt bị từ chối không tính.</p>' +
+    '<p class="small muted" style="margin:8px 0 12px">Số ca = số buổi (sáng, chiều, linh hoạt) có mặt. Giờ làm = tổng các lượt vào → ra, không tính thời gian ra ngoài. Ngoài ca = giờ làm ngoài ca đã đăng ký (đến sớm + về muộn cộng cả ngày), tính theo từng ' + OT_STEP + ' phút tròn từ ngày ' + vnDate(OT_FROM) + ' (lẻ dưới ' + OT_STEP + ' phút chỉ là công bình thường; trước ngày này tính đủ số phút; ngày không đăng ký ca thì cả ngày là ngoài ca). Chỉ phần đã được duyệt giải trình mới tính công ngoài ca. Bê hàng = số giờ nhân viên khai sau khi chấm ra (hàng về, làm nặng), quản lý duyệt ở tab Duyệt, dùng để tính lương riêng. Lượt bị từ chối không tính.</p>' +
     '<div class="tablewrap sticky"><table><thead><tr>' + COLS.map(function (h, i) { return '<th' + (i === 1 ? ' style="text-align:left"' : '') + '>' + h + '</th>'; }).join('') + '</tr></thead><tbody>' + body + '</tbody>' +
     '<tfoot><tr><td>Tổng</td><td></td><td>' + T.days + '</td><td>' + T.shifts + '</td><td>' + T.leaveN + '</td><td>' + dur(T.mins) + '</td><td>' + dur(T.ot) + '</td><td>' + dur(T.otWait) + '</td><td>' + dur(T.bh) + '</td><td>' + dur(T.bhWait) + '</td><td>' + T.lateN + '</td><td>' + T.lateM + '</td><td>' + T.earlyN + '</td><td>' + T.earlyM + '</td><td>' + T.missOut + '</td><td>' + T.pending + '</td></tr></tfoot></table></div>' + liveTable(lv) + '<p class="small muted" style="margin:12px 0 0">Tiền phạt (đi muộn + phiếu phạt) xem ở tab <b>Phiếu phạt</b>.</p>';
   $('#amSel').onchange = function (e) { if (e.target.value) { S.amonth = e.target.value; loadAdmin(); } };
