@@ -752,7 +752,8 @@ var Demo = (function () {
     },
     adminLogin: function (p) { admin(p); return true; },
     ppCreate: function (p) {
-      var s = auth(p), D = db(), t = D.staff.filter(function (x) { return x.id === p.target; })[0];
+      var isAd = !!p.admin; if (isAd) admin(p);
+      var s = isAd ? { id: 'QL', name: 'Quản lý' } : auth(p), D = db(), t = D.staff.filter(function (x) { return x.id === p.target; })[0];
       if (!t) fail('Chọn người vi phạm.'); if (t.id === s.id) fail('Không lập phiếu phạt cho chính mình.');
       if (!(+p.amount > 0)) fail('Nhập số tiền phạt hợp lệ.');
       if (PP_KINDS.indexOf(p.kind) < 0) fail('Chọn lý do phạt.');
@@ -763,11 +764,11 @@ var Demo = (function () {
       var dup = ppSameD(order, t.id).filter(function (x) { return x.staffId === t.id && x.kind === p.kind; })[0];
       if (dup && p.kind !== 'Khác') fail('Trùng phiếu: ' + (order ? 'đơn ' + order : 'hôm nay') + ' đã có phiếu "' + p.kind + '" phạt ' + dup.name + ' do ' + dup.byName + ' lập lúc ' + dup.created + '. Không lập lại để tránh phạt 2 lần.', 'DUP');
       if (dup && !p.confirmOther) fail('Đã có phiếu lý do "Khác" cho ' + dup.name + '. Xác nhận đây là lỗi khác rồi gửi lại.', 'DUP');
-      D.pp.push({ id: 'pp' + Date.now(), created: stampD(), by: s.id, byName: s.name, staffId: t.id, name: t.name, amount: +p.amount, reason: p.reason || '', imgs: (p.images || []).slice(0, 3), status: 'Chờ duyệt', approvedAt: '', final: 0, note: '', complaint: '', knImgs: [], complainedAt: '', order: order, kind: p.kind, log: '' });
-      save(); return { pp: myPP(s.id) };
+      D.pp.push({ id: 'pp' + Date.now(), created: stampD(), by: s.id, byName: s.name, staffId: t.id, name: t.name, amount: +p.amount, reason: p.reason || '', imgs: (p.images || []).slice(0, 3), status: isAd ? 'Đã duyệt' : 'Chờ duyệt', approvedAt: isAd ? stampD() : '', final: isAd ? +p.amount : 0, note: '', complaint: '', knImgs: [], complainedAt: '', order: order, kind: p.kind, log: '' });
+      save(); return isAd ? true : { pp: myPP(s.id) };
     },
     ppCheck: function (p) {
-      auth(p); var order = p.noOrder ? '' : ordNorm(p.order);
+      if (p.admin) admin(p); else auth(p); var order = p.noOrder ? '' : ordNorm(p.order);
       if (!p.noOrder && order.length < 3) return { order: order, same: [] };
       return { order: order, same: ppSameD(order, p.target || '').map(ppBriefD) };
     },
@@ -1211,9 +1212,11 @@ function bindPPEdit(list) {
     };
   });
 }
-function ppForm() {
-  var others = S.boot.staff.filter(function (s) { return s.id !== S.me.id; }), imgs = [], win = ((S.boot.settings || {}).ppWindow || 48);
-  modal('<h3>Lập phiếu phạt</h3><p class="muted small" style="margin:0">Phiếu gửi cho quản lý duyệt. Duyệt xong người bị phạt mới thấy, và có ' + win + ' giờ để khiếu nại.</p>' +
+function ppForm(isAd) {
+  isAd = isAd === true;
+  var others = isAd ? activeStaff() : S.boot.staff.filter(function (s) { return s.id !== S.me.id; }), imgs = [], win = ((S.boot.settings || {}).ppWindow || 48);
+  var cred = isAd ? { admin: S.admin } : { id: S.cred.id, pin: S.cred.pin };
+  modal('<h3>Lập phiếu phạt</h3><p class="muted small" style="margin:0">' + (isAd ? 'Phiếu quản lý lập có hiệu lực ngay, không cần duyệt. Người bị phạt thấy luôn và có ' + win + ' giờ để khiếu nại.' : 'Phiếu gửi cho quản lý duyệt. Duyệt xong người bị phạt mới thấy, và có ' + win + ' giờ để khiếu nại.') + '</p>' +
     '<div class="field"><label class="lbl" for="ppWho">Người vi phạm</label><select id="ppWho"><option value="">Chọn người</option>' + others.map(function (s) { return '<option value="' + esc(s.id) + '">' + esc(s.name) + ' · ' + esc(s.role) + '</option>'; }).join('') + '</select></div>' +
     '<div class="field"><label class="lbl" for="ppOrd">Mã đơn hàng liên quan</label><input type="text" id="ppOrd" autocomplete="off" placeholder="VD: JB12345"><label class="row small" style="gap:6px;margin-top:4px"><input type="checkbox" id="ppNoOrd"> Không liên quan đơn hàng (đi muộn, vệ sinh, thái độ…)</label></div>' +
     '<div class="field"><label class="lbl" for="ppKind">Lý do phạt</label><select id="ppKind"><option value="">Chọn lý do</option>' + PP_KINDS.map(function (k) { return '<option>' + esc(k) + '</option>'; }).join('') + '</select></div>' +
@@ -1221,7 +1224,7 @@ function ppForm() {
     '<div class="field"><label class="lbl" for="ppAmt">Số tiền phạt (đồng)</label><input type="text" inputmode="numeric" id="ppAmt" placeholder="VD: 50.000"></div>' +
     '<div class="field"><label class="lbl" for="ppWhy">Chi tiết lỗi</label><textarea id="ppWhy" rows="3" placeholder="Ghi rõ lỗi gì, lúc nào, ảnh hưởng ra sao (bắt buộc khi chọn Khác)"></textarea></div>' +
     imgField('ppFile', 'ppPrev') +
-    '<div class="err" id="ppMsg" style="text-align:left"></div><div class="acts"><button class="btn" id="ppOk">Gửi phiếu cho quản lý</button><button class="btn sec" id="ppNo">Huỷ</button></div>');
+    '<div class="err" id="ppMsg" style="text-align:left"></div><div class="acts"><button class="btn" id="ppOk">' + (isAd ? 'Lập phiếu phạt' : 'Gửi phiếu cho quản lý') + '</button><button class="btn sec" id="ppNo">Huỷ</button></div>');
   amtFormat('#ppAmt'); bindImgs('ppFile', 'ppPrev', imgs);
   $('#ppNo').onclick = function () { modal(''); };
   // Kiểm tra trùng ngay khi điền mã đơn / chọn người / chọn lý do
@@ -1250,7 +1253,7 @@ function ppForm() {
     if (key === chk.key) return draw();
     clearTimeout(timer);
     timer = setTimeout(function () {
-      api('ppCheck', { id: S.cred.id, pin: S.cred.pin, order: ord, noOrder: no, target: who }).then(function (r) { chk = { key: key, same: r.same || [], order: r.order }; draw(); }).catch(function () { });
+      api('ppCheck', Object.assign({ order: ord, noOrder: no, target: who }, cred)).then(function (r) { chk = { key: key, same: r.same || [], order: r.order }; draw(); }).catch(function () { });
     }, 350);
   }
   $('#ppOrd').oninput = check; $('#ppNoOrd').onchange = check; $('#ppWho').onchange = check; $('#ppKind').onchange = check;
@@ -1265,7 +1268,8 @@ function ppForm() {
     if (!amt) return (msg.textContent = 'Nhập số tiền phạt.');
     if (kind === 'Khác' && !why) return (msg.textContent = 'Lý do "Khác" thì ghi rõ chi tiết lỗi.');
     var btn = this; btn.disabled = true; msg.textContent = '';
-    api('ppCreate', { id: S.cred.id, pin: S.cred.pin, target: who, amount: amt, reason: why, images: imgs, order: ord, noOrder: no, kind: kind, confirmOther: !!($('#ppConf') && $('#ppConf').checked) }).then(function (r) {
+    api('ppCreate', Object.assign({ target: who, amount: amt, reason: why, images: imgs, order: ord, noOrder: no, kind: kind, confirmOther: !!($('#ppConf') && $('#ppConf').checked) }, cred)).then(function (r) {
+      if (isAd) { modal(''); toast('Đã lập phiếu phạt, có hiệu lực ngay'); return loadAdmin(); }
       S.pp = r.pp; saveToday(); modal(''); toast('Đã gửi phiếu phạt cho quản lý duyệt'); if (S.tab === 'pp') renderPP();
     }).catch(function (e) { btn.disabled = false; msg.textContent = e.error || 'Không gửi được, thử lại.'; });
   };
@@ -1379,8 +1383,9 @@ function bindPPAdmin() {
 }
 function renderAPP() {
   $('#main').innerHTML =
-    '<div class="monthbar" style="padding-top:8px"><h2 style="font-size:20px">Phiếu phạt</h2><div class="row" style="flex-wrap:wrap"><input type="month" id="apSel" value="' + S.amonth + '" aria-label="Chọn tháng"><button class="btn sec sm" id="apCopy">Sao chép bảng</button></div></div>' +
+    '<div class="monthbar" style="padding-top:8px"><h2 style="font-size:20px">Phiếu phạt</h2><div class="row" style="flex-wrap:wrap"><button class="btn sm" id="apNew">Lập phiếu phạt</button><input type="month" id="apSel" value="' + S.amonth + '" aria-label="Chọn tháng"><button class="btn sec sm" id="apCopy">Sao chép bảng</button></div></div>' +
     ppFineTable() + ppAdminSections() + ppTable();
+  $('#apNew').onclick = function () { ppForm(true); };
   $('#apSel').onchange = function (e) { if (e.target.value) { S.amonth = e.target.value; loadAdmin(); } };
   $('#apCopy').onclick = function () {
     var rows = ppFineRows(), head = ['Nhân viên', 'Phút muộn + về sớm bị phạt', 'Phạt muộn / sớm', 'Phiếu phạt đã chốt', 'Phiếu chờ chốt', 'Đang khiếu nại', 'Tổng tiền phạt'];
