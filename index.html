@@ -902,7 +902,7 @@ document.documentElement.classList.add('js');
     JB367:"1lFWPxwwnjEY-qVurgGprozHUNxnNw30L", JB5502:"1m-do-ligH3R5T9CdYidqEnj5Pui3RdeQ"
   };
   function gd(id){ return "https://lh3.googleusercontent.com/d/"+id+"=w1200"; }
-  function driveImgs(ma){ var k=(ma||'').toUpperCase(); var a=GIMG[k]?GIMG[k].slice():[]; if(B29[k]){ if(a.length){ a[0]=B29[k]; } else { a=[B29[k]]; } } return a.map(gd); }
+  function driveImgs(ma){ var k=(ma||'').toUpperCase(); var a=GIMG[k]?GIMG[k].slice():[]; if(B29[k]){ if(a.length){ a[0]=B29[k]; } else { a=[B29[k]]; } } var seen={},out=[]; for(var i=0;i<a.length;i++){ if(a[i]&&!seen[a[i]]){ seen[a[i]]=1; out.push(a[i]); } } return out.map(gd); }
   // Ảnh MÔ TẢ sản phẩm (sếp gửi bộ riêng): mã -> [fileId Drive], xếp dọc to như TikTok. Gắn khi sếp gửi.
   var MOTA={
     JB02:["/mota/JB02/1.jpg","/mota/JB02/2.jpg","/mota/JB02/3.jpg","/mota/JB02/4.jpg","/mota/JB02/5.jpg","/mota/JB02/6.jpg","/mota/JB02/7.jpg","/mota/JB02/8.jpg","/mota/JB02/9.jpg","/mota/JB02/10.jpg","/mota/JB02/11.jpg","/mota/JB02/12.jpg","/mota/JB02/13.jpg"],
