@@ -2200,6 +2200,9 @@ function rgLoad() {
     RG.data = d; if (S.admin && S.atab === 'today') renderAAttend();
   }).catch(onErr);
 }
+// Có đơn Đi muộn / Về sớm đã duyệt cho ngày này không (để hiện "có đơn, không phạt")
+function reqOkOn(staffId, date, kind) { return (S.ad.requests || []).some(function (q) { return q.staffId === staffId && q.kind === kind && q.status === 'Đã duyệt' && q.from <= date && date <= (q.to || q.from); }); }
+function lateTag(m, ok, word) { return ok ? '<span class="pill p-mute">' + word + ' ' + mt(m) + ' · có đơn, không phạt</span>' : '<span class="pill p-warn">' + word + ' ' + mt(m) + '</span>'; }
 // Danh sách từng người trong 1 ngày + số đếm của ngày đó
 function dayBlock(date, records, regs) {
   var n = vnNow(S.offset), today = S.ad.now.date, isToday = date === today, past = date < today;
@@ -2229,8 +2232,8 @@ function dayBlock(date, records, regs) {
       } else {
         pill = ''; rank = 5;
         if (ds.missOut) { pill += '<span class="pill p-bad">Quên chấm ra</span>'; rank = 1; }
-        if (ds.lateN) { pill += '<span class="pill p-warn">Muộn ' + mt(ds.lateM) + '</span>'; rank = Math.min(rank, 2); }
-        if (ds.earlyN) { pill += '<span class="pill p-warn">Về sớm ' + mt(ds.earlyM) + '</span>'; rank = Math.min(rank, 3); }
+        if (ds.lateN) { pill += lateTag(ds.lateM, reqOkOn(st.id, date, 'Đi muộn'), 'Muộn'); rank = Math.min(rank, 2); }
+        if (ds.earlyN) { pill += lateTag(ds.earlyM, reqOkOn(st.id, date, 'Về sớm'), 'Về sớm'); rank = Math.min(rank, 3); }
         if (!pill) pill = '<span class="pill p-good">Đủ công</span>';
       }
     }
@@ -2238,7 +2241,7 @@ function dayBlock(date, records, regs) {
     else {
       var running = sg.filter(function (g) { return cur >= toMin(g.start) + g.grace && cur < toMin(g.end); })[0];
       var coming = sg.filter(function (g) { return cur < toMin(g.start) + g.grace; })[0];
-      if (last && last.type === 'IN') { cnt.in++; pill = ds.lateN ? '<span class="pill p-warn">Muộn ' + mt(ds.lateM) + '</span>' : '<span class="pill p-good">Đang làm</span>'; rank = ds.lateN ? 2 : 4; }
+      if (last && last.type === 'IN') { cnt.in++; pill = ds.lateN ? lateTag(ds.lateM, reqOkOn(st.id, date, 'Đi muộn'), 'Muộn') : '<span class="pill p-good">Đang làm</span>'; rank = ds.lateN ? 2 : 4; }
       else if (running) {
         if (last) { pill = '<span class="pill p-warn">Ra giữa ca</span>'; rank = 3; }
         else { pill = '<span class="pill p-bad">Chưa vào ca</span>'; rank = 1; absentHere = true; }
