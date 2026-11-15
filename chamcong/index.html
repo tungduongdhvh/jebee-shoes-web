@@ -54,6 +54,7 @@ body{margin:0;color:var(--ink);font:15px/1.5 var(--sans);-webkit-font-smoothing:
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.linkbtn{background:none;border:0;padding:0;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
 .num,.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .wrap{max-width:480px;margin:0 auto;padding-inline:16px;padding-block:12px 110px}
 .wrap.wide{max-width:1040px}
@@ -477,14 +478,12 @@ function dayStats(recs, segs, date, today, nowMin) {
   return o;
 }
 // Giờ ngoài ca chỉ được tính khi có đơn "Làm thêm giờ" ngày đó đã duyệt
-function otState(staffId, date, requests) {
-  var qs = (requests || []).filter(function (q) { return q.staffId === staffId && q.kind === 'Làm thêm giờ' && q.from <= date && (q.to || q.from) >= date; });
-  if (qs.some(function (q) { return q.status === 'Đã duyệt'; })) return 'ok';
-  if (qs.some(function (q) { return q.status === 'Chờ duyệt'; })) return 'wait';
-  return qs.length ? 'no' : '';
-}
-var OT_TXT = { ok: ['p-good', 'Đã duyệt'], wait: ['p-warn', 'Chờ duyệt'], no: ['p-bad', 'Bị từ chối'], '': ['p-bad', 'Chưa giải trình'] };
-function otPill(x) { var t = OT_TXT[x.otSt || '']; return '<span class="pill ' + t[0] + '">+' + dur(x.ot) + ' ngoài ca · ' + t[1] + '</span>'; }
+// Giờ ngoài ca tự tính (đủ 30 phút). Quản lý chỉ can thiệp khi không đồng ý: bỏ giờ ngoài ca ngày đó ('cut').
+function otReqs(staffId, date, requests) { return (requests || []).filter(function (q) { return q.staffId === staffId && q.kind === 'Làm thêm giờ' && q.from <= date && (q.to || q.from) >= date; }); }
+function otState(staffId, date, requests) { return otReqs(staffId, date, requests).some(function (q) { return q.status === 'Từ chối'; }) ? 'cut' : 'ok'; }
+function otWhy(staffId, date, requests) { return otReqs(staffId, date, requests).map(function (q) { return String(q.reason || '').trim(); }).filter(function (t) { return t && !/^Tự duyệt/.test(t); }).join(' · '); }
+var OT_TXT = { ok: ['p-good', 'Đã tính'], cut: ['p-bad', 'Quản lý đã bỏ'] };
+function otPill(x) { var t = OT_TXT[x.otSt || 'ok']; return '<span class="pill ' + t[0] + '">+' + dur(x.ot) + ' ngoài ca · ' + t[1] + '</span>'; }
 function leaveMap(staffId, requests, month) {
   var set = {};
   requests.forEach(function (q) {
@@ -723,7 +722,8 @@ var Demo = (function () {
       var s = auth(p); if (!p.kind || !p.from) fail('Chọn loại đơn và ngày.');
       var n = vnNow();
       var fix = p.kind === 'Quên chấm công' ? 'FIX|' + p.fixType + '|' + p.fixTime : p.kind === 'Làm thêm giờ' ? 'OT|' + (p.otMins || 0) : '';
-      if (p.kind === 'Làm thêm giờ') { if (String(p.reason || '').trim().length < 5) fail('Ghi rõ phát sinh công việc gì nên phải ở lại làm thêm.'); if (db().requests.some(function (q) { return q.staffId === s.id && q.kind === 'Làm thêm giờ' && q.from === p.from && q.status !== 'Từ chối'; })) fail('Ngày này bạn đã giải trình làm thêm giờ rồi.'); p.to = p.from; }
+      var st0 = 'Chờ duyệt';
+      if (p.kind === 'Làm thêm giờ') { if (String(p.reason || '').trim().length < 5) fail('Ghi rõ phát sinh công việc gì nên phải ở lại làm thêm.'); var olds = db().requests.filter(function (q) { return q.staffId === s.id && q.kind === 'Làm thêm giờ' && q.from === p.from; }); if (olds.some(function (q) { return q.status === 'Từ chối'; })) fail('Quản lý đã bỏ giờ ngoài ca ngày này. Cần tính lại thì nhắn quản lý.'); if (olds.length) { olds[0].reason = p.reason; save(); return true; } p.to = p.from; st0 = 'Đã duyệt'; }
       if (p.kind === 'Quên chấm công' && !/^\d{2}:\d{2}$/.test(p.fixTime || '')) fail('Điền giờ thực tế vào hoặc ra.');
       if (p.kind === 'Đổi ca') {
         if (!p.swNew) fail('Chọn ca mới muốn đổi sang.');
@@ -740,7 +740,14 @@ var Demo = (function () {
         if (old) { old.ca = 'BH|' + bm; old.reason = p.reason || old.reason; save(); return true; }
         fix = 'BH|' + bm; p.to = p.from;
       }
-      db().requests.push({ id: 'q' + Date.now(), created: n.date + ' ' + n.time.slice(0, 5), staffId: s.id, name: s.name, kind: p.kind, from: p.from, to: fix ? p.from : (p.to || p.from), reason: p.reason || '', status: 'Chờ duyệt', ca: fix });
+      db().requests.push({ id: 'q' + Date.now(), created: n.date + ' ' + n.time.slice(0, 5), staffId: s.id, name: s.name, kind: p.kind, from: p.from, to: fix ? p.from : (p.to || p.from), reason: p.reason || '', status: st0, ca: fix });
+      save(); return true;
+    },
+    otSet: function (p) {
+      admin(p); var D = db(), qs = D.requests.filter(function (q) { return q.staffId === p.staffId && q.kind === 'Làm thêm giờ' && q.from === p.date; });
+      var st = D.staff.filter(function (x) { return x.id === p.staffId; })[0] || {}, n = vnNow();
+      if (qs.length) qs.forEach(function (q) { q.status = p.on ? 'Đã duyệt' : 'Từ chối'; });
+      else if (!p.on) D.requests.push({ id: 'q' + Date.now(), created: n.date + ' ' + n.time.slice(0, 5), staffId: p.staffId, name: st.name, kind: 'Làm thêm giờ', from: p.date, to: p.date, reason: '', status: 'Từ chối', ca: 'OT|' + (p.mins || 0) });
       save(); return true;
     },
     adminLogin: function (p) { admin(p); return true; },
@@ -993,7 +1000,7 @@ function summarize(st, records, requests, regs, month, today, nowMin) {
     ['shifts', 'mins', 'lateN', 'lateM', 'earlyN', 'earlyM', 'missOut'].forEach(function (k) { o[k] += x[k]; });
     if (x.lateM) { if (lateOk[d]) { x.lateEx = true; o.lateExM += x.lateM; } else o.lateFineM += x.lateM; }
     if (x.earlyM) { if (earlyOk[d]) { x.earlyEx = true; o.earlyExM += x.earlyM; } else o.earlyFineM += x.earlyM; }
-    if (x.ot) { x.otSt = otState(st.id, d, requests); if (x.otSt === 'ok') o.ot += x.ot; else { o.otWait += x.ot; o.otDays.push(d); } }
+    if (x.ot) { x.otSt = otState(st.id, d, requests); x.otWhy = otWhy(st.id, d, requests); if (x.otSt === 'ok') { o.ot += x.ot; if (!x.otWhy) o.otDays.push(d); } else o.otWait += x.ot; }
     o.liveMins += sgd.length ? x.inShift : x.mins; // giờ live: chỉ phần nằm trong ca đã đăng ký
     if (x.first) o.workDates[d] = 1;
   });
@@ -1602,10 +1609,11 @@ function renderHome() {
   if (ppNew) banner = '<button class="banner bad" id="goPP"><span><b>Bạn có phiếu phạt ' + money(t2(ppNew)) + '</b><br><span class="small">' + esc(ppNew.reason).slice(0, 60) + ' · còn ' + leftTxt(ppDeadline(ppNew) - nowMs()) + ' để khiếu nại</span></span><span class="go">Xem →</span></button>' + banner;
   var arr = (S.appr || []).filter(function (a) { return a.status === 'Quản lý xếp' && a.week >= mon && !(store('cc_seen') || {})[a.staffId + a.week + a.at]; })[0];
   var otS = otState(S.me.id, wd, S.today.otReq || []);
-  if (S.me.group !== 'LIVE' && st.ot && (otS === '' || otS === 'no')) {
-    banner = '<button class="banner bad" id="goOt" data-otd="' + wd + '" data-otm="' + st.ot + '"><span><b>Hôm nay bạn có +' + dur(st.ot) + ' làm ngoài ca' + (otS === 'no' ? ' (đơn trước bị từ chối)' : '') + '</b><br><span class="small">' + (st.open ? 'Chấm ra xong thì giải trình' : 'Giải trình phát sinh việc gì để quản lý duyệt, chưa duyệt thì không được tính') + '</span></span><span class="go">Giải trình →</span></button>' + banner;
-  } else if (S.me.group !== 'LIVE' && st.ot && otS === 'wait') {
-    banner = '<div class="banner info"><span><b>+' + dur(st.ot) + ' ngoài ca hôm nay</b><br><span class="small">Đã gửi giải trình, đang chờ quản lý duyệt</span></span></div>' + banner;
+  var otW = otWhy(S.me.id, wd, S.today.otReq || []);
+  if (S.me.group !== 'LIVE' && st.ot && otS === 'ok' && !otW) {
+    banner = '<button class="banner info" id="goOt" data-otd="' + wd + '" data-otm="' + st.ot + '"><span><b>Hôm nay +' + dur(st.ot) + ' làm ngoài ca, đã tự tính công</b><br><span class="small">Ghi lý do làm ngoài giờ để quản lý nắm (không cần chờ duyệt)</span></span><span class="go">Ghi lý do →</span></button>' + banner;
+  } else if (S.me.group !== 'LIVE' && st.ot && otS === 'cut') {
+    banner = '<div class="banner info"><span><b>+' + dur(st.ot) + ' ngoài ca hôm nay không được tính</b><br><span class="small">Quản lý đã bỏ giờ ngoài ca ngày này</span></span></div>' + banner;
   }
   if (arr) banner = '<button class="banner info" id="goArr" data-w="' + (arr.week === mon ? 'this' : 'next') + '" data-k="' + esc(arr.staffId + arr.week + arr.at) + '"><span><b>Quản lý đã sắp xếp lại lịch tuần ' + dm(arr.week) + '</b><br><span class="small">' + esc(arr.note || 'Bấm để xem ca mới của bạn') + '</span></span><span class="go">Xem →</span></button>' + banner;
   var tl = recs.map(function (r) {
@@ -1681,7 +1689,7 @@ function doPunch(photo, force, note) {
     // vừa chấm ra cho ca tối hôm qua: tải lại để chuyển sang ngày mới
     if (S.today.work && S.today.work.carry) return loadToday(renderHome, false);
     renderHome();
-    if (rec.type === 'OUT' && $('#goOt')) setTimeout(function () { toast('Bạn có giờ làm ngoài ca hôm nay, bấm “Giải trình” ở trên để gửi quản lý duyệt'); }, 2500);
+    if (rec.type === 'OUT' && $('#goOt')) setTimeout(function () { toast('Hôm nay bạn có giờ làm ngoài ca, đã tự tính công. Bấm “Ghi lý do” ở trên để quản lý nắm.'); }, 2500);
   }).catch(function (e) { S.busy = false; S.pMode = null; renderHome(); toast(e.error || 'Không chấm được, thử lại.', true); });
 }
 // Sau khi chấm ra: hỏi hôm nay có bê hàng không (tính lương riêng, quản lý duyệt)
@@ -1720,7 +1728,7 @@ function askMode(r, photo) {
     return '<button class="btn sec modebtn" data-mm="' + esc(f.id) + '"><b>Làm ca chính · ' + esc(f.name) + ' ' + f.start + '–' + f.end + '</b><span class="small">Thêm ca này vào lịch hôm nay, tính công ca chính' + lateTxt(f) + '</span></button>';
   });
   if (opts.length > 1) btns.push('<button class="btn sec modebtn" data-mm="' + esc(opts.map(function (f) { return f.id; }).join(',')) + '"><b>Làm ca chính · cả ' + esc(opts.map(function (f) { return f.name; }).join(' + ')) + '</b><span class="small">Thêm tất cả các ca này vào lịch hôm nay' + lateTxt(opts[0]) + '</span></button>');
-  btns.push('<button class="btn sec modebtn" data-mm="ot"><b>Làm thêm giờ (ngoài ca)</b><span class="small">Tính vào giờ ngoài ca: chỉ tính từng 30 phút tròn, chấm ra xong phải giải trình và được quản lý duyệt</span></button>');
+  btns.push('<button class="btn sec modebtn" data-mm="ot"><b>Làm thêm giờ (ngoài ca)</b><span class="small">Tính vào giờ ngoài ca: đủ từng 30 phút tròn thì tự tính công, chấm ra xong ghi lý do để quản lý nắm</span></button>');
   modal('<h3>Bạn đi làm theo ca nào?</h3><p class="muted" style="margin:0">Bây giờ là <b>' + r.time + '</b>, hôm nay bạn chưa đăng ký ca vào giờ này. Chọn đúng để công được tính chuẩn.</p>' +
     '<div class="modelist">' + btns.join('') + '</div><div class="acts"><button class="btn sec" id="mmNo">Huỷ</button></div>');
   $('#mmNo').onclick = function () { S.pMode = null; modal(''); };
@@ -1946,14 +1954,15 @@ function renderHist() {
     return '<div class="li' + (none ? ' dim' : '') + '"><div class="dayd"><b>' + d.slice(8) + '</b><span>' + WDS[dow(d)] + '</span></div><div class="main">' +
       (x ? '<div class="times">' + esc(chain(x.recs)) + '</div><div class="small muted">' + x.shifts + ' ca · ' + dur(x.mins) + '</div>' : none ? '<span class="muted small">Không chấm công</span>' : '') +
       (b || (x && x.ot) ? '<div class="badges">' + b + (x && x.ot ? otPill(x) : '') + '</div>' : '') +
-      (x && x.ot && (x.otSt === '' || x.otSt === 'no') && S.me.group !== 'LIVE' ? '<button class="btn sm" data-otd="' + d + '" data-otm="' + x.ot + '" style="margin-top:6px">Giải trình làm thêm</button>' : '') + '</div></div>';
+      (x && x.ot && x.otWhy ? '<div class="small muted">Lý do ngoài giờ: ' + esc(x.otWhy) + '</div>' : '') +
+      (x && x.ot && x.otSt === 'ok' && !x.otWhy && S.me.group !== 'LIVE' ? '<button class="btn sec sm" data-otd="' + d + '" data-otm="' + x.ot + '" style="margin-top:6px">Ghi lý do ngoài giờ</button>' : '') + '</div></div>';
   }).join('');
   $('#main').innerHTML =
     '<div class="monthbar" style="padding-top:8px"><h2 style="font-size:20px">Công tháng</h2><input type="month" id="mSel" value="' + S.month + '" aria-label="Chọn tháng"></div>' +
     (S.me.group === 'LIVE' ? liveTiles(sm, today) :
     '<div class="tiles" style="margin-top:12px">' +
     '<div class="tile"><div class="lbl">Số ca đã làm</div><div class="v">' + sm.shifts + ' <small>ca · ' + sm.days + ' ngày' + (sm.leaveN ? ' · ' + sm.leaveN + ' phép' : '') + '</small></div></div>' +
-    '<div class="tile"><div class="lbl">Giờ làm</div><div class="v">' + dur(sm.mins) + (sm.ot || sm.otWait ? ' <small>· ngoài ca ' + dur(sm.ot) + (sm.otWait ? ', chưa duyệt ' + dur(sm.otWait) : '') + '</small>' : '') + '</div></div>' +
+    '<div class="tile"><div class="lbl">Giờ làm</div><div class="v">' + dur(sm.mins) + (sm.ot || sm.otWait ? ' <small>· ngoài ca ' + dur(sm.ot) + (sm.otWait ? ', quản lý bỏ ' + dur(sm.otWait) : '') + '</small>' : '') + '</div></div>' +
     '<div class="tile"><div class="lbl">Đi muộn</div><div class="v">' + sm.lateN + ' <small>lần · ' + sm.lateM + ' phút</small></div></div>' +
     '<div class="tile"><div class="lbl">Về sớm / quên ra</div><div class="v">' + sm.earlyN + ' <small>/</small> ' + sm.missOut + '</div></div>' +
     '<div class="tile"><div class="lbl">Giờ bê hàng</div><div class="v">' + dur(sm.bh) + (sm.bhWait ? ' <small>· chờ duyệt ' + dur(sm.bhWait) + '</small>' : '') + '</div><div class="small muted">Tính lương riêng</div></div></div>') +
@@ -1984,10 +1993,10 @@ function rangeTxt(q) { return vnDate(q.from) + (q.to && q.to !== q.from ? ' – 
 function renderReq() {
   var nn = vnNow(S.offset), today = nn.date;
   var sm = S.me.group === 'LIVE' ? null : summarize(S.me, S.hist.records, S.hist.requests, S.hist.regs, S.month, today, toMin(nn.time));
-  var need = sm ? sm.otDays.filter(function (d) { var x = sm.byDay[d]; return x.otSt === '' || x.otSt === 'no'; }).sort().reverse() : [];
-  var otBox = need.length ? '<div class="card stack" style="margin-top:12px;border-color:var(--warn)"><b>Giờ làm ngoài ca cần giải trình</b>' +
-    '<div class="small muted">Ghi rõ phát sinh công việc gì nên phải ở lại / đến sớm. Quản lý duyệt thì giờ này mới được tính công ngoài ca.</div><div class="list">' +
-    need.map(function (d) { var x = sm.byDay[d]; return '<div class="li"><div class="main"><b>' + WDS[dow(d)] + ' ' + dm(d) + '</b> · <span class="mono">' + esc(chain(x.recs)) + '</span><div class="small">+' + dur(x.ot) + ' ngoài ca' + (x.otSt === 'no' ? ' · lần trước bị từ chối' : '') + '</div></div><button class="btn sm" data-otd="' + d + '" data-otm="' + x.ot + '">Giải trình</button></div>'; }).join('') +
+  var need = sm ? sm.otDays.slice().sort().reverse() : [];
+  var otBox = need.length ? '<div class="card stack" style="margin-top:12px"><b>Giờ làm ngoài ca chưa ghi lý do</b>' +
+    '<div class="small muted">Giờ ngoài ca đã tự tính công. Ghi phát sinh công việc gì nên phải ở lại / đến sớm để quản lý nắm (không cần chờ duyệt).</div><div class="list">' +
+    need.map(function (d) { var x = sm.byDay[d]; return '<div class="li"><div class="main"><b>' + WDS[dow(d)] + ' ' + dm(d) + '</b> · <span class="mono">' + esc(chain(x.recs)) + '</span><div class="small">+' + dur(x.ot) + ' ngoài ca · đã tính</div></div><button class="btn sec sm" data-otd="' + d + '" data-otm="' + x.ot + '">Ghi lý do</button></div>'; }).join('') +
     '</div></div>' : '';
   var list = S.hist.requests.map(function (q) {
     return '<div class="li"><div class="main"><div class="row" style="justify-content:space-between"><b>' + esc(q.kind) + '</b>' + statusPill(q.status) + '</div>' +
@@ -2058,7 +2067,7 @@ function renderReq() {
       if (!(p.bhMins >= 15)) return toast('Điền số giờ bê hàng (ít nhất 0,25 tiếng).', true);
     }
     $('#rqBtn').disabled = true;
-    api('request', p).then(function () { S.otFill = null; if (p.kind === 'Bê hàng' && S.today) { var oq = (S.today.otReq = S.today.otReq || []).filter(function (q) { return q.kind === 'Bê hàng' && q.from === p.from && q.status === 'Chờ duyệt'; })[0]; if (oq) oq.ca = 'BH|' + p.bhMins; else S.today.otReq.push({ staffId: S.me.id, kind: p.kind, from: p.from, to: p.from, status: 'Chờ duyệt', ca: 'BH|' + p.bhMins }); saveToday(); } if (p.kind === 'Làm thêm giờ' && S.today) { (S.today.otReq = S.today.otReq || []).push({ staffId: S.me.id, kind: p.kind, from: p.from, to: p.from, status: 'Chờ duyệt' }); saveToday(); } toast('Đã gửi đơn ' + p.kind.toLowerCase()); loadReq(); })
+    api('request', p).then(function () { S.otFill = null; if (p.kind === 'Bê hàng' && S.today) { var oq = (S.today.otReq = S.today.otReq || []).filter(function (q) { return q.kind === 'Bê hàng' && q.from === p.from && q.status === 'Chờ duyệt'; })[0]; if (oq) oq.ca = 'BH|' + p.bhMins; else S.today.otReq.push({ staffId: S.me.id, kind: p.kind, from: p.from, to: p.from, status: 'Chờ duyệt', ca: 'BH|' + p.bhMins }); saveToday(); } if (p.kind === 'Làm thêm giờ' && S.today) { (S.today.otReq = S.today.otReq || []).push({ staffId: S.me.id, kind: p.kind, from: p.from, to: p.from, status: 'Đã duyệt', reason: p.reason }); saveToday(); } toast(p.kind === 'Làm thêm giờ' ? 'Đã ghi lý do làm ngoài giờ' : 'Đã gửi đơn ' + p.kind.toLowerCase()); loadReq(); })
       .catch(function (er) { $('#rqBtn').disabled = false; toast(er.error, true); });
   };
 }
@@ -2393,7 +2402,7 @@ function aActTable(d, mon) {
       }
       return '<td class="cell' + (dt === today ? ' today' : '') + (dt <= today ? ' fixable" data-fx="' + esc(st.id) + '|' + dt : '') + '">' + out + '</td>';
     }).join('');
-    var sum = '<td class="cell"><b>' + T.shifts + '</b>/' + T.plan + ' ca<div class="small"><b>' + dur(T.mins) + '</b></div>' + (T.ot ? '<div class="small ot">+' + dur(T.ot) + ' ngoài ca được tính</div>' : '') + (T.otWait ? '<div class="small hl-warn">+' + dur(T.otWait) + ' ngoài ca chưa duyệt</div>' : '') +
+    var sum = '<td class="cell"><b>' + T.shifts + '</b>/' + T.plan + ' ca<div class="small"><b>' + dur(T.mins) + '</b></div>' + (T.ot ? '<div class="small ot">+' + dur(T.ot) + ' ngoài ca được tính</div>' : '') + (T.otWait ? '<div class="small hl-warn">' + dur(T.otWait) + ' ngoài ca quản lý bỏ</div>' : '') +
       (T.late ? '<div class="small hl-bad">Muộn ' + T.late + ' lần</div>' : '') + (T.absent ? '<div class="small hl-bad">Vắng ' + T.absent + '</div>' : '') + (T.miss ? '<div class="small hl-bad">Quên ra ' + T.miss + '</div>' : '') + '</td>';
     return '<tr><td><b>' + esc(st.name) + '</b>' + (st.group ? ' <span class="small muted">' + esc(st.group) + '</span>' : '') + '<div class="small muted">' + esc(st.role) + '</div></td>' + cells + sum + '</tr>';
   }).join('');
@@ -2404,7 +2413,7 @@ function aActTable(d, mon) {
   }).join('') + '<td></td></tr>';
   return '<div class="tablewrap sticky"><table class="sched team"><thead><tr><th>Nhân viên</th>' + dates.map(function (dt) { return '<th>' + WDS[dow(dt)] + ' ' + dm(dt) + '</th>'; }).join('') + '<th>Cả tuần</th></tr></thead><tbody>' + body + '</tbody>' +
     '<tfoot><tr><td colspan="9" class="lbl" style="text-align:left">Tổng theo ngày</td></tr>' + foot + '</tfoot></table></div>' +
-    '<p class="small muted" style="margin:8px 0 0">"Cả tuần": số ca đã làm / số ca đăng ký tính đến hôm nay và tổng giờ. "Ngoài ca": giờ làm ngoài ca đăng ký, cộng cả ngày rồi tính theo từng ' + OT_STEP + ' phút tròn, chỉ vào công khi nhân viên giải trình và quản lý duyệt (tab Duyệt). <b>Bấm vào một ô</b> để thêm lượt chấm bị quên hoặc bỏ lượt chấm sai của ngày đó.</p>';
+    '<p class="small muted" style="margin:8px 0 0">"Cả tuần": số ca đã làm / số ca đăng ký tính đến hôm nay và tổng giờ. "Ngoài ca": giờ làm ngoài ca đăng ký, cộng cả ngày rồi tính theo từng ' + OT_STEP + ' phút tròn, tự tính công, không cần duyệt. <b>Bấm vào một ô</b> để xem lý do làm ngoài giờ, bỏ giờ ngoài ca nếu không đồng ý, thêm lượt chấm bị quên hoặc bỏ lượt chấm sai của ngày đó.</p>';
 }
 // Sửa công một ngày: xem các lượt chấm, bỏ lượt sai, thêm lượt bị quên
 function fixDay(id, date, mon) {
@@ -2418,8 +2427,10 @@ function fixDay(id, date, mon) {
       '<button class="btn ' + (off ? 'sec' : 'bad') + ' sm" data-rv="' + esc(r.id) + '" data-ok="' + (off ? 1 : 0) + '">' + (off ? 'Tính lại' : 'Không tính') + '</button></div>';
   }).join('');
   var def = last && last.type === 'IN' ? 'OUT' : 'IN';
+  var dso = ok.length ? dayStats(ok, segs(st, date, d.regs), date, S.ad.now.date, toMin(vnNow(S.offset).time)) : null;
   modal('<h3>Sửa công · ' + esc(st.name) + '</h3><p class="small muted" style="margin:0">' + WD[dow(date)] + ', ' + vnDate(date) + '</p>' +
     '<div class="list">' + (list || '<div class="empty">Ngày này chưa có lượt chấm nào.</div>') + '</div>' +
+    (dso && dso.ot && st.group !== 'LIVE' ? '<div class="lbl" style="margin-top:4px">Giờ làm ngoài ca</div><div class="list">' + otBlock(id, date, dso.ot) + '</div>' : '') +
     '<div class="lbl" style="margin-top:4px">Thêm lượt chấm bị quên</div>' +
     '<div class="grid2"><div class="field"><select id="fxType" aria-label="Loại lượt"><option value="IN"' + (def === 'IN' ? ' selected' : '') + '>Giờ vào</option><option value="OUT"' + (def === 'OUT' ? ' selected' : '') + '>Giờ ra</option></select></div>' +
     '<div class="field"><input type="time" id="fxTime" aria-label="Giờ thực tế"></div></div>' +
@@ -2427,6 +2438,7 @@ function fixDay(id, date, mon) {
     '<p class="small muted" style="margin:0">Giờ ra sau nửa đêm (ca live tối) cứ điền 00:xx, app tự tính vào ngày này.</p>' +
     '<div class="acts"><button class="btn" id="fxSave">Thêm lượt chấm</button><button class="btn sec" id="fxNo">Đóng</button></div>');
   $('#fxNo').onclick = function () { modal(''); };
+  bindOtSet();
   function done(msg) { modal(''); toast(msg); delete S.aAct[mon]; loadAdmin(); }
   $$('[data-rv]').forEach(function (b) {
     b.onclick = function () {
@@ -2444,6 +2456,36 @@ function fixDay(id, date, mon) {
       .then(function () { done('Đã thêm lượt chấm cho ' + st.name); })
       .catch(function (e) { btn.disabled = false; toast(e.error, true); });
   };
+}
+function otBlock(staffId, date, ot) {
+  var stt = otState(staffId, date, S.ad.requests), why = otWhy(staffId, date, S.ad.requests);
+  return '<div class="li"><div class="main"><b>+' + dur(ot) + ' ngoài ca</b> <span class="pill ' + OT_TXT[stt][0] + '">' + OT_TXT[stt][1] + '</span>' +
+    '<div class="small' + (why ? '' : ' muted') + '">' + (why ? 'Lý do: ' + esc(why) : 'Nhân viên chưa ghi lý do') + '</div></div>' +
+    '<button class="btn ' + (stt === 'cut' ? 'sec' : 'bad') + ' sm" data-otset="' + esc(staffId + '|' + date + '|' + ot) + '" data-on="' + (stt === 'cut' ? 1 : 0) + '">' + (stt === 'cut' ? 'Tính lại' : 'Bỏ giờ ngoài ca') + '</button></div>';
+}
+function bindOtSet(after) {
+  $$('[data-otset]').forEach(function (b) {
+    b.onclick = function () {
+      var k = b.getAttribute('data-otset').split('|'), on = b.getAttribute('data-on') === '1';
+      if (!on && !confirm('Bỏ ' + dur(+k[2]) + ' ngoài ca ngày ' + vnDate(k[1]) + '? Nhân viên sẽ không được tính công ngoài giờ ngày này.')) return;
+      modal(''); if (after) after();
+      fastAct(function () {
+        var qs = otReqs(k[0], k[1], S.ad.requests);
+        if (qs.length) qs.forEach(function (q) { q.status = on ? 'Đã duyệt' : 'Từ chối'; });
+        else if (!on) S.ad.requests.unshift({ id: 'tmp' + Date.now(), staffId: k[0], kind: 'Làm thêm giờ', from: k[1], to: k[1], reason: '', status: 'Từ chối', ca: 'OT|' + k[2] });
+      }, function () { return api('otSet', { admin: S.admin, staffId: k[0], date: k[1], on: on, mins: +k[2] }); },
+        on ? 'Đã tính lại giờ ngoài ca' : 'Đã bỏ giờ ngoài ca ngày ' + vnDate(k[1]));
+    };
+  });
+}
+// Danh sách ngày làm ngoài ca của 1 người trong tháng (bấm từ Bảng công)
+function otList(o) {
+  var days = Object.keys(o.byDay).filter(function (d) { return o.byDay[d].ot; }).sort().reverse();
+  modal('<h3>Ngoài ca · ' + esc(o.st.name) + '</h3><p class="small muted" style="margin:0">Tháng ' + S.amonth.slice(5) + '/' + S.amonth.slice(0, 4) + ' · đã tính ' + dur(o.ot) + (o.otWait ? ' · quản lý bỏ ' + dur(o.otWait) : '') + '</p>' +
+    '<div class="list">' + (days.map(function (d) { var x = o.byDay[d]; return '<div class="small mono" style="margin-top:8px"><b>' + WDS[dow(d)] + ' ' + dm(d) + '</b> · ' + esc(chain(x.recs)) + '</div>' + otBlock(o.st.id, d, x.ot); }).join('') || '<div class="empty">Tháng này không có giờ ngoài ca.</div>') + '</div>' +
+    '<div class="acts"><button class="btn sec" id="olNo">Đóng</button></div>');
+  $('#olNo').onclick = function () { modal(''); };
+  bindOtSet();
 }
 // Bảng sửa lịch một người (quản lý)
 function formFor(st, mon, regs) {
@@ -2492,7 +2534,7 @@ function adminEdit(id) {
     }).catch(function (e) { btn.disabled = false; toast(e.error, true); });
   };
 }
-var COLS = ['Nhân viên', 'Vị trí', 'Ngày làm', 'Số ca', 'Nghỉ phép', 'Giờ làm', 'Ngoài ca đã duyệt (giờ)', 'Ngoài ca chưa duyệt (giờ)', 'Bê hàng đã duyệt (giờ)', 'Bê hàng chờ duyệt (giờ)', 'Muộn (lần)', 'Muộn (phút)', 'Về sớm (lần)', 'Về sớm (phút)', 'Quên chấm ra', 'Chờ duyệt'];
+var COLS = ['Nhân viên', 'Vị trí', 'Ngày làm', 'Số ca', 'Nghỉ phép', 'Giờ làm', 'Ngoài ca được tính (giờ)', 'Ngoài ca quản lý bỏ (giờ)', 'Bê hàng đã duyệt (giờ)', 'Bê hàng chờ duyệt (giờ)', 'Muộn (lần)', 'Muộn (phút)', 'Về sớm (lần)', 'Về sớm (phút)', 'Quên chấm ra', 'Chờ duyệt'];
 function monthRows() {
   var n = vnNow(S.offset), today = S.ad.now.date;
   return S.ad.staff.map(function (st) { return summarize(st, S.ad.records, S.ad.requests, S.ad.regs, S.amonth, today, toMin(n.time)); })
@@ -2504,16 +2546,17 @@ function renderAMonth() {
   function c(v, cls) { return '<td class="' + (v ? cls || '' : '') + '"><span class="num">' + v + '</span></td>'; }
   var body = rs.map(function (o) {
     return '<tr><td><b>' + esc(o.st.name) + '</b></td><td style="text-align:left" class="muted">' + esc(o.st.role) + '</td>' + c(o.days) + c(o.shifts) + c(o.leaveN) +
-      '<td><span class="num">' + dur(o.mins) + '</span></td><td>' + (o.ot ? '<span class="num ot">' + dur(o.ot) + '</span>' : '<span class="num">0</span>') + '</td><td class="' + (o.otWait ? 'hl-warn' : '') + '"><span class="num">' + (o.otWait ? dur(o.otWait) : 0) + '</span></td><td>' + (o.bh ? '<span class="num ot">' + dur(o.bh) + '</span>' : '<span class="num">0</span>') + '</td><td class="' + (o.bhWait ? 'hl-warn' : '') + '"><span class="num">' + (o.bhWait ? dur(o.bhWait) : 0) + '</span></td>' + c(o.lateN, 'hl-warn') + c(o.lateM, 'hl-warn') + c(o.earlyN, 'hl-warn') + c(o.earlyM, 'hl-warn') + c(o.missOut, 'hl-bad') + c(o.pending, 'hl-bad') + '</tr>';
+      '<td><span class="num">' + dur(o.mins) + '</span></td><td>' + (o.ot || o.otWait ? '<button class="linkbtn num ot" data-otl="' + esc(o.st.id) + '" title="Xem lý do từng ngày">' + dur(o.ot) + ' ›</button>' : '<span class="num">0</span>') + '</td><td class="' + (o.otWait ? 'hl-warn' : '') + '"><span class="num">' + (o.otWait ? dur(o.otWait) : 0) + '</span></td><td>' + (o.bh ? '<span class="num ot">' + dur(o.bh) + '</span>' : '<span class="num">0</span>') + '</td><td class="' + (o.bhWait ? 'hl-warn' : '') + '"><span class="num">' + (o.bhWait ? dur(o.bhWait) : 0) + '</span></td>' + c(o.lateN, 'hl-warn') + c(o.lateM, 'hl-warn') + c(o.earlyN, 'hl-warn') + c(o.earlyM, 'hl-warn') + c(o.missOut, 'hl-bad') + c(o.pending, 'hl-bad') + '</tr>';
   }).join('');
   $('#main').innerHTML =
     '<div class="monthbar" style="padding-top:8px"><h2 style="font-size:20px">Bảng công tháng</h2><div class="row" style="flex-wrap:wrap">' +
     '<input type="month" id="amSel" value="' + S.amonth + '" aria-label="Chọn tháng">' +
     '<button class="btn sec sm" id="copyT">Sao chép bảng</button>' + (REAL ? '<button class="btn sm" id="expT">Xuất sang Google Sheet</button>' : '') + '</div></div>' +
-    '<p class="small muted" style="margin:8px 0 12px">Số ca = số buổi (sáng, chiều, linh hoạt) có mặt. Giờ làm = tổng các lượt vào → ra, không tính thời gian ra ngoài. Ngoài ca = giờ làm ngoài ca đã đăng ký (đến sớm + về muộn cộng cả ngày), tính theo từng ' + OT_STEP + ' phút tròn từ ngày ' + vnDate(OT_FROM) + ' (lẻ dưới ' + OT_STEP + ' phút chỉ là công bình thường; trước ngày này tính đủ số phút; ngày không đăng ký ca thì cả ngày là ngoài ca). Chỉ phần đã được duyệt giải trình mới tính công ngoài ca. Bê hàng = số giờ nhân viên khai sau khi chấm ra (hàng về, làm nặng), quản lý duyệt ở tab Duyệt, dùng để tính lương riêng. Lượt bị từ chối không tính.</p>' +
+    '<p class="small muted" style="margin:8px 0 12px">Số ca = số buổi (sáng, chiều, linh hoạt) có mặt. Giờ làm = tổng các lượt vào → ra, không tính thời gian ra ngoài. Ngoài ca = giờ làm ngoài ca đã đăng ký (đến sớm + về muộn cộng cả ngày), tính theo từng ' + OT_STEP + ' phút tròn từ ngày ' + vnDate(OT_FROM) + ' (lẻ dưới ' + OT_STEP + ' phút chỉ là công bình thường; trước ngày này tính đủ số phút; ngày không đăng ký ca thì cả ngày là ngoài ca). Giờ ngoài ca tự tính công, không cần duyệt; bấm vào số giờ ngoài ca để xem lý do từng ngày và bỏ ngày không đồng ý. Bê hàng = số giờ nhân viên khai sau khi chấm ra (hàng về, làm nặng), quản lý duyệt ở tab Duyệt, dùng để tính lương riêng. Lượt bị từ chối không tính.</p>' +
     '<div class="tablewrap sticky"><table><thead><tr>' + COLS.map(function (h, i) { return '<th' + (i === 1 ? ' style="text-align:left"' : '') + '>' + h + '</th>'; }).join('') + '</tr></thead><tbody>' + body + '</tbody>' +
     '<tfoot><tr><td>Tổng</td><td></td><td>' + T.days + '</td><td>' + T.shifts + '</td><td>' + T.leaveN + '</td><td>' + dur(T.mins) + '</td><td>' + dur(T.ot) + '</td><td>' + dur(T.otWait) + '</td><td>' + dur(T.bh) + '</td><td>' + dur(T.bhWait) + '</td><td>' + T.lateN + '</td><td>' + T.lateM + '</td><td>' + T.earlyN + '</td><td>' + T.earlyM + '</td><td>' + T.missOut + '</td><td>' + T.pending + '</td></tr></tfoot></table></div>' + liveTable(lv) + '<p class="small muted" style="margin:12px 0 0">Tiền phạt (đi muộn + phiếu phạt) xem ở tab <b>Phiếu phạt</b>.</p>';
   $('#amSel').onchange = function (e) { if (e.target.value) { S.amonth = e.target.value; loadAdmin(); } };
+  $$('[data-otl]').forEach(function (b) { b.onclick = function () { var o = allRows.filter(function (x) { return x.st.id === b.getAttribute('data-otl'); })[0]; if (o) otList(o); }; });
   $('#copyT').onclick = function () {
     var tsv = [COLS].concat(tableData()).map(function (r) { return r.join('\t'); }).join('\n');
     try { navigator.clipboard.writeText(tsv).then(function () { toast('Đã sao chép. Mở Excel và dán.'); }, function () { showTsv(tsv); }); } catch (e) { showTsv(tsv); }
