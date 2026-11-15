@@ -1356,10 +1356,17 @@ function bindPPAdmin() {
     b.onclick = function () {
       var id = b.getAttribute('data-id'), act = b.getAttribute('data-ppd'), amt = amtVal($('#ppa' + id));
       if ((act === 'approve' || act === 'keep') && !amt) return toast('Nhập số tiền chốt.', true);
-      b.disabled = true;
-      api('ppDecide', { admin: S.admin, ticket: id, action: act, amount: amt, note: ($('#ppn' + id) || {}).value || '' }).then(function () {
-        toast({ approve: 'Đã duyệt phiếu phạt', reject: 'Đã không duyệt phiếu phạt', keep: 'Đã giữ phạt', cancel: 'Đã huỷ phạt' }[act]); loadAdmin();
-      }).catch(function (e) { b.disabled = false; toast(e.error, true); });
+      var note = ($('#ppn' + id) || {}).value || '';
+      fastAct(function () {
+        (S.ad.pp || []).forEach(function (t) {
+          if (t.id !== id) return; t.note = note;
+          if (act === 'approve') { t.status = 'Đã duyệt'; t.final = amt || t.amount; t.approvedAt = t.approvedAt || (vnNow(S.offset).date + ' ' + vnNow(S.offset).time.slice(0, 5)); }
+          else if (act === 'reject') t.status = 'Từ chối';
+          else if (act === 'keep') { t.status = 'Đã chốt'; t.final = amt || t.final || t.amount; }
+          else if (act === 'cancel') t.status = 'Huỷ';
+        });
+      }, function () { return api('ppDecide', { admin: S.admin, ticket: id, action: act, amount: amt, note: note }); },
+        { approve: 'Đã duyệt phiếu phạt', reject: 'Đã không duyệt phiếu phạt', keep: 'Đã giữ phạt', cancel: 'Đã huỷ phạt' }[act]);
     };
   });
 }
@@ -2063,6 +2070,25 @@ function loadAdmin() {
   adminShell(spinner());
   api('adminData', { admin: S.admin, month: S.amonth }).then(function (d) { S.ad = d; S.offset = REAL ? d.now.ts - Date.now() : 0; routeAdmin(); }).catch(onErr);
 }
+function adminSync(delay) {
+  clearTimeout(S.syncT);
+  S.syncT = setTimeout(function () {
+    if (S.inflight) return adminSync(800);
+    api('adminData', { admin: S.admin, month: S.amonth }).then(function (d) {
+      if (S.inflight || !S.admin) return;
+      S.ad = d;
+      var ae = document.activeElement;
+      if ($('#scrim') || (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))) return adminSync(3000);
+      var y = window.scrollY; routeAdmin(); window.scrollTo(0, y);
+    }).catch(function () {});
+  }, delay || 1200);
+}
+function fastAct(apply, call, msg) {
+  apply(); var y = window.scrollY; routeAdmin(); window.scrollTo(0, y); toast(msg);
+  S.inflight = (S.inflight || 0) + 1;
+  call().then(function () { S.inflight--; adminSync(); })
+    .catch(function (e) { S.inflight--; toast((e && e.error) || 'Chưa lưu được, thử lại.', true); loadAdmin(); });
+}
 function pendingCount() {
   if (!S.ad) return 0;
   return S.ad.requests.filter(function (q) { return q.status === 'Chờ duyệt'; }).length + S.ad.records.filter(function (r) { return r.review === 'pending'; }).length;
@@ -2556,18 +2582,18 @@ function renderAReview() {
   bindPhotos();
   $$('[data-q]').forEach(function (b) {
     b.onclick = function () {
-      b.disabled = true;
-      api('decide', { admin: S.admin, id: b.getAttribute('data-q'), status: b.getAttribute('data-s') })
-        .then(function () { toast(b.getAttribute('data-s') === 'Đã duyệt' ? 'Đã duyệt đơn' : 'Đã từ chối đơn'); loadAdmin(); })
-        .catch(function (e) { b.disabled = false; toast(e.error, true); });
+      var id = b.getAttribute('data-q'), stt = b.getAttribute('data-s');
+      fastAct(function () { S.ad.requests.forEach(function (q) { if (q.id === id) q.status = stt; }); },
+        function () { return api('decide', { admin: S.admin, id: id, status: stt }); },
+        stt === 'Đã duyệt' ? 'Đã duyệt đơn' : 'Đã từ chối đơn');
     };
   });
   $$('[data-r]').forEach(function (b) {
     b.onclick = function () {
-      b.disabled = true; var ok = b.getAttribute('data-ok') === '1';
-      api('reviewPunch', { admin: S.admin, id: b.getAttribute('data-r'), ok: ok })
-        .then(function () { toast(ok ? 'Đã chấp nhận lượt chấm' : 'Đã loại lượt chấm khỏi bảng công'); loadAdmin(); })
-        .catch(function (e) { b.disabled = false; toast(e.error, true); });
+      var ok = b.getAttribute('data-ok') === '1', rid = b.getAttribute('data-r');
+      fastAct(function () { S.ad.records.forEach(function (r) { if (r.id === rid) r.review = ok ? 'ok' : 'rejected'; }); },
+        function () { return api('reviewPunch', { admin: S.admin, id: rid, ok: ok }); },
+        ok ? 'Đã chấp nhận lượt chấm' : 'Đã loại lượt chấm khỏi bảng công');
     };
   });
 }
