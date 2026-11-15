@@ -865,8 +865,38 @@ var Demo = (function () {
           else D.regs.push({ id: 'g' + Date.now(), staffId: q.staffId, date: q.from, shift: w[2], start: w[3], end: w[4], at: vnNow().date + ' · đổi ca · chấm công' });
         }
         if (q.kind === 'Quên chấm công' && p.status === 'Đã duyệt' && q.status !== 'Đã duyệt' && /^FIX\|/.test(q.ca || '')) { var k2 = q.ca.split('|'); demoAdd(q.staffId, q.from, k2[1], k2[2], 'Bổ sung theo đơn quên chấm công'); }
-        q.status = p.status;
+        q.status = p.status; q.by = 'Quản lý'; q.at = stampD();
       });
+      save(); return true;
+    },
+    reqEdit: function (p) {
+      admin(p); var D = db(), q = D.requests.filter(function (x) { return x.id === p.id; })[0];
+      if (!q) fail('Không tìm thấy đơn.');
+      var k = String(q.ca || '').split('|'), ok = q.status === 'Đã duyệt';
+      function unp() {
+        var t = k[2]; if (k[1] === 'OUT' && toMin(t) < 240) t = (+t.slice(0, 2) + 24) + t.slice(2);
+        var r = D.records.filter(function (x) { return x.staffId === q.staffId && x.date === q.from && x.type === k[1] && x.review !== 'rejected' && /^Bổ sung theo đơn/.test(x.note || '') && x.time.slice(0, 5) === t; })[0];
+        if (r) r.review = 'rejected';
+      }
+      if (p.action === 'cancel') {
+        if (!ok) fail('Đơn này chưa được duyệt.');
+        if (k[0] === 'FIX') unp();
+        if (q.kind === 'Báo bận ca' && k[1]) {
+          var day = D.regs.filter(function (r) { return r.staffId === q.staffId && r.date === q.from; });
+          if (!day.some(function (r) { return r.shift === k[0] && r.start === k[1]; })) {
+            var off = day.filter(function (r) { return r.shift === 'NGHỈ'; })[0];
+            if (off) { off.shift = k[0]; off.start = k[1]; off.end = k[2] || ''; } else D.regs.push({ id: 'g' + Date.now(), staffId: q.staffId, date: q.from, shift: k[0], start: k[1], end: k[2] || '', at: stampD() });
+          }
+        }
+        q.status = 'Từ chối'; q.by = 'Quản lý huỷ duyệt'; q.at = stampD(); save(); return true;
+      }
+      var from = p.from || q.from, to = p.to || from;
+      if (to < from) fail('Ngày chưa đúng.');
+      if (['Báo bận ca', 'Đổi ca', 'Làm thêm giờ', 'Quên chấm công'].indexOf(q.kind) >= 0 && (from !== q.from || to !== (q.to || q.from))) fail('Đơn "' + q.kind + '" không đổi ngày được. Huỷ duyệt rồi cho nhân viên lên đơn mới.');
+      if (k[0] === 'BH' && p.mins != null) { var m = parseInt(p.mins, 10); if (!(m >= 15 && m <= 720)) fail('Giờ bê hàng từ 15 phút đến 12 tiếng.'); q.ca = 'BH|' + m; }
+      if (k[0] === 'FIX' && p.time && p.time !== k[2]) { if (ok) { unp(); demoAdd(q.staffId, q.from, k[1], p.time, 'Bổ sung theo đơn quên chấm công (quản lý sửa)'); } q.ca = 'FIX|' + k[1] + '|' + p.time; }
+      q.from = from; q.to = to; q.reason = p.reason == null ? q.reason : String(p.reason).trim();
+      if (ok) { q.by = 'Quản lý (đã sửa)'; q.at = stampD(); }
       save(); return true;
     },
     adminPunch: function (p) { admin(p); demoAdd(p.staffId, p.date, p.type, p.time, 'Quản lý bổ sung' + (p.note ? ': ' + p.note : '')); save(); return true; },
@@ -1993,7 +2023,7 @@ function loadReq() {
     if (S.tab === 'req' && !typing) renderReq();
   }).catch(onErr);
 }
-function statusPill(s) { return '<span class="pill ' + (s === 'Đã duyệt' ? 'p-good' : s === 'Từ chối' ? 'p-bad' : 'p-warn') + '">' + esc(s) + '</span>'; }
+function statusPill(s) { return '<span class="pill ' + (s === 'Đã duyệt' ? 'p-good' : s === 'Từ chối' ? 'p-bad' : s === 'Đã huỷ duyệt' ? 'p-mute' : 'p-warn') + '">' + esc(s) + '</span>'; }
 function rangeTxt(q) { return vnDate(q.from) + (q.to && q.to !== q.from ? ' – ' + vnDate(q.to) : ''); }
 function renderReq() {
   var nn = vnNow(S.offset), today = nn.date;
@@ -2601,7 +2631,6 @@ function showTsv(tsv) {
 function renderAReview() {
   var qs = S.ad.requests.filter(function (q) { return q.status === 'Chờ duyệt'; });
   var rs = S.ad.records.filter(function (r) { return r.review === 'pending'; });
-  var done = S.ad.requests.filter(function (q) { return q.status !== 'Chờ duyệt'; }).slice(0, 15);
   var qHtml = qs.map(function (q) {
     return '<div class="reqcard"><div class="row" style="justify-content:space-between;flex-wrap:wrap"><b>' + esc(q.name) + ' · ' + esc(q.kind) + '</b><span class="mono small muted">' + rangeTxt(q) + '</span></div>' +
       (q.kind === 'Báo bận ca' ? (function () { var tm = busyTiming(q.from, q.ca.split('|')[1], q.created); return '<div class="row" style="flex-wrap:wrap"><b class="mono">' + esc(caTxt(q.ca)) + '</b><span class="pill ' + tm.cls + '">' + tm.txt + '</span></div>'; })() : '') +
@@ -2615,9 +2644,6 @@ function renderAReview() {
       (r.photo ? '<div class="phs">' + phBtn(r, r.name) + '</div>' : '') +
       '<div class="acts"><button class="btn sm" data-r="' + esc(r.id) + '" data-ok="1">Chấp nhận</button><button class="btn bad sm" data-r="' + esc(r.id) + '" data-ok="0">Không tính công</button></div></div>';
   }).join('');
-  var dHtml = done.map(function (q) {
-    return '<div class="li"><div class="main"><b>' + esc(q.name) + '</b> · ' + esc(q.kind) + '<div class="small muted mono">' + rangeTxt(q) + '</div></div>' + statusPill(q.status) + '</div>';
-  }).join('');
   var ppc = ppPendingCount();
   $('#main').innerHTML =
     (ppc ? '<button class="banner bad" id="goPPA" style="margin-top:8px"><span><b>' + ppc + ' phiếu phạt chờ duyệt hoặc khiếu nại</b><br><span class="small">Xử lý ở tab Phiếu phạt</span></span><span class="go">Mở →</span></button>' : '') +
@@ -2625,10 +2651,11 @@ function renderAReview() {
     '<div class="list">' + (qHtml || '<div class="empty">Không có đơn nào chờ duyệt.</div>') + '</div>' +
     '<div class="sechead"><h2>Chấm công cần xem lại</h2><span class="muted small">Ngoài vùng, không có vị trí, hoặc chưa đăng ký ca</span></div>' +
     '<div class="list">' + (rHtml || '<div class="empty">Không có lượt chấm nào cần xem.</div>') + '</div>' +
-    '<div class="sechead"><h2>Đã xử lý gần đây</h2></div><div class="list">' + (dHtml || '<div class="empty">Chưa có.</div>') + '</div>';
+    rvBox();
   if ($('#goPPA')) $('#goPPA').onclick = function () { S.atab = 'pp'; routeAdmin(); };
+  bindRv();
   bindPhotos();
-  $$('[data-q]').forEach(function (b) {
+  $$('#main [data-q]').forEach(function (b) {
     b.onclick = function () {
       var id = b.getAttribute('data-q'), stt = b.getAttribute('data-s');
       fastAct(function () { S.ad.requests.forEach(function (q) { if (q.id === id) q.status = stt; }); },
@@ -2644,6 +2671,102 @@ function renderAReview() {
         ok ? 'Đã chấp nhận lượt chấm' : 'Đã loại lượt chấm khỏi bảng công');
     };
   });
+}
+
+// ---- Lịch sử đơn đã xử lý: lọc theo tháng / ngày / nhân viên / trạng thái, sửa hoặc huỷ duyệt
+var RV_FIXDAY = ['Báo bận ca', 'Đổi ca', 'Làm thêm giờ', 'Quên chấm công'];
+function rvFound() {
+  var mon = S.rvMon || S.amonth, day = S.rvDay || '', who = S.rvWho || '', stt = S.rvSt || '';
+  return S.ad.requests.filter(function (q) {
+    if (q.status === 'Chờ duyệt') return false;
+    var a = q.from || '', b = q.to || a;
+    if (day) { if (!(a <= day && day <= b)) return false; }
+    else if (!(a.slice(0, 7) <= mon && mon <= b.slice(0, 7))) return false;
+    if (who && q.staffId !== who) return false;
+    if (stt && q.status !== stt) return false;
+    return true;
+  }).sort(function (x, y) { return x.from < y.from ? 1 : x.from > y.from ? -1 : (x.created < y.created ? 1 : -1); });
+}
+function rvCard(q) {
+  var ok = q.status === 'Đã duyệt';
+  return '<div class="reqcard"><div class="row" style="justify-content:space-between;flex-wrap:wrap"><b>' + esc(q.name) + ' · ' + esc(q.kind) + '</b><span class="row" style="gap:6px"><span class="mono small muted">' + rangeTxt(q) + '</span>' + statusPill(q.by === 'Quản lý huỷ duyệt' ? 'Đã huỷ duyệt' : q.status) + '</span></div>' +
+    (q.kind === 'Báo bận ca' && q.ca ? '<div><b class="mono">' + esc(caTxt(q.ca)) + '</b></div>' : '') +
+    (/^(FIX|OT|BH|SW)\|/.test(q.ca || '') ? '<div><b class="mono">' + esc(reqCaTxt(q)) + '</b></div>' : '') +
+    (q.reason ? '<div>' + esc(q.reason) + '</div>' : '') +
+    '<div class="small muted">Gửi lúc ' + esc(q.created) + (q.by ? ' · ' + esc(q.by) + (q.at ? ' lúc ' + esc(q.at) : '') : '') + '</div>' +
+    '<div class="acts"><button class="btn sec sm" data-rve="' + esc(q.id) + '">Sửa</button>' +
+    (ok ? '<button class="btn bad sm" data-rvc="' + esc(q.id) + '">Huỷ duyệt</button>' : '<button class="btn sm" data-rva="' + esc(q.id) + '">Duyệt lại</button>') + '</div></div>';
+}
+function rvBox() {
+  var mon = S.rvMon || S.amonth, list = rvFound(), staff = S.ad.staff.slice().sort(function (a, b) { return a.name.localeCompare(b.name, 'vi'); });
+  return '<div class="sechead"><h2>Lịch sử đơn đã xử lý</h2><span class="muted small">' + list.length + ' đơn</span></div>' +
+    '<div class="card row" style="flex-wrap:wrap;gap:8px;padding:12px">' +
+    '<label class="small">Tháng <input type="month" id="rvMon" value="' + mon + '"></label>' +
+    '<label class="small">Ngày <input type="date" id="rvDay" value="' + (S.rvDay || '') + '"></label>' +
+    '<label class="small">Người lên đơn <select id="rvWho"><option value="">Tất cả</option>' + staff.map(function (s) { return '<option value="' + esc(s.id) + '"' + (S.rvWho === s.id ? ' selected' : '') + '>' + esc(s.name) + (s.status === 'Nghỉ việc' ? ' (nghỉ việc)' : '') + '</option>'; }).join('') + '</select></label>' +
+    '<label class="small">Trạng thái <select id="rvSt"><option value="">Tất cả</option><option' + (S.rvSt === 'Đã duyệt' ? ' selected' : '') + '>Đã duyệt</option><option value="Từ chối"' + (S.rvSt === 'Từ chối' ? ' selected' : '') + '>Từ chối / đã huỷ</option></select></label>' +
+    (S.rvDay || S.rvWho || S.rvSt ? '<button class="btn sec sm" id="rvClr">Bỏ lọc</button>' : '') + '</div>' +
+    '<div class="list" id="rvList">' + (list.slice(0, 200).map(rvCard).join('') || '<div class="empty">Không có đơn nào khớp bộ lọc.</div>') + '</div>' +
+    (list.length > 200 ? '<p class="small muted">Đang hiện 200 đơn mới nhất, lọc thêm theo ngày hoặc nhân viên để xem hết.</p>' : '');
+}
+function rvRedraw() { var y = window.scrollY; routeAdmin(); window.scrollTo(0, y); }
+function bindRv() {
+  if (!$('#rvMon')) return;
+  $('#rvMon').onchange = function (e) { S.rvMon = e.target.value || S.amonth; S.rvDay = ''; rvRedraw(); };
+  $('#rvDay').onchange = function (e) { S.rvDay = e.target.value; if (S.rvDay) S.rvMon = S.rvDay.slice(0, 7); rvRedraw(); };
+  $('#rvWho').onchange = function (e) { S.rvWho = e.target.value; rvRedraw(); };
+  $('#rvSt').onchange = function (e) { S.rvSt = e.target.value; rvRedraw(); };
+  if ($('#rvClr')) $('#rvClr').onclick = function () { S.rvDay = S.rvWho = S.rvSt = ''; rvRedraw(); };
+  function find(id) { return S.ad.requests.filter(function (q) { return q.id === id; })[0]; }
+  $$('[data-rva]').forEach(function (b) {
+    b.onclick = function () {
+      var id = b.getAttribute('data-rva');
+      fastAct(function () { var q = find(id); if (q) { q.status = 'Đã duyệt'; q.by = 'Quản lý'; } },
+        function () { return api('decide', { admin: S.admin, id: id, status: 'Đã duyệt' }); }, 'Đã duyệt lại đơn');
+    };
+  });
+  $$('[data-rvc]').forEach(function (b) {
+    b.onclick = function () {
+      var q = find(b.getAttribute('data-rvc')); if (!q) return;
+      var note = q.kind === 'Quên chấm công' ? 'Lượt chấm đã bổ sung theo đơn này sẽ bị loại khỏi bảng công.'
+        : q.kind === 'Báo bận ca' ? 'Ca đã gỡ sẽ được trả lại lịch. Không chấm công ca đó thì bị tính vắng.'
+        : q.kind === 'Đổi ca' ? 'Lịch đã đổi không tự đổi lại. Cần thì sửa lịch ngày đó ở tab Lịch ca.'
+        : q.kind === 'Làm thêm giờ' ? 'Giờ ngoài ca ngày này sẽ không được tính công.'
+        : q.kind === 'Bê hàng' ? 'Số giờ bê hàng này sẽ không được tính.'
+        : q.kind === 'Đi muộn' || q.kind === 'Về sớm' ? 'Ngày này sẽ bị tính phạt ' + q.kind.toLowerCase() + ' như bình thường.' : 'Đơn chuyển sang không được duyệt.';
+      modal('<h3>Huỷ duyệt đơn?</h3><p style="margin:0"><b>' + esc(q.name) + ' · ' + esc(q.kind) + '</b> · ' + rangeTxt(q) + '</p><p class="muted small" style="margin:0">' + note + ' Muốn tính lại thì bấm Duyệt lại.</p>' +
+        '<div class="acts"><button class="btn bad" id="rvYes">Huỷ duyệt</button><button class="btn sec" id="rvNo">Thôi</button></div>');
+      $('#rvNo').onclick = function () { modal(''); };
+      $('#rvYes').onclick = function () {
+        modal('');
+        fastAct(function () { q.status = 'Từ chối'; q.by = 'Quản lý huỷ duyệt'; },
+          function () { return api('reqEdit', { admin: S.admin, id: q.id, action: 'cancel' }); }, 'Đã huỷ duyệt đơn');
+      };
+    };
+  });
+  $$('[data-rve]').forEach(function (b) { b.onclick = function () { var q = find(b.getAttribute('data-rve')); if (q) rvEdit(q); }; });
+}
+function rvEdit(q) {
+  var k = String(q.ca || '').split('|'), fixed = RV_FIXDAY.indexOf(q.kind) >= 0, bh = k[0] === 'BH', fx = k[0] === 'FIX';
+  modal('<h3>Sửa đơn ' + esc(q.kind.toLowerCase()) + '</h3><p class="muted small" style="margin:0">' + esc(q.name) + ' · ' + statusPill(q.status) + (fixed ? ' · Đơn loại này không đổi ngày được' : '') + '</p>' +
+    '<div class="row" style="gap:8px;flex-wrap:wrap"><div class="field" style="flex:1;min-width:140px"><label class="lbl" for="rvF">Từ ngày</label><input type="date" id="rvF" value="' + esc(q.from) + '"' + (fixed ? ' disabled' : '') + '></div>' +
+    '<div class="field" style="flex:1;min-width:140px"><label class="lbl" for="rvT">Đến ngày</label><input type="date" id="rvT" value="' + esc(q.to || q.from) + '"' + (fixed ? ' disabled' : '') + '></div></div>' +
+    (bh ? '<div class="field"><label class="lbl" for="rvM">Số phút bê hàng</label><input type="number" id="rvM" min="15" max="720" step="5" value="' + (+k[1] || 0) + '"></div>' : '') +
+    (fx ? '<div class="field"><label class="lbl" for="rvH">Giờ ' + (k[1] === 'IN' ? 'vào' : 'ra') + ' bổ sung</label><input type="time" id="rvH" value="' + esc(k[2] || '') + '"></div>' : '') +
+    '<div class="field"><label class="lbl" for="rvR">Lý do</label><textarea id="rvR" rows="3">' + esc(q.reason || '') + '</textarea></div>' +
+    '<div class="err" id="rvMsg" style="text-align:left"></div><div class="acts"><button class="btn" id="rvOk">Lưu</button><button class="btn sec" id="rvNo">Huỷ</button></div>');
+  $('#rvNo').onclick = function () { modal(''); };
+  $('#rvOk').onclick = function () {
+    var f = $('#rvF').value, t = $('#rvT').value || f, msg = $('#rvMsg');
+    if (!f) return (msg.textContent = 'Chọn ngày.');
+    if (t < f) return (msg.textContent = 'Đến ngày phải sau từ ngày.');
+    var p = { admin: S.admin, id: q.id, action: 'edit', from: f, to: t, reason: $('#rvR').value.trim() };
+    if (bh) { p.mins = parseInt($('#rvM').value, 10); if (!(p.mins >= 15 && p.mins <= 720)) return (msg.textContent = 'Giờ bê hàng từ 15 phút đến 12 tiếng.'); }
+    if (fx) { p.time = $('#rvH').value; if (!p.time) return (msg.textContent = 'Nhập giờ bổ sung.'); }
+    var btn = this; btn.disabled = true; msg.textContent = '';
+    api('reqEdit', p).then(function () { modal(''); toast('Đã sửa đơn'); loadAdmin(); })
+      .catch(function (e) { btn.disabled = false; msg.textContent = e.error || 'Chưa lưu được, thử lại.'; });
+  };
 }
 
 function renderASetup() {
