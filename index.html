@@ -852,6 +852,9 @@ document.documentElement.classList.add('js');
     JB367:"Giày sneaker cổ cao nữ độn đế tăng chiều cao 7cm cá tính",
     JB5502:"Giày sneaker chunky nữ độn đế tăng chiều cao 10cm êm chân"
   };
+  // ===== CHIỀU CAO ĐỘN (cm) — ghi đè cho mẫu mà TÊN không có "cm", để bộ lọc chiều cao bắt đúng.
+  // Mẫu nào tên đã có "...Xcm..." thì KHÔNG cần thêm vào đây (tự parse). Thêm mã + số cm khi có mẫu mới thiếu cm.
+  var HEIGHT={ /* VD: JB27:9, JB25:8, JB02:6, JB182:5 — điền số cm thật rồi bỏ comment */ };
   // ===== ẢNH GALLERY từ Google Drive (banner + ảnh thành phần), theo mã JB — thứ tự: banner trước =====
   var GIMG={
     JB708:["1GbwE237ZnaxpGT6lFVr8vFTHy6qlVm6K","1HvgsKzkyROOUjM0vcSOuvOF7BOMmyGfZ","14aiVwKR14ZU9-SP50rsGiYUR3KKQVcEZ","17spIIR196xv0dztomW2cSl72wKDDDLFp","1I9BydW0y0YZT6h1ftZykzqxPaaWgCWEn","1MV8Pnz5kKBCBCc2erqKF5UKnq3DBiHYe"],
@@ -1134,8 +1137,8 @@ document.documentElement.classList.add('js');
   }
   function vnd(n){ return (n||0).toLocaleString('vi-VN')+'₫'; }
   function heightBucket(name){
-    var m=(name||'').match(/(\d{1,2})\s*cm/i); if(!m) return '';
-    var h=parseInt(m[1],10);
+    var m=(name||'').match(/(\d{1,2})(?:[.,]\d)?\s*cm/i); if(!m) return '';
+    var h=parseFloat(m[1]);
     if(h<=8) return '7-8'; if(h<=10) return '9-10'; return '11-13';
   }
   var PRODUCTS=[], SEL=null; // SEL: {prod, color, size, variation}
@@ -1207,8 +1210,9 @@ document.documentElement.classList.add('js');
     var disc=g[1]>g[0]?Math.round((1-g[0]/g[1])*100):0;
     var mau=[]; p.variations.forEach(function(v){ if(v.mau && mau.indexOf(v.mau)<0) mau.push(v.mau); });
     var swat=mau.slice(0,4).map(function(c){return '<span class="sw">'+c+'</span>';}).join('');
-    var hb=heightBucket(p.ten_goc||p.ten);
-    var cmtag=(p.ten_goc||p.ten||'').match(/(\d{1,2})\s*cm/i);
+    var hbCm=HEIGHT[(p.ma||'').toUpperCase()];
+    var hb=(hbCm!=null)?heightBucket(hbCm+'cm'):heightBucket((p.ten||'')+' '+(p.ten_goc||''));
+    var cmtag=((p.ten||'')+' '+(p.ten_goc||'')).match(/(\d{1,2})(?:[.,]\d)?\s*cm/i);
     var art=document.createElement('article');
     art.className='card reveal'; art.setAttribute('data-h',hb); art.setAttribute('data-ma',p.ma);
     art.setAttribute('data-search', srchNorm(p.ma+' '+(p.ten||'')+' '+(p.ten_goc||'')+' '+mau.join(' ')));
