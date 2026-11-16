@@ -2589,12 +2589,13 @@ function renderAMonth() {
   $('#main').innerHTML =
     '<div class="monthbar" style="padding-top:8px"><h2 style="font-size:20px">Bảng công tháng</h2><div class="row" style="flex-wrap:wrap">' +
     '<input type="month" id="amSel" value="' + S.amonth + '" aria-label="Chọn tháng">' +
-    '<button class="btn sec sm" id="copyT">Sao chép bảng</button>' + (REAL ? '<button class="btn sm" id="expT">Xuất sang Google Sheet</button>' : '') + '</div></div>' +
+    '<button class="btn sm" id="xlsT">Tải file Excel</button><button class="btn sec sm" id="copyT">Sao chép bảng</button>' + (REAL ? '<button class="btn sec sm" id="expT">Xuất sang Google Sheet</button>' : '') + '</div></div>' +
     '<p class="small muted" style="margin:8px 0 12px">Số ca = số buổi (sáng, chiều, linh hoạt) có mặt. Giờ làm = tổng các lượt vào → ra, không tính thời gian ra ngoài. Ngoài ca = giờ làm ngoài ca đã đăng ký (đến sớm + về muộn cộng cả ngày), tính theo từng ' + OT_STEP + ' phút tròn từ ngày ' + vnDate(OT_FROM) + ' (lẻ dưới ' + OT_STEP + ' phút chỉ là công bình thường; trước ngày này tính đủ số phút; ngày không đăng ký ca thì cả ngày là ngoài ca). Giờ ngoài ca tự tính công, không cần duyệt; bấm vào số giờ ngoài ca để xem lý do từng ngày và bỏ ngày không đồng ý. Bê hàng = số giờ nhân viên khai sau khi chấm ra (hàng về, làm nặng), quản lý duyệt ở tab Duyệt, dùng để tính lương riêng. Lượt bị từ chối không tính.</p>' +
     '<div class="tablewrap sticky"><table><thead><tr>' + COLS.map(function (h, i) { return '<th' + (i === 1 ? ' style="text-align:left"' : '') + '>' + h + '</th>'; }).join('') + '</tr></thead><tbody>' + body + '</tbody>' +
     '<tfoot><tr><td>Tổng</td><td></td><td>' + T.days + '</td><td>' + T.shifts + '</td><td>' + T.leaveN + '</td><td>' + dur(T.mins) + '</td><td>' + dur(T.ot) + '</td><td>' + dur(T.otWait) + '</td><td>' + dur(T.bh) + '</td><td>' + dur(T.bhWait) + '</td><td>' + T.lateN + '</td><td>' + T.lateM + '</td><td>' + T.earlyN + '</td><td>' + T.earlyM + '</td><td>' + T.missOut + '</td><td>' + T.pending + '</td></tr></tfoot></table></div>' + liveTable(lv) + '<p class="small muted" style="margin:12px 0 0">Tiền phạt (đi muộn + phiếu phạt) xem ở tab <b>Phiếu phạt</b>.</p>';
   $('#amSel').onchange = function (e) { if (e.target.value) { S.amonth = e.target.value; loadAdmin(); } };
   $$('[data-otl]').forEach(function (b) { b.onclick = function () { var o = allRows.filter(function (x) { return x.st.id === b.getAttribute('data-otl'); })[0]; if (o) otList(o); }; });
+  $('#xlsT').onclick = function () { downloadXlsx(this); };
   $('#copyT').onclick = function () {
     var tsv = [COLS].concat(tableData()).map(function (r) { return r.join('\t'); }).join('\n');
     try { navigator.clipboard.writeText(tsv).then(function () { toast('Đã sao chép. Mở Excel và dán.'); }, function () { showTsv(tsv); }); } catch (e) { showTsv(tsv); }
@@ -2624,6 +2625,85 @@ function tableData() {
     sum.forEach(function (x) { out.push(padP([x.name, '', x.n, x.chot, x.cho, x.kn])); });
   }
   return out;
+}
+// ---- Tải bảng công ra file Excel (.xlsx) cho kế toán tính lương: số liệu dạng số, tính được công thức ngay
+var XLSX_SRC = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+function loadXlsx() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  return new Promise(function (ok, no) {
+    var s = document.createElement('script'); s.src = XLSX_SRC;
+    s.onload = function () { window.XLSX ? ok(window.XLSX) : no(); }; s.onerror = no;
+    document.head.appendChild(s);
+  });
+}
+function hrs(m, d) { var f = Math.pow(10, d || 2); return Math.round((m || 0) / 60 * f) / f; }
+function payrollBook() {
+  var rows = monthRows(), m = S.amonth, today = S.ad.now.date, pp = {};
+  ((S.ad && S.ad.pp) || []).forEach(function (t) {
+    if (String(t.created).slice(0, 7) !== m) return;
+    var st = ppState(t); if (['Đã duyệt', 'Khiếu nại', 'Đã chốt'].indexOf(st) < 0) return;
+    var x = pp[t.staffId] = pp[t.staffId] || { n: 0, chot: 0, kn: 0 };
+    x.n++; if (st === 'Khiếu nại') x.kn += t2(t); else x.chot += t2(t);
+  });
+  var rate = lateRate();
+  var H1 = ['Mã NV', 'Nhân viên', 'Vị trí', 'Nhóm', 'Trạng thái', 'Ngày làm', 'Số ca', 'Nghỉ phép (ngày)', 'Giờ làm (giờ)', 'Ngoài ca được tính (giờ)', 'Ngoài ca quản lý bỏ (giờ)', 'Bê hàng đã duyệt (giờ)', 'Bê hàng chờ duyệt (giờ)',
+    'Giờ live trong ca (giờ)', 'Đơn giá giờ live (đ)', 'Muộn (lần)', 'Muộn (phút)', 'Về sớm (lần)', 'Về sớm (phút)', 'Phút muộn/sớm bị phạt', 'Phút được miễn (có đơn)', 'Phạt muộn/sớm (đ)', 'Số phiếu phạt', 'Phiếu phạt tính (đ)', 'Phiếu đang khiếu nại (đ)', 'Tổng tiền phạt (đ)', 'Quên chấm ra (lần)', 'Lượt chấm chờ duyệt'];
+  var A1 = [H1];
+  rows.forEach(function (o) {
+    var lv = o.st.group === 'LIVE', p = pp[o.st.id] || { n: 0, chot: 0, kn: 0 }, lf = Math.round(o.fineM * rate);
+    A1.push([o.st.id, o.st.name, o.st.role, o.st.group || '', o.st.status || 'Đang làm', o.days, o.shifts, o.leaveN, hrs(o.mins), hrs(o.ot), hrs(o.otWait), hrs(o.bh), hrs(o.bhWait),
+      lv ? hrs(o.liveMins) : '', lv ? (o.st.rate || '') : '', o.lateN, o.lateM, o.earlyN, o.earlyM, o.fineM, o.fineExM, lf, p.n, p.chot, p.kn, lf + p.chot, o.missOut, o.pending]);
+  });
+  var H2 = ['Ngày', 'Thứ', 'Mã NV', 'Nhân viên', 'Ca đăng ký', 'Vào đầu tiên', 'Ra cuối cùng', 'Giờ làm (giờ)', 'Ngoài ca được tính (giờ)', 'Bê hàng (giờ)', 'Muộn (phút)', 'Về sớm (phút)', 'Phạt muộn/sớm (đ)', 'Ghi chú'];
+  var A2 = [H2];
+  rows.forEach(function (o) {
+    var days = {}; Object.keys(o.byDay).forEach(function (d) { days[d] = 1; }); Object.keys(o.leave).forEach(function (d) { days[d] = 1; }); Object.keys(o.bhDay).forEach(function (d) { days[d] = 1; });
+    Object.keys(days).sort().forEach(function (d) {
+      var x = o.byDay[d] || null, sg = segs(o.st, d, S.ad.regs), note = [];
+      var dt = new Date(d + 'T00:00:00'), bh = o.bhDay[d];
+      if (o.leave[d]) note.push(o.leave[d]);
+      var fine = 0;
+      if (x) {
+        if (x.lateM) { if (x.lateEx) note.push('Có đơn đi muộn, không phạt'); else fine += x.lateM; }
+        if (x.earlyM) { if (x.earlyEx) note.push('Có đơn về sớm, không phạt'); else fine += x.earlyM; }
+        if (x.missOut) note.push('Quên chấm ra');
+        if (x.ot && x.otSt !== 'ok') note.push('Quản lý bỏ ' + dur(x.ot) + ' ngoài ca');
+        if (x.otWhy) note.push('Lý do ngoài ca: ' + x.otWhy);
+      }
+      if (bh && bh.st !== 'Đã duyệt') note.push('Bê hàng ' + dur(bh.m) + ' chờ duyệt');
+      A2.push([vnDate(d), WDS[dt.getDay()], o.st.id, o.st.name, sg.map(function (g) { return shName(g.id) + ' ' + g.start + '-' + g.end; }).join(', '),
+        x && x.first ? hm(x.first.time) : '', x && x.last ? hm(x.last.time) : '', x ? hrs(x.mins) : 0, x && x.otSt === 'ok' ? hrs(x.ot) : 0,
+        bh && bh.st === 'Đã duyệt' ? hrs(bh.m) : 0, x ? x.lateM : 0, x ? x.earlyM : 0, Math.round(fine * rate), note.join('; ')]);
+    });
+  });
+  var H3 = ['Ngày lập', 'Người bị phạt', 'Người lập', 'Lý do', 'Mã đơn', 'Chi tiết', 'Số tiền (đ)', 'Trạng thái'];
+  var A3 = [H3];
+  ((S.ad && S.ad.pp) || []).filter(function (t) { return String(t.created).slice(0, 7) === m; }).forEach(function (t) {
+    A3.push([t.created, t.name, t.byName, t.kind || '', t.order || '', t.reason || '', t2(t), ppState(t)]);
+  });
+  return { m: m, sheets: [['Tổng hợp tháng', A1], ['Chi tiết từng ngày', A2], ['Phiếu phạt', A3]] };
+}
+function downloadXlsx(btn) {
+  btn.disabled = true; var old = btn.textContent; btn.textContent = 'Đang tạo file…';
+  var book = payrollBook(), name = 'Bang-cong-' + book.m + '.xlsx';
+  loadXlsx().then(function (X) {
+    var wb = X.utils.book_new();
+    book.sheets.forEach(function (s) {
+      var ws = X.utils.aoa_to_sheet(s[1]);
+      ws['!cols'] = s[1][0].map(function (hd, i) { var w = String(hd).length; s[1].forEach(function (r) { w = Math.max(w, String(r[i] == null ? '' : r[i]).length); }); return { wch: Math.min(Math.max(w + 2, 8), 50) }; });
+      ws['!autofilter'] = { ref: X.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: Math.max(s[1].length - 1, 0), c: s[1][0].length - 1 } }) };
+      ws['!freeze'] = { xSplit: 0, ySplit: 1 };
+      X.utils.book_append_sheet(wb, ws, s[0]);
+    });
+    X.writeFile(wb, name);
+    toast('Đã tải ' + name);
+  }).catch(function () {
+    // Không tải được thư viện Excel: xuất CSV (Excel vẫn mở được)
+    var a = book.sheets[0][1].map(function (r) { return r.map(function (v) { v = String(v == null ? '' : v); return /[",;\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(','); }).join('\r\n');
+    var url = URL.createObjectURL(new Blob(['\ufeff' + a], { type: 'text/csv;charset=utf-8' })), l = document.createElement('a');
+    l.href = url; l.download = 'Bang-cong-' + book.m + '.csv'; document.body.appendChild(l); l.click(); l.remove();
+    toast('Mạng chặn thư viện Excel, đã tải bản CSV (mở bằng Excel được).', true);
+  }).then(function () { btn.disabled = false; btn.textContent = old; });
 }
 function showTsv(tsv) {
   modal('<h3>Sao chép bảng công</h3><p class="muted small" style="margin:0">Bôi đen toàn bộ rồi sao chép, sau đó dán vào Excel.</p><textarea id="tsvBox" rows="8" class="mono" style="font-size:12px">' + esc(tsv) + '</textarea><button class="btn sec" id="tsvClose">Đóng</button>');
