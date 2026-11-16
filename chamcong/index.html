@@ -2646,15 +2646,15 @@ function payrollBook() {
     x.n++; if (st === 'Khiếu nại') x.kn += t2(t); else x.chot += t2(t);
   });
   var rate = lateRate();
-  var H1 = ['Mã NV', 'Nhân viên', 'Vị trí', 'Nhóm', 'Trạng thái', 'Ngày làm', 'Số ca', 'Nghỉ phép (ngày)', 'Giờ làm (giờ)', 'Ngoài ca được tính (giờ)', 'Ngoài ca quản lý bỏ (giờ)', 'Bê hàng đã duyệt (giờ)', 'Bê hàng chờ duyệt (giờ)',
+  var H1 = ['Mã NV', 'Nhân viên', 'Vị trí', 'Nhóm', 'Trạng thái', 'Ngày làm', 'Số ca', 'Nghỉ phép (ngày)', 'Tổng giờ chấm (giờ)', 'Giờ trong ca (giờ)', 'GIỜ TÍNH LƯƠNG (giờ)', 'Ngoài ca được tính (giờ)', 'Ngoài ca quản lý bỏ (giờ)', 'Bê hàng đã duyệt (giờ)', 'Bê hàng chờ duyệt (giờ)',
     'Giờ live trong ca (giờ)', 'Đơn giá giờ live (đ)', 'Muộn (lần)', 'Muộn (phút)', 'Về sớm (lần)', 'Về sớm (phút)', 'Phút muộn/sớm bị phạt', 'Phút được miễn (có đơn)', 'Phạt muộn/sớm (đ)', 'Số phiếu phạt', 'Phiếu phạt tính (đ)', 'Phiếu đang khiếu nại (đ)', 'Tổng tiền phạt (đ)', 'Quên chấm ra (lần)', 'Lượt chấm chờ duyệt'];
   var A1 = [H1];
   rows.forEach(function (o) {
     var lv = o.st.group === 'LIVE', p = pp[o.st.id] || { n: 0, chot: 0, kn: 0 }, lf = Math.round(o.fineM * rate);
-    A1.push([o.st.id, o.st.name, o.st.role, o.st.group || '', o.st.status || 'Đang làm', o.days, o.shifts, o.leaveN, hrs(o.mins), hrs(o.ot), hrs(o.otWait), hrs(o.bh), hrs(o.bhWait),
+    A1.push([o.st.id, o.st.name, o.st.role, o.st.group || '', o.st.status || 'Đang làm', o.days, o.shifts, o.leaveN, hrs(o.mins), hrs(o.mins - o.ot - o.otWait), hrs(o.mins - o.otWait), hrs(o.ot), hrs(o.otWait), hrs(o.bh), hrs(o.bhWait),
       lv ? hrs(o.liveMins) : '', lv ? (o.st.rate || '') : '', o.lateN, o.lateM, o.earlyN, o.earlyM, o.fineM, o.fineExM, lf, p.n, p.chot, p.kn, lf + p.chot, o.missOut, o.pending]);
   });
-  var H2 = ['Ngày', 'Thứ', 'Mã NV', 'Nhân viên', 'Ca đăng ký', 'Vào đầu tiên', 'Ra cuối cùng', 'Giờ làm (giờ)', 'Ngoài ca được tính (giờ)', 'Bê hàng (giờ)', 'Muộn (phút)', 'Về sớm (phút)', 'Phạt muộn/sớm (đ)', 'Ghi chú'];
+  var H2 = ['Ngày', 'Thứ', 'Mã NV', 'Nhân viên', 'Ca đăng ký', 'Vào đầu tiên', 'Ra cuối cùng', 'Tổng giờ chấm (giờ)', 'Giờ trong ca (giờ)', 'GIỜ TÍNH LƯƠNG (giờ)', 'Ngoài ca được tính (giờ)', 'Bê hàng (giờ)', 'Muộn (phút)', 'Về sớm (phút)', 'Phạt muộn/sớm (đ)', 'Ghi chú'];
   var A2 = [H2];
   rows.forEach(function (o) {
     var days = {}; Object.keys(o.byDay).forEach(function (d) { days[d] = 1; }); Object.keys(o.leave).forEach(function (d) { days[d] = 1; }); Object.keys(o.bhDay).forEach(function (d) { days[d] = 1; });
@@ -2672,7 +2672,7 @@ function payrollBook() {
       }
       if (bh && bh.st !== 'Đã duyệt') note.push('Bê hàng ' + dur(bh.m) + ' chờ duyệt');
       A2.push([vnDate(d), WDS[dt.getDay()], o.st.id, o.st.name, sg.map(function (g) { return shName(g.id) + ' ' + g.start + '-' + g.end; }).join(', '),
-        x && x.first ? hm(x.first.time) : '', x && x.last ? hm(x.last.time) : '', x ? hrs(x.mins) : 0, x && x.otSt === 'ok' ? hrs(x.ot) : 0,
+        x && x.first ? hm(x.first.time) : '', x && x.last ? hm(x.last.time) : '', x ? hrs(x.mins) : 0, x ? hrs(x.mins - x.ot) : 0, x ? hrs(x.mins - (x.otSt === 'ok' ? 0 : x.ot)) : 0, x && x.otSt === 'ok' ? hrs(x.ot) : 0,
         bh && bh.st === 'Đã duyệt' ? hrs(bh.m) : 0, x ? x.lateM : 0, x ? x.earlyM : 0, Math.round(fine * rate), note.join('; ')]);
     });
   });
@@ -2681,7 +2681,16 @@ function payrollBook() {
   ((S.ad && S.ad.pp) || []).filter(function (t) { return String(t.created).slice(0, 7) === m; }).forEach(function (t) {
     A3.push([t.created, t.name, t.byName, t.kind || '', t.order || '', t.reason || '', t2(t), ppState(t)]);
   });
-  return { m: m, sheets: [['Tổng hợp tháng', A1], ['Chi tiết từng ngày', A2], ['Phiếu phạt', A3]] };
+  var A0 = [['Cách đọc bảng công tháng ' + m.slice(5) + '/' + m.slice(0, 4)], [''],
+    ['GIỜ TÍNH LƯƠNG = Giờ trong ca + Ngoài ca được tính. Kế toán lấy cột này nhân đơn giá giờ.'],
+    ['Tổng giờ chấm = toàn bộ thời gian từ lúc chấm vào đến lúc chấm ra, đã gồm cả giờ ngoài ca. KHÔNG cộng thêm cột ngoài ca vào cột này.'],
+    ['Giờ trong ca = giờ làm đúng ca đã đăng ký, cộng phần lẻ ngoài ca dưới 30 phút (phần lẻ tính như công thường).'],
+    ['Ngoài ca được tính = giờ làm ngoài ca, làm tròn xuống theo bậc 30 phút, quản lý không bỏ.'],
+    ['Ngoài ca quản lý bỏ = giờ ngoài ca quản lý không đồng ý trả, đã bị loại khỏi Giờ tính lương.'],
+    ['Bê hàng đã duyệt = tính riêng, chưa nằm trong Giờ tính lương.'],
+    ['Nhân viên nhóm LIVE: tính theo cột Giờ live trong ca x Đơn giá giờ live.'],
+    ['Tổng tiền phạt = phạt đi muộn/về sớm (không tính ngày có đơn được duyệt) + phiếu phạt đã chốt.']];
+  return { m: m, sheets: [['Hướng dẫn', A0], ['Tổng hợp tháng', A1], ['Chi tiết từng ngày', A2], ['Phiếu phạt', A3]] };
 }
 function downloadXlsx(btn) {
   btn.disabled = true; var old = btn.textContent; btn.textContent = 'Đang tạo file…';
@@ -2691,7 +2700,7 @@ function downloadXlsx(btn) {
     book.sheets.forEach(function (s) {
       var ws = X.utils.aoa_to_sheet(s[1]);
       ws['!cols'] = s[1][0].map(function (hd, i) { var w = String(hd).length; s[1].forEach(function (r) { w = Math.max(w, String(r[i] == null ? '' : r[i]).length); }); return { wch: Math.min(Math.max(w + 2, 8), 50) }; });
-      ws['!autofilter'] = { ref: X.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: Math.max(s[1].length - 1, 0), c: s[1][0].length - 1 } }) };
+      if (s[0] !== 'Hướng dẫn') ws['!autofilter'] = { ref: X.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: Math.max(s[1].length - 1, 0), c: s[1][0].length - 1 } }) };
       ws['!freeze'] = { xSplit: 0, ySplit: 1 };
       X.utils.book_append_sheet(wb, ws, s[0]);
     });
@@ -2699,7 +2708,7 @@ function downloadXlsx(btn) {
     toast('Đã tải ' + name);
   }).catch(function () {
     // Không tải được thư viện Excel: xuất CSV (Excel vẫn mở được)
-    var a = book.sheets[0][1].map(function (r) { return r.map(function (v) { v = String(v == null ? '' : v); return /[",;\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(','); }).join('\r\n');
+    var a = book.sheets[1][1].map(function (r) { return r.map(function (v) { v = String(v == null ? '' : v); return /[",;\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(','); }).join('\r\n');
     var url = URL.createObjectURL(new Blob(['\ufeff' + a], { type: 'text/csv;charset=utf-8' })), l = document.createElement('a');
     l.href = url; l.download = 'Bang-cong-' + book.m + '.csv'; document.body.appendChild(l); l.click(); l.remove();
     toast('Mạng chặn thư viện Excel, đã tải bản CSV (mở bằng Excel được).', true);
