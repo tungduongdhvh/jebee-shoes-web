@@ -38,6 +38,28 @@ export default async function handler(req, res) {
       page++;
     }
 
+    // Tra 1 san pham theo ma (custom_id) — DUNG cho combo tat (bi loc khoi danh sach giay).
+    if (req.query && req.query.combo) {
+      const want = String(req.query.combo).toUpperCase().replace(/[^A-Z0-9]/g, "");
+      const norm = function (s) { return (s || "").toString().toUpperCase().replace(/[^A-Z0-9]/g, ""); };
+      const p = all.find(function (x) {
+        return norm(x.custom_id) === want || norm(x.display_id) === want || norm(x.name).indexOf(want) >= 0;
+      });
+      if (!p) return res.status(404).json({ error: "Khong tim thay " + req.query.combo });
+      const v = (p.variations || []).filter(function (vv) { return !vv.is_removed && !vv.is_hidden; })[0] || (p.variations || [])[0] || {};
+      const gpos = v.retail_price_after_discount || v.retail_price || 0;
+      const va = (v.images || []).map(imgUrl).filter(Boolean);
+      return res.status(200).json({ san_pham: {
+        ma: p.custom_id || String(p.display_id),
+        ten: cleanName(p.name) || p.name,
+        anh: imgUrl(p.image) || va[0] || null,
+        vid: v.id || null,
+        sku: v.barcode || String(v.display_id || ""),
+        gia_pos: gpos,
+        ton: v.remain_quantity || 0
+      } });
+    }
+
     if (debug) {
       const cats = {};
       all.forEach(function (p) { (p.categories || []).forEach(function (c) { const k = c.name || c.id; cats[k] = (cats[k] || 0) + 1; }); });

@@ -7,6 +7,14 @@ export default async function handler(req, res) {
   const base = "https://pos.pancake.vn/api/v1/shops/" + shop;
   const KURL = process.env.KV_REST_API_URL, KTOK = process.env.KV_REST_API_TOKEN;
   const normMa = function (s) { return (s || "").toString().toUpperCase().replace(/[^A-Z0-9]/g, ""); };
+  const kvCmd = async function (args) {
+    if (!KURL || !KTOK) return null;
+    try {
+      const r = await fetch(KURL, { method: "POST", headers: { Authorization: "Bearer " + KTOK, "Content-Type": "application/json" }, body: JSON.stringify(args) });
+      const j = await r.json();
+      return j && Object.prototype.hasOwnProperty.call(j, "result") ? j.result : null;
+    } catch (e) { return null; }
+  };
 
   // ----- GET: doc thu cau truc don (an toan) -----
   if (req.method === "GET") {
@@ -58,6 +66,23 @@ export default async function handler(req, res) {
     });
     if (!items.length) return res.status(400).json({ ok: false, error: "Gio hang trong hoac thieu ma bien the" });
 
+    // ----- J-Point: giam 100.000d neu ma hop le (tru tren tong don) — chi tac dong khi co jpoint_code -----
+    let jpGiam = 0, jpCode = "";
+    try {
+      const code = (b.jpoint_code || "").toString().toUpperCase().replace(/[^A-Z0-9\-]/g, "");
+      if (code) {
+        const g = await kvCmd(["GET", "jp:code:" + code]);
+        if (g) {
+          let jp = null; try { jp = JSON.parse(g); } catch (e) {}
+          if (jp && Date.now() < jp.exp) {
+            const rs = await kvCmd(["SET", "jp:used:" + code, "pending", "NX"]); // dat cho (chong dung trung)
+            if (rs === "OK") { jpCode = code; jpGiam = Math.min(100000, b.tong || 0); }
+          }
+        }
+      }
+    } catch (e) {}
+    if (jpGiam > 0) surcharge -= jpGiam; // surcharge am = giam tren tong don
+
     const pay = b.thanhtoan === "ck" ? "Chuyen khoan (QR)" : "COD";
     const dong = (b.items || []).map(function (x) { return (x.ma || "") + " " + (x.mau || "") + " sz" + (x.size || "") + " x" + x.qty; }).join("; ");
     // NGUON don (nhan vien / page fb / chien dich) tu link quang cao
@@ -87,7 +112,8 @@ export default async function handler(req, res) {
       if (parts.length) ngLine = " | NGUON: " + parts.join("; ");
     } catch (e) {}
     const note = "[WEB jebeeshoes.vn] TT:" + pay + " | " + k.ten + " | " + k.sdt + " | " + k.diachi
-      + (k.ghichu ? " | Ghi chu: " + k.ghichu : "") + " | " + dong + " | Tong ~" + (b.tong || 0) + ngLine;
+      + (k.ghichu ? " | Ghi chu: " + k.ghichu : "") + " | " + dong + " | Tong ~" + (b.tong || 0) + ngLine
+      + (jpGiam > 0 ? " | J-POINT " + jpCode + " (-" + jpGiam + ")" : "");
 
     const payload = {
       items: items,
@@ -126,6 +152,7 @@ export default async function handler(req, res) {
       ({ rr: r, tt: text, jj: j } = await post(pl2));
     }
     if (!r.ok || (j && j.success === false)) {
+      if (jpCode) { try { await kvCmd(["DEL", "jp:used:" + jpCode]); } catch (e) {} } // nha ma J-Point khi don loi
       return res.status(200).json({ ok: false, error: (j && (j.message || j.error)) || ("POS " + r.status), raw: (j ? undefined : text.slice(0, 300)) });
     }
     // Cong don "da ban" tu WEB (theo don that) vao Redis — best-effort, KHONG pha vo don neu loi.
@@ -138,7 +165,9 @@ export default async function handler(req, res) {
     } catch (e) {}
 
     const od = (j && (j.data || j.order || j)) || {};
-    return res.status(200).json({ ok: true, madon: od.display_id || od.system_id || od.id || "", status: od.status });
+    const madon = od.display_id || od.system_id || od.id || "";
+    if (jpCode) { try { await kvCmd(["SET", "jp:used:" + jpCode, String(madon || "used")]); } catch (e) {} } // xac nhan da dung
+    return res.status(200).json({ ok: true, madon: madon, status: od.status, giam: jpGiam, tong_sau: Math.max(0, (b.tong || 0) - jpGiam) });
   } catch (e) {
     return res.status(500).json({ ok: false, error: String((e && e.message) || e) });
   }

@@ -1560,6 +1560,15 @@ document.documentElement.classList.add('js');
 
   // ---------- giỏ hàng ----------
   var CART=[], PAYM='cod', LAST={tong:0,phone:''};
+  // J-Point + deep-link từ trang kích hoạt (bắt SỚM, trước khi openModal đổi URL)
+  var JPOINT='', _dlSize='', _openCart=false, jpApplied=0, jpCodeApplied='';
+  try{
+    var _p=new URLSearchParams(location.search||'');
+    var _jp=_p.get('jp'); if(_jp){ JPOINT=_jp.toUpperCase().replace(/[^A-Z0-9\-]/g,''); try{ localStorage.setItem('jb_jpoint',JPOINT); }catch(e){} }
+    else { try{ JPOINT=localStorage.getItem('jb_jpoint')||''; }catch(e){} }
+    _dlSize=(_p.get('size')||'').replace(/[^0-9.]/g,'');
+    _openCart=(_p.get('open')==='cart');
+  }catch(e){}
   try{ CART=JSON.parse(localStorage.getItem('jb_cart')||'[]'); }catch(e){ CART=[]; }
   function saveCart(){ try{ localStorage.setItem('jb_cart',JSON.stringify(CART)); }catch(e){} updateCount(); }
   function updateCount(){ var n=CART.reduce(function(s,i){return s+i.qty;},0); var b=document.getElementById('cartCount'); b.textContent=n; b.style.display=n>0?'grid':'none'; }
@@ -1612,13 +1621,34 @@ document.documentElement.classList.add('js');
           '<button type="button" class="opt on" data-pay="cod">💵 COD — trả khi nhận</button>'+
           '<button type="button" class="opt" data-pay="ck">🏦 Chuyển khoản (QR)</button>'+
         '</div></div>'+
+        '<div class="field"><label>🎁 Mã J-Point (nếu có)</label><div style="display:flex;gap:8px"><input id="fJp" type="text" placeholder="JP-XXXXX" value="'+(JPOINT||'')+'" style="flex:1;text-transform:uppercase"><button type="button" id="jpApply" style="font-family:inherit;font-size:14px;font-weight:800;padding:0 18px;border-radius:11px;border:0;cursor:pointer;background:var(--brand);color:var(--btn-text)">Áp dụng</button></div><div id="jpMsg" style="font-size:12.5px;font-weight:700;margin-top:6px"></div></div>'+
         '<div style="font-size:13px;color:var(--ink-soft)">Freeship toàn quốc · Đổi size 15 ngày · Jebee sẽ gọi xác nhận trước khi giao.</div>';
       var items=CART.reduce(function(s,i){return s+i.qty;},0);
-      dFoot.innerHTML='<div class="tot"><span>Tổng ('+items+' sp)</span><b>'+vnd(cartTotal())+'</b></div><button class="cobtn" id="placeOrder">Đặt hàng ngay</button>';
+      jpApplied=0; jpCodeApplied='';
+      function coFoot(){
+        var sub=cartTotal(), tot=Math.max(0,sub-jpApplied), html='';
+        if(jpApplied>0){ html+='<div class="tot" style="font-weight:600"><span>Tạm tính</span><span>'+vnd(sub)+'</span></div>'+
+          '<div class="tot" style="color:var(--brand)"><span>🎁 J-Point</span><span>-'+vnd(jpApplied)+'</span></div>'; }
+        html+='<div class="tot"><span>Tổng ('+items+' sp)</span><b>'+vnd(tot)+'</b></div><button class="cobtn" id="placeOrder">Đặt hàng ngay</button>';
+        dFoot.innerHTML=html;
+        document.getElementById('placeOrder').addEventListener('click',placeOrder);
+      }
+      coFoot();
       document.getElementById('backCart').addEventListener('click',function(){ renderDrawer('cart'); });
       var payOpts=document.getElementById('payOpts');
       payOpts.addEventListener('click',function(e){ var b=e.target.closest('button[data-pay]'); if(!b) return; PAYM=b.getAttribute('data-pay'); Array.prototype.forEach.call(payOpts.children,function(x){x.classList.toggle('on',x===b);}); });
-      document.getElementById('placeOrder').addEventListener('click',placeOrder);
+      var jpMsg=document.getElementById('jpMsg'), fJp=document.getElementById('fJp');
+      function applyJp(){
+        var code=(fJp.value||'').toUpperCase().replace(/[^A-Z0-9\-]/g,''); fJp.value=code;
+        if(!code){ jpApplied=0; jpCodeApplied=''; jpMsg.textContent=''; coFoot(); return; }
+        jpMsg.style.color='var(--ink-soft)'; jpMsg.textContent='Đang kiểm tra mã…';
+        fetch('/api/kich-hoat?check='+encodeURIComponent(code)).then(function(r){return r.json();}).then(function(j){
+          if(j&&j.ok&&j.valid){ jpApplied=Math.min(j.giam||100000, cartTotal()); jpCodeApplied=code; jpMsg.style.color='#1E8E4A'; jpMsg.textContent='✓ Đã áp dụng giảm '+vnd(jpApplied); coFoot(); }
+          else{ jpApplied=0; jpCodeApplied=''; jpMsg.style.color='var(--brand)'; jpMsg.textContent='✗ '+((j&&j.ly_do)||'Mã không dùng được'); coFoot(); }
+        }).catch(function(){ jpApplied=0; jpCodeApplied=''; jpMsg.style.color='var(--brand)'; jpMsg.textContent='Không kiểm tra được mã, thử lại nhé'; coFoot(); });
+      }
+      document.getElementById('jpApply').addEventListener('click',applyJp);
+      if(JPOINT){ applyJp(); }
     } else if(view==='payment'){
       dTitle.textContent='Chuyển khoản';
       var qr='https://img.vietqr.io/image/970407-823598-compact2.png?amount='+LAST.tong+'&addInfo='+encodeURIComponent(LAST.phone)+'&accountName='+encodeURIComponent('HO KINH DOANH JEBEE SHOES');
@@ -1677,17 +1707,20 @@ document.documentElement.classList.add('js');
       thanhtoan:PAYM,
       items:CART.map(function(i){ return { variation_id:i.vid, sku:i.sku, ma:i.ma, ten:i.ten, mau:i.mau, size:i.size, gia:i.gia, gia_pos:i.gia_pos, qty:i.qty }; }),
       nguon:nguon,
+      jpoint_code: jpCodeApplied,
       tong:tong };
     fetch('/api/dat-hang',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) })
       .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
       .then(function(res){
         if(res.ok && res.j && res.j.ok){
           var prods=[]; CART.forEach(function(i){ if(!prods.some(function(x){return x.ma===i.ma;})) prods.push({ma:i.ma, ten:i.ten}); });
-          LAST={ tong:tong, phone:ph, name:name, madon:(res.j.madon||''), items:prods };
+          var paid=(res.j.tong_sau!=null?res.j.tong_sau:tong);
+          LAST={ tong:paid, phone:ph, name:name, madon:(res.j.madon||''), items:prods };
           try{ localStorage.setItem('jb_phone',ph); localStorage.setItem('jb_name',name); }catch(e){}
+          if(res.j.giam>0){ try{ localStorage.removeItem('jb_jpoint'); }catch(e){} JPOINT=''; }
           // Meta Pixel: ghi nhận CHUYỂN ĐỔI (đơn hàng) cho Ads Manager
-          try{ if(window.fbq) fbq('track','Purchase',{value:tong, currency:'VND', content_type:'product', num_items:(prods.length||1)}); }catch(e){}
-          try{ if(window.gtag) gtag('event','purchase',{transaction_id:(res.j.madon||('JB'+Date.now())), currency:'VND', value:tong, items:CART.map(function(i){return {item_id:i.ma, item_name:i.ten, price:i.gia, quantity:i.qty};})}); }catch(e){}
+          try{ if(window.fbq) fbq('track','Purchase',{value:paid, currency:'VND', content_type:'product', num_items:(prods.length||1)}); }catch(e){}
+          try{ if(window.gtag) gtag('event','purchase',{transaction_id:(res.j.madon||('JB'+Date.now())), currency:'VND', value:paid, items:CART.map(function(i){return {item_id:i.ma, item_name:i.ten, price:i.gia, quantity:i.qty};})}); }catch(e){}
           CART=[]; saveCart();
           renderDrawer(PAYM==='ck' ? 'payment' : 'done');
         }
@@ -1977,6 +2010,7 @@ document.documentElement.classList.add('js');
 
   // ---------- tải sản phẩm ----------
   updateCount();
+  if(_openCart){ try{ openDrawer('cart'); }catch(e){} }   // quay về từ trang kích hoạt với combo tất
   openDeepLinkInstant();   // MỞ NGAY trang đặt hàng của mẫu (?sp=) từ dữ liệu tĩnh, không chờ POS
   fetch('/api/ton-kho').then(function(r){return r.json();}).then(function(j){
     var list=(j&&j.san_pham)||[];
@@ -1996,6 +2030,7 @@ document.documentElement.classList.add('js');
     renderGrid();
     loadAgg();
     openDeepLinkUpgrade();  // POS đã về -> điền màu/size/tồn thật vào modal đang mở (hoặc mở nếu chưa)
+    if(_dlSize){ try{ if(modal.classList.contains('show') && SEL && SEL.prod && !SEL.prod._stub) selectSize(_dlSize); }catch(e){} }  // size chọn sẵn từ ?size=
     initHeroSlideshow();  // ảnh hero tự chạy qua các mẫu/màu + thông tin đổi theo, bấm ảnh mở trang đặt hàng
   }).catch(function(){ loadinfo.textContent='Không tải được sản phẩm. Vui lòng tải lại trang hoặc nhắn Zalo để đặt hàng.'; });
 })();
