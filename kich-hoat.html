@@ -45,14 +45,20 @@ fbq('init','1610885197344731');fbq('track','PageView');
   .wrap{max-width:480px; margin:0 auto; padding:0 16px env(safe-area-inset-bottom) 16px; min-height:100vh}
   img{max-width:100%; display:block}
   a{color:inherit}
-  .brandbar{display:flex; align-items:center; gap:10px; padding:16px 2px 10px}
-  .brandbar img{height:30px; width:auto}
-  .brandbar .tg{font-size:11.5px; font-weight:800; letter-spacing:.04em; color:var(--brand); text-transform:uppercase}
-  .hero{background:linear-gradient(140deg,var(--brand),var(--brand-deep)); color:#fff; border-radius:var(--radius); padding:22px 20px; box-shadow:var(--shadow); position:relative; overflow:hidden}
-  .hero::after{content:""; position:absolute; right:-40px; top:-40px; width:150px; height:150px; background:radial-gradient(circle,rgba(255,255,255,.14),transparent 70%)}
-  .hero h1{margin:0; font-size:23px; font-weight:900; line-height:1.22; letter-spacing:-.01em}
-  .hero p{margin:9px 0 0; font-size:14px; opacity:.95; font-weight:600}
-  .hero .pill{display:inline-flex; align-items:center; gap:6px; margin-top:12px; background:rgba(255,255,255,.17); border:1px solid rgba(255,255,255,.28); padding:5px 11px; border-radius:999px; font-size:12px; font-weight:800}
+  .topbar{position:sticky; top:0; z-index:50; background:#8E2622; border-bottom:1px solid #6E1C19; padding:11px 16px; display:flex; align-items:center; justify-content:center; gap:9px}
+  .topbar .logo{height:33px; width:auto; display:block}
+  .topbar .logo-txt{color:#fff; font-weight:900; font-size:19px; letter-spacing:.01em; display:none; align-items:baseline; gap:7px}
+  .topbar .logo-txt i{font-style:normal; font-size:9.5px; letter-spacing:.26em; font-weight:700; color:#F0C9C2}
+  .hero{border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow); margin-top:14px; background:linear-gradient(135deg,#8E2622,#5E1512); color:#FFF6EC}
+  .hero .hero-bg{width:100%; aspect-ratio:3/2; object-fit:cover; display:block}
+  .hero .htx{padding:15px 16px 17px}
+  .hero .eyebrow{font-size:10.5px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:var(--gold); display:flex; align-items:center; gap:.5em}
+  .hero .eyebrow::before{content:""; width:20px; height:2px; background:var(--gold); border-radius:2px}
+  .hero h1{margin:9px 0 0; font-size:22px; font-weight:900; line-height:1.14; letter-spacing:-.01em}
+  .hero h1 .gold{color:var(--gold)}
+  .hero p{margin:9px 0 0; font-size:13.5px; color:#F3DFD6; line-height:1.45; font-weight:600}
+  .hero p b{color:#fff}
+  .hero .pill{display:inline-flex; align-items:center; gap:6px; margin-top:13px; background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.3); padding:6px 12px; border-radius:999px; font-size:11.5px; font-weight:800}
   .benefits{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px}
   .ben{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-sm); padding:13px 13px; display:flex; gap:10px; align-items:center}
   .ben .ic{width:38px; height:38px; border-radius:11px; display:grid; place-items:center; font-size:19px; flex:none; background:var(--brand-tint)}
@@ -140,18 +146,22 @@ fbq('init','1610885197344731');fbq('track','PageView');
 </style>
 </head>
 <body>
+<header class="topbar">
+  <img class="logo" src="/header-logo.png" alt="JEBEE SHOES — Vua giày độn" width="928" height="279" onerror="this.style.display='none';var t=document.getElementById('logoTxt');if(t)t.style.display='inline-flex'">
+  <span class="logo-txt" id="logoTxt">JEBEE SHOES <i>VUA GIÀY ĐỘN</i></span>
+</header>
 <div class="wrap">
-  <div class="brandbar">
-    <img src="/header-logo.png" alt="JEBEE SHOES" onerror="this.style.display='none'">
-    <span class="tg">Vua Giày Độn · Hàng chính hãng</span>
-  </div>
 
   <!-- ============ MÀN A ============ -->
   <section id="scrA">
     <div class="hero">
-      <h1>Chúc mừng chị đã cao thêm cùng JEBEE! 🎉</h1>
-      <p>Kích hoạt bảo hành đến 365 ngày — chỉ mất 30 giây.</p>
-      <span class="pill">🔒 Không cần tạo tài khoản</span>
+      <img class="hero-bg" src="/kichhoat-hero.webp" alt="Chúc mừng chị đã cao thêm cùng JEBEE — bảo hành tới 365 ngày, tặng 100.000 J-Point" loading="eager" onerror="this.style.display='none'">
+      <div class="htx">
+        <div class="eyebrow">Vua giày độn · Chính hãng</div>
+        <h1>Chúc mừng chị đã cao thêm cùng <span class="gold">JEBEE!</span></h1>
+        <p>Kích hoạt bảo hành đến <b>365 ngày</b> — chỉ mất 30 giây.</p>
+        <span class="pill">🔒 Không cần tạo tài khoản</span>
+      </div>
     </div>
 
     <div class="benefits">
