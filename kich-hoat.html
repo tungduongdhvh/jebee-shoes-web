@@ -275,9 +275,21 @@ fbq('init','1610885197344731');fbq('track','PageView');
     VIDEO_URL: "",                                                  // để "" -> hiện placeholder
     COMBO: { code:"TATTRON-10DOI", ten:"Combo 10 đôi tất cotton thấm hút mồ hôi", gia:100000 },
     UPSELL_MAX: 3,
-    HIDE_MA: ["JB08"]                                               // mã trùng/ẩn khỏi lưới mẫu + upsell (vd JB08 = JB08LOT)
+    // Whitelist = đúng các mẫu đang bán trên jebeeshoes.vn (phải khớp object GIA trong index.html).
+    // Mẫu không có trong danh sách này (đã cắt mẫu) + mẫu hết hàng sẽ KHÔNG hiện ở lưới "mẫu đã mua".
+    WEB_MA: ["JB25","JB597","JB572","JB17","JB5536","JB1320","JB606","JB27","JB598","JB286","JB552","JB182","JB569","JB1317","JB2632","JB20","JB5359","JB393","JB707","JB139","JB111A","JB18","JB08LOT","JB02","JB553","JB708","JB619","JB622","JB367","JB5502"],
+    YEU_CAU_CON_HANG: true                                          // true = chỉ hiện mẫu còn tồn > 0
   };
-  function visibleProducts(arr){ var hide=(CONFIG.HIDE_MA||[]).map(function(x){return String(x).toUpperCase().replace(/\s+/g,"");}); return (arr||[]).filter(function(p){ return hide.indexOf(String(p.ma||"").toUpperCase().replace(/\s+/g,""))<0; }); }
+  function _normMa(x){ return String(x||"").toUpperCase().replace(/[^A-Z0-9]/g,""); }
+  function _tonSP(p){ var v=p&&p.variations; if(!v||!v.length) return (typeof p.ton==="number"?p.ton:1); var s=0; for(var i=0;i<v.length;i++){ s+=(+v[i].ton||0); } return s; }
+  function visibleProducts(arr){
+    var wl=(CONFIG.WEB_MA||[]).map(_normMa);
+    return (arr||[]).filter(function(p){
+      if(wl.length && wl.indexOf(_normMa(p.ma))<0) return false;     // không thuộc web → bỏ (mẫu đã cắt)
+      if(CONFIG.YEU_CAU_CON_HANG && _tonSP(p)<=0) return false;      // hết hàng → bỏ
+      return true;
+    });
+  }
   var ZALO_OA_URL = "https://zalo.me/" + CONFIG.ZALO_OA;
   // ===============================================================================
 
