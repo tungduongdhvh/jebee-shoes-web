@@ -274,8 +274,10 @@ fbq('init','1610885197344731');fbq('track','PageView');
     FREESHIP_GIO: 24,
     VIDEO_URL: "",                                                  // để "" -> hiện placeholder
     COMBO: { code:"TATTRON-10DOI", ten:"Combo 10 đôi tất cotton thấm hút mồ hôi", gia:100000 },
-    UPSELL_MAX: 3
+    UPSELL_MAX: 3,
+    HIDE_MA: ["JB08"]                                               // mã trùng/ẩn khỏi lưới mẫu + upsell (vd JB08 = JB08LOT)
   };
+  function visibleProducts(arr){ var hide=(CONFIG.HIDE_MA||[]).map(function(x){return String(x).toUpperCase().replace(/\s+/g,"");}); return (arr||[]).filter(function(p){ return hide.indexOf(String(p.ma||"").toUpperCase().replace(/\s+/g,""))<0; }); }
   var ZALO_OA_URL = "https://zalo.me/" + CONFIG.ZALO_OA;
   // ===============================================================================
 
@@ -321,7 +323,7 @@ fbq('init','1610885197344731');fbq('track','PageView');
   }
 
   fetch("/api/ton-kho").then(function(r){ return r.json(); }).then(function(j){
-    PRODUCTS = (j && j.san_pham) || [];
+    PRODUCTS = visibleProducts((j && j.san_pham) || []);
     renderModels();
   }).catch(function(){ $("mgrid").innerHTML='<div class="mload">Không tải được danh sách. Chị chọn "Mẫu khác" giúp JEBEE nhé.</div><div class="mitem" data-ma="KHAC" style="margin-top:8px"><div class="mi-b"><div class="mi-ma">➕ Mẫu khác</div></div><span class="tick">✓</span></div>';
     var g=$("mgrid"); g.addEventListener("click",function(e){ var b=e.target.closest(".mitem"); if(!b)return; SEL.ma="KHAC"; SEL.maTen="Mẫu khác"; Array.prototype.forEach.call(g.querySelectorAll(".mitem"),function(x){x.classList.toggle("on",x===b);}); }); });
@@ -480,7 +482,7 @@ fbq('init','1610885197344731');fbq('track','PageView');
       track("kichhoat_view",{});
     }
   })();
-  function ensureProducts(cb){ if(PRODUCTS.length){ cb(); return; } fetch("/api/ton-kho").then(function(r){return r.json();}).then(function(j){ PRODUCTS=(j&&j.san_pham)||[]; cb(); }).catch(cb); }
+  function ensureProducts(cb){ if(PRODUCTS.length){ cb(); return; } fetch("/api/ton-kho").then(function(r){return r.json();}).then(function(j){ PRODUCTS=visibleProducts((j&&j.san_pham)||[]); cb(); }).catch(cb); }
 })();
 </script>
 </body>
