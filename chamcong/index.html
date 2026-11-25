@@ -435,6 +435,12 @@ function weekState(st, mon, regs) {
 // Thống kê 1 ngày từ các lượt chấm (đã xếp theo giờ, bỏ lượt bị từ chối).
 var OT_FROM = '2026-11-11'; // luật làm tròn 30 phút áp dụng từ ngày này; trước đó tính đủ số phút ngoài ca như cũ
 var OT_STEP = 30; // giờ ngoài ca: cộng tất cả các đoạn ngoài ca trong ngày rồi làm tròn xuống bội 30 phút; phần lẻ chỉ là công bình thường
+function leaveOff(x, kind) {
+  if (!x || !kind) return x;
+  x.leaveOff = kind; x.offMins = x.mins;
+  ['mins', 'inShift', 'ot', 'shifts', 'lateN', 'lateM', 'earlyN', 'earlyM', 'missOut'].forEach(function (k) { x[k] = 0; });
+  return x;
+}
 function dayStats(recs, segs, date, today, nowMin) {
   var o = { mins: 0, inShift: 0, ot: 0, lateN: 0, lateM: 0, earlyN: 0, earlyM: 0, missOut: 0, shifts: 0, open: false, iv: [], first: null, last: null, n: recs.length };
   var open = null, seenSeg = [];
@@ -1028,13 +1034,14 @@ function summarize(st, records, requests, regs, month, today, nowMin) {
     var recs = by[d].sort(function (a, b) { return a.time < b.time ? -1 : 1; });
     var sgd = segs(st, d, regs), x = dayStats(recs, sgd, d, today, nowMin);
     x.recs = recs; o.byDay[d] = x;
-    if (x.first) o.days++;
+    if (o.leave[d]) leaveOff(x, o.leave[d]);
+    if (x.first && !x.leaveOff) o.days++;
     ['shifts', 'mins', 'lateN', 'lateM', 'earlyN', 'earlyM', 'missOut'].forEach(function (k) { o[k] += x[k]; });
     if (x.lateM) { if (lateOk[d]) { x.lateEx = true; o.lateExM += x.lateM; } else o.lateFineM += x.lateM; }
     if (x.earlyM) { if (earlyOk[d]) { x.earlyEx = true; o.earlyExM += x.earlyM; } else o.earlyFineM += x.earlyM; }
     if (x.ot) { x.otSt = otState(st.id, d, requests); x.otWhy = otWhy(st.id, d, requests); if (x.otSt === 'ok') { o.ot += x.ot; if (!x.otWhy) o.otDays.push(d); } else o.otWait += x.ot; }
     o.liveMins += sgd.length ? x.inShift : x.mins; // giờ live: chỉ phần nằm trong ca đã đăng ký
-    if (x.first) o.workDates[d] = 1;
+    if (x.first && !x.leaveOff) o.workDates[d] = 1;
   });
   o.fineM = o.lateFineM + o.earlyFineM; o.fineExM = o.lateExM + o.earlyExM;
   o.bh = 0; o.bhWait = 0; o.bhDay = {};
@@ -1988,7 +1995,7 @@ function renderHist() {
     if (bhd) b += '<span class="pill ' + (bhd.st === 'Đã duyệt' ? 'p-good' : 'p-warn') + '">Bê hàng ' + dur(bhd.m) + ' · ' + esc(bhd.st) + '</span>';
     var none = !x && !lv && !pend[d];
     return '<div class="li' + (none ? ' dim' : '') + '"><div class="dayd"><b>' + d.slice(8) + '</b><span>' + WDS[dow(d)] + '</span></div><div class="main">' +
-      (x ? '<div class="times">' + esc(chain(x.recs)) + '</div><div class="small muted">' + x.shifts + ' ca · ' + dur(x.mins) + '</div>' : none ? '<span class="muted small">Không chấm công</span>' : '') +
+      (x ? '<div class="times">' + esc(chain(x.recs)) + '</div><div class="small muted">' + (x.leaveOff ? 'Không tính công · ' + esc(x.leaveOff) + ' đã duyệt' : x.shifts + ' ca · ' + dur(x.mins)) + '</div>' : none ? '<span class="muted small">Không chấm công</span>' : '') +
       (b || (x && x.ot) ? '<div class="badges">' + b + (x && x.ot ? otPill(x) : '') + '</div>' : '') +
       (x && x.ot && x.otWhy ? '<div class="small muted">Lý do ngoài giờ: ' + esc(x.otWhy) + '</div>' : '') +
       (x && x.ot && x.otSt === 'ok' && !x.otWhy && S.me.group !== 'LIVE' ? '<button class="btn sec sm" data-otd="' + d + '" data-otm="' + x.ot + '" style="margin-top:6px">Ghi lý do ngoài giờ</button>' : '') + '</div></div>';
@@ -2217,6 +2224,7 @@ function dayBlock(date, records, regs) {
     var recs = all.filter(function (r) { return r.review !== 'rejected'; });
     var sg = segs(st, date, regs), ds = dayStats(recs, sg, date, today, cur);
     var last = recs[recs.length - 1], lv = leaveMap(st.id, S.ad.requests, '')[date];
+    if (lv) leaveOff(ds, lv);
     var flagged = all.some(function (r) { return r.review === 'pending'; });
     var pill, rank, absentHere = false;
     var bzWait = S.ad.requests.some(function (q) { return q.staffId === st.id && q.kind === 'Báo bận ca' && q.from === date && q.status === 'Chờ duyệt'; });
@@ -2224,7 +2232,7 @@ function dayBlock(date, records, regs) {
     if (ds.lateN) cnt.late++;
     if (recs.length) cnt.present++;
     cnt.shifts += ds.shifts;
-    if (lv) { pill = '<span class="pill p-info">' + esc(lv) + '</span>'; rank = 7; }
+    if (lv) { pill = '<span class="pill p-info">' + esc(lv) + (recs.length ? ' · không tính công' : '') + '</span>'; rank = 7; }
     else if (past) {
       if (!recs.length) {
         if (noData) { pill = '<span class="pill p-mute">Không có dữ liệu</span>'; rank = 8; }
@@ -2419,11 +2427,11 @@ function aActTable(d, mon) {
       var out = '<div class="small muted">' + (plan ? esc(plan) : (dt > today ? '' : 'Không ca')) + '</div>';
       if (dt <= today) T.plan += sg.length;
       if (rs.length) {
-        var o = dayStats(rs, sg, dt, today, nowMin);
+        var o = leaveOff(dayStats(rs, sg, dt, today, nowMin), lv[dt]);
         if (o.ot) { o.otSt = otState(st.id, dt, S.ad.requests); if (o.otSt === 'ok') T.ot += o.ot; else T.otWait += o.ot; }
         T.shifts += o.shifts; T.mins += o.mins; T.late += o.lateN; T.miss += o.missOut;
         D[dt].present++; if (o.lateN) D[dt].late++;
-        out += '<div class="act' + (o.lateN ? ' late' : '') + '">' + esc(chain(rs)) + '</div>' +
+        out += '<div class="act' + (o.lateN ? ' late' : '') + '">' + esc(chain(rs)) + '</div>' + (o.leaveOff ? '<span class="pill p-info">' + esc(o.leaveOff) + ' · không tính công</span>' : '') +
           '<div class="small"><b>' + dur(o.mins) + '</b>' + (o.lateN ? ' <span class="hl-bad">· muộn ' + mt(o.lateM) + '</span>' : '') + (o.earlyN ? ' <span class="hl-warn">· về sớm ' + mt(o.earlyM) + '</span>' : '') + '</div>' +
           (o.ot ? otPill(o) : '') +
           (rs.some(function (r) { return r.reason === 'Bổ sung'; }) ? '<span class="pill p-info">Có bổ sung</span>' : '') +
@@ -2662,7 +2670,7 @@ function payrollBook() {
     Object.keys(days).sort().forEach(function (d) {
       var x = o.byDay[d] || null, sg = segs(o.st, d, S.ad.regs), note = [];
       var dt = new Date(d + 'T00:00:00'), bh = o.bhDay[d];
-      if (o.leave[d]) note.push(o.leave[d]);
+      if (o.leave[d]) note.push(o.leave[d] + ' đã duyệt' + (x && x.first ? ' · có chấm nhưng không tính công' : ''));
       var fine = 0;
       if (x) {
         if (x.lateM) { if (x.lateEx) note.push('Có đơn đi muộn, không phạt'); else fine += x.lateM; }
