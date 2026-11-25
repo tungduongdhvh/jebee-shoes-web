@@ -1022,6 +1022,7 @@ function summarize(st, records, requests, regs, month, today, nowMin) {
   var lateOk = {}, earlyOk = {};
   (requests || []).forEach(function (q) { if (q.staffId === st.id && q.kind === 'Về sớm' && q.status === 'Đã duyệt') for (var d1 = q.from; d1 && d1 <= (q.to || q.from); d1 = addDays(d1, 1)) earlyOk[d1] = 1; });
   (requests || []).forEach(function (q) { if (q.staffId === st.id && q.kind === 'Đi muộn' && q.status === 'Đã duyệt') for (var d0 = q.from; d0 && d0 <= (q.to || q.from); d0 = addDays(d0, 1)) lateOk[d0] = 1; });
+  Object.keys(leaveMap(st.id, requests || [], '')).forEach(function (d2) { lateOk[d2] = 1; earlyOk[d2] = 1; });
   var o = { st: st, byDay: {}, days: 0, shifts: 0, mins: 0, ot: 0, otWait: 0, otDays: [], liveMins: 0, lateFineM: 0, lateExM: 0, earlyFineM: 0, earlyExM: 0, workDates: {}, lateN: 0, lateM: 0, earlyN: 0, earlyM: 0, missOut: 0, pending: pending, leave: leaveMap(st.id, requests, month) };
   Object.keys(by).forEach(function (d) {
     var recs = by[d].sort(function (a, b) { return a.time < b.time ? -1 : 1; });
@@ -2201,7 +2202,7 @@ function rgLoad() {
   }).catch(onErr);
 }
 // Có đơn Đi muộn / Về sớm đã duyệt cho ngày này không (để hiện "có đơn, không phạt")
-function reqOkOn(staffId, date, kind) { return (S.ad.requests || []).some(function (q) { return q.staffId === staffId && q.kind === kind && q.status === 'Đã duyệt' && q.from <= date && date <= (q.to || q.from); }); }
+function reqOkOn(staffId, date, kind) { return (S.ad.requests || []).some(function (q) { return q.staffId === staffId && (q.kind === kind || /^Nghỉ/.test(q.kind)) && q.status === 'Đã duyệt' && q.from <= date && date <= (q.to || q.from); }); }
 function lateTag(m, ok, word) { return ok ? '<span class="pill p-mute">' + word + ' ' + mt(m) + ' · có đơn, không phạt</span>' : '<span class="pill p-warn">' + word + ' ' + mt(m) + '</span>'; }
 // Danh sách từng người trong 1 ngày + số đếm của ngày đó
 function dayBlock(date, records, regs) {
