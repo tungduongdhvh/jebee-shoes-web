@@ -294,6 +294,14 @@ src="https://www.facebook.com/tr?id=1610885197344731&ev=PageView&noscript=1"
   .morebtn{font-family:inherit; font-weight:800; font-size:15px; color:var(--brand); background:var(--surface); border:1.5px solid var(--brand); padding:12px 28px; border-radius:999px; cursor:pointer}
   .morebtn:hover{background:var(--brand); color:var(--btn-text)}
   .loadinfo{text-align:center; color:var(--ink-mut); font-size:14.5px; padding:30px 0}
+  .card.skel{pointer-events:none}
+  .card.skel .thumb, .card.skel .sk-l, .card.skel .sk-b{position:relative; overflow:hidden; background:var(--surface-2)}
+  .card.skel .sk-l{height:13px; border-radius:7px}
+  .card.skel .sk-l.w30{width:30%} .card.skel .sk-l.w90{width:90%} .card.skel .sk-l.w55{width:55%}
+  .card.skel .sk-b{height:42px; border-radius:10px; margin-top:4px}
+  .card.skel .thumb::after, .card.skel .sk-l::after, .card.skel .sk-b::after{content:""; position:absolute; inset:0; transform:translateX(-100%); background:linear-gradient(90deg,transparent,rgba(255,255,255,.18),transparent); animation:sksh 1.25s infinite}
+  @keyframes sksh{100%{transform:translateX(100%)}}
+  @media(prefers-reduced-motion:reduce){ .card.skel .thumb::after, .card.skel .sk-l::after, .card.skel .sk-b::after{animation:none} }
 
   /* ===== MODAL chi tiết sản phẩm ===== */
   .ovl{position:fixed; inset:0; z-index:100; background:rgba(30,15,12,.55); backdrop-filter:blur(3px); display:none; opacity:0; transition:opacity .2s}
@@ -568,7 +576,7 @@ src="https://www.facebook.com/tr?id=1610885197344731&ev=PageView&noscript=1"
         <button data-price="500-700">500k–700k</button>
         <button data-price="gt700">Trên 700k</button>
       </div>
-      <div class="grid" id="grid"></div>
+      <div class="grid" id="grid"><div class="card skel" aria-hidden="true"><div class="thumb"></div><div class="body"><div class="sk-l w30"></div><div class="sk-l w90"></div><div class="sk-l w55"></div><div class="sk-b"></div></div></div><div class="card skel" aria-hidden="true"><div class="thumb"></div><div class="body"><div class="sk-l w30"></div><div class="sk-l w90"></div><div class="sk-l w55"></div><div class="sk-b"></div></div></div><div class="card skel" aria-hidden="true"><div class="thumb"></div><div class="body"><div class="sk-l w30"></div><div class="sk-l w90"></div><div class="sk-l w55"></div><div class="sk-b"></div></div></div><div class="card skel" aria-hidden="true"><div class="thumb"></div><div class="body"><div class="sk-l w30"></div><div class="sk-l w90"></div><div class="sk-l w55"></div><div class="sk-b"></div></div></div><div class="card skel" aria-hidden="true"><div class="thumb"></div><div class="body"><div class="sk-l w30"></div><div class="sk-l w90"></div><div class="sk-l w55"></div><div class="sk-b"></div></div></div><div class="card skel" aria-hidden="true"><div class="thumb"></div><div class="body"><div class="sk-l w30"></div><div class="sk-l w90"></div><div class="sk-l w55"></div><div class="sk-b"></div></div></div></div>
       <div class="noresult" id="noResult" hidden>Không tìm thấy mẫu nào khớp “<span id="nrQ"></span>”. Thử từ khóa khác, hoặc <a href="https://zalo.me/0396589658" target="_blank" rel="noopener">nhắn Zalo</a> để được tư vấn nhé! 💛</div>
       <div class="loadinfo" id="loadinfo">Đang tải sản phẩm từ kho…</div>
       <div class="morewrap" id="morewrap"><button class="morebtn" id="morebtn" type="button">Xem thêm ▾</button></div>
@@ -2026,14 +2034,14 @@ document.documentElement.classList.add('js');
     // Đổ số đã bán THẬT từ POS vào map DABAN (dùng cho badge "Đã bán X" ở thẻ + chi tiết + hero).
     PRODUCTS.forEach(function(p){ DABAN[(p.ma||'').toUpperCase()]=p.da_ban||0; });
     // Thứ tự = theo API trả về (đã sắp best-seller server-side: 5 mẫu mới lên đầu, còn lại theo số đã bán giảm dần). Giữ nguyên, không re-sort.
-    if(!PRODUCTS.length){ loadinfo.textContent='Đang cập nhật sản phẩm, vui lòng nhắn Zalo để đặt hàng.'; return; }
+    if(!PRODUCTS.length){ grid.innerHTML=''; loadinfo.textContent='Đang cập nhật sản phẩm, vui lòng nhắn Zalo để đặt hàng.'; return; }
     loadinfo.style.display='none';
     renderGrid();
     loadAgg();
     openDeepLinkUpgrade();  // POS đã về -> điền màu/size/tồn thật vào modal đang mở (hoặc mở nếu chưa)
     if(_dlSize){ try{ if(modal.classList.contains('show') && SEL && SEL.prod && !SEL.prod._stub) selectSize(_dlSize); }catch(e){} }  // size chọn sẵn từ ?size=
     initHeroSlideshow();  // ảnh hero tự chạy qua các mẫu/màu + thông tin đổi theo, bấm ảnh mở trang đặt hàng
-  }).catch(function(){ loadinfo.textContent='Không tải được sản phẩm. Vui lòng tải lại trang hoặc nhắn Zalo để đặt hàng.'; });
+  }).catch(function(){ grid.innerHTML=''; loadinfo.textContent='Không tải được sản phẩm. Vui lòng tải lại trang hoặc nhắn Zalo để đặt hàng.'; });
 })();
 </script>
 </body>

@@ -207,7 +207,9 @@ export default async function handler(req, res) {
       return b.da_ban - a.da_ban;               // ban nhieu len truoc
     });
 
-    res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=300");
+    // Cache CDN: tuoi 120s; sau do tra ban STALE TUC THI (toi 7 ngay) + lam moi POS chay ngam.
+    // => khach that gan nhu khong bao gio phai cho lan goi POS nguoi (8-10s).
+    res.setHeader("Cache-Control", "s-maxage=120, stale-while-revalidate=604800");
     return res.status(200).json({ tong: out.length, san_pham: out });
   } catch (e) {
     return res.status(500).json({ error: String((e && e.message) || e) });
